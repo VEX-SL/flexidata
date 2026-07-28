@@ -89,6 +89,9 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
 }
 
 async function ocrPdfPages(buffer: Buffer): Promise<string> {
+  const { isCanvasAvailable } = await import("@/lib/pdf-canvas");
+  if (!isCanvasAvailable()) return "";
+
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const { createCanvas } = await import("@/lib/pdf-canvas");
   const Tesseract = await import("tesseract.js");

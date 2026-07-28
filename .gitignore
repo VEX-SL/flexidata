@@ -42,5 +42,3 @@ supabase/.env
 
 # Misc
 *.tsbuildinfo
-
-package-lock.json
