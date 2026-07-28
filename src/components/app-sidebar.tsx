@@ -33,20 +33,32 @@ export function AppSidebar() {
 
   useEffect(() => {
     const checkSettings = () => {
+      // فحص اللغة واتجاه الصفحة
       const dir = document.documentElement.getAttribute("dir");
       const lang = document.documentElement.getAttribute("lang");
       setIsArabic(dir === "rtl" || lang === "ar");
 
-      const darkClass = document.documentElement.classList.contains("dark");
-      setIsDark(darkClass);
+      // فحص الثيم الداكن بأكثر من طريقة لضمان الدقة
+      const isHtmlDark = document.documentElement.classList.contains("dark");
+      const isBodyDark = document.body.classList.contains("dark");
+      const dataTheme = document.documentElement.getAttribute("data-theme") === "dark";
+      const localTheme = localStorage.getItem("theme") === "dark";
+      
+      // إذا كان أي منها يشير للوضع الداكن
+      setIsDark(isHtmlDark || isBodyDark || dataTheme || localTheme);
     };
 
     checkSettings();
 
+    // مراقبة أي تغييرات تحدث على الـ HTML أو الـ Body (مثل تبديل الثيم أو اللغة)
     const observer = new MutationObserver(checkSettings);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["dir", "lang", "class"],
+      attributeFilter: ["dir", "lang", "class", "data-theme"],
+    });
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class"],
     });
 
     return () => observer.disconnect();
@@ -62,6 +74,7 @@ export function AppSidebar() {
     router.push("/login");
   }
 
+  // اختيار اللوجو بناءً على الحالة المحدثة
   const logoSrc = isDark ? "/photos/auth-logo.png" : "/photos/whitebg.png";
 
   return (
@@ -77,6 +90,7 @@ export function AppSidebar() {
         <div className={`flex items-center gap-3 overflow-hidden ${collapsed ? "justify-center w-full" : ""}`}>
           <div className="relative w-8 h-8 shrink-0 flex items-center justify-center">
             <Image
+              key={logoSrc} // يجبر Next.js على إعادة تحميل الصورة عند تغير الثيم فوراً
               src={logoSrc}
               alt="Logo"
               fill
