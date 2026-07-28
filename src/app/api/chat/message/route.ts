@@ -155,7 +155,7 @@ export async function POST(request: Request) {
   let aiResponse: { content: string; model: string };
   try {
     const manager = getProviderManager();
-    aiResponse = await manager.chatCompletion({
+    const result = await manager.chatCompletion({
       messages: [
         { role: "system", content: systemPrompt },
         ...(history || []).map((m: any) => ({
@@ -164,6 +164,7 @@ export async function POST(request: Request) {
         })),
       ],
     });
+    aiResponse = { content: result.content, model: result.model || "unknown" };
   } catch (err) {
     console.error("[Chat] AI error:", err);
     return NextResponse.json(

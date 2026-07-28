@@ -1,8 +1,3 @@
-import { pipeline, env } from "@xenova/transformers";
-
-// Don't use remote models - we'll use local ONNX
-env.allowLocalModels = true;
-
 let embeddingPipeline: any = null;
 
 const MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
@@ -10,6 +5,8 @@ const MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
 async function getPipeline() {
   if (!embeddingPipeline) {
     console.log(`[RAG] Loading embedding model: ${MODEL_NAME}`);
+    const { pipeline, env } = await import("@xenova/transformers");
+    env.allowLocalModels = true;
     embeddingPipeline = await pipeline("feature-extraction", MODEL_NAME, {
       quantized: true,
     });
