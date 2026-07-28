@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n";
 import {
@@ -12,7 +13,6 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Zap,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -40,29 +40,57 @@ export function AppSidebar() {
   }
 
   return (
-    <div
-      className={`h-full flex flex-col border-r border-border bg-card transition-all duration-200 flex-shrink-0 ${
-        collapsed ? "w-[60px]" : "w-[200px]"
+    <aside
+      aria-label="Sidebar"
+      className={`h-screen sticky top-0 flex flex-col border-r border-border/60 bg-card/50 backdrop-blur-xl transition-all duration-300 ease-in-out flex-shrink-0 z-30 ${
+        collapsed ? "w-20" : "w-64"
       }`}
     >
-      {/* Logo */}
-      <div className="h-12 border-b border-border flex items-center px-3 gap-2">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-primary shrink-0">
-          <Zap size={14} className="text-primary-foreground" />
+      {/* Header & Logo */}
+      <div className="h-16 border-b border-border/60 flex items-center justify-between px-4 gap-2">
+        <div className={`flex items-center gap-3 overflow-hidden ${collapsed ? "justify-center w-full" : ""}`}>
+          <div className="relative w-8 h-8 shrink-0 flex items-center justify-center">
+            <Image
+              src="/photos/auth-logo.png"
+              alt="Logo"
+              fill
+              className="object-contain rounded-lg"
+              priority
+            />
+          </div>
+          {!collapsed && (
+            <span className="text-base font-bold tracking-tight text-foreground truncate">
+              FlexiData
+            </span>
+          )}
         </div>
+
         {!collapsed && (
-          <span className="text-sm font-semibold text-foreground truncate">FlexiData</span>
+          <button
+            onClick={() => setCollapsed(true)}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/85 transition-colors shrink-0"
+            title="Collapse sidebar"
+          >
+            <ChevronLeft size={16} />
+          </button>
         )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="ml-auto p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
-        >
-          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 p-2 space-y-0.5">
+      {/* Expand button if collapsed */}
+      {collapsed && (
+        <div className="px-2 py-3 flex justify-center border-b border-border/60">
+          <button
+            onClick={() => setCollapsed(false)}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-colors"
+            title="Expand sidebar"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.path);
           const Icon = item.icon;
@@ -70,16 +98,16 @@ export function AppSidebar() {
             <button
               key={item.key}
               onClick={() => router.push(item.path)}
-              className={`w-full flex items-center gap-2.5 rounded-xl text-sm font-medium transition-colors ${
-                collapsed ? "px-0 py-2.5 justify-center" : "px-3 py-2.5"
+              className={`w-full group relative flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                collapsed ? "px-0 py-3 justify-center" : "px-3.5 py-3"
               } ${
                 active
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
               }`}
               title={collapsed ? t(`nav.${item.key}`) : undefined}
             >
-              <Icon size={18} className="shrink-0" />
+              <Icon size={20} className={`shrink-0 transition-transform duration-200 ${active ? "scale-105" : "group-hover:scale-105"}`} />
               {!collapsed && <span className="truncate">{t(`nav.${item.key}`)}</span>}
             </button>
           );
@@ -87,18 +115,18 @@ export function AppSidebar() {
       </nav>
 
       {/* Sign out */}
-      <div className="p-2 border-t border-border">
+      <div className="p-3 border-t border-border/60 bg-muted/20">
         <button
           onClick={handleSignOut}
-          className={`w-full flex items-center gap-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ${
-            collapsed ? "px-0 py-2.5 justify-center" : "px-3 py-2.5"
+          className={`w-full flex items-center gap-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all duration-200 ${
+            collapsed ? "px-0 py-3 justify-center" : "px-3.5 py-3"
           }`}
           title={collapsed ? t("nav.signOut") : undefined}
         >
-          <LogOut size={18} className="shrink-0" />
+          <LogOut size={20} className="shrink-0 transition-transform duration-200 hover:scale-105" />
           {!collapsed && <span className="truncate">{t("nav.signOut")}</span>}
         </button>
       </div>
-    </div>
+    </aside>
   );
 }
