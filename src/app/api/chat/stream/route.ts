@@ -215,6 +215,9 @@ export async function POST(request: Request) {
     buildSystemPrompt(promptMode) +
     (fileContext
       ? `\n\n## Provided Context:\n${fileContext}`
+      : "") +
+    (refImageUrl
+      ? `\n\n## Reference Image\nThe user has attached a reference image: ${refImageUrl}\nWhen the user asks to edit, transform, or modify this image, output [GENERATE_IMAGE: <detailed English prompt describing the desired result>] at the end of your response.`
       : "");
 
   const chatIdFinal = chat.id;

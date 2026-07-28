@@ -21,13 +21,14 @@ FORMATTING — ALWAYS USE MARKDOWN:
 
 const IMAGE_GENERATION_RULES = `
 IMAGE GENERATION:
-When the user explicitly asks for an image ("ارسم", "صورة", "generate", "draw", "create an image", "visualize"), include:
+When the user explicitly asks for an image ("ارسم", "صورة", "generate", "draw", "create an image", "visualize"), OR when a reference image is provided and the user asks to edit/transform it ("حول", "غير لون", "عدّل الصورة", "change", "edit the image", "make it", "turn into"), include:
 
 [GENERATE_IMAGE: <detailed English prompt>]
 
 Rules:
 - Prompt MUST be in English, regardless of the user's language.
 - Be specific and descriptive: subject, style, lighting, mood, composition.
+- If a reference image is provided, describe the DESIRED RESULT (not the original).
 - Place the block on its own line at the END of your text response.
 - Multiple images = multiple blocks, each on its own line.
 - Only generate images when explicitly asked or when a visual would meaningfully add value.
