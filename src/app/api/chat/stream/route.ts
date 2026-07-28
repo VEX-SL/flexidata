@@ -47,6 +47,8 @@ const EDIT_KEYWORDS_EN = [
 function isEditRequest(msg: string, fileContext: string): boolean {
   if (!fileContext) return false;
   const lower = msg.toLowerCase();
+  // Skip if the message is about image generation/editing
+  if (/\b(صورة|ارسم|صور|الصورة|حول.*لـ|حول.*لون|لوّن|generate|draw|image|img2img|color)\b/i.test(lower)) return false;
   return EDIT_KEYWORDS_AR.some((k) => lower.includes(k)) ||
     EDIT_KEYWORDS_EN.some((k) => lower.includes(k));
 }
@@ -251,7 +253,7 @@ export async function POST(request: Request) {
           sendEvent("token", chunk);
         }
 
-        if (effectiveAgentId && !fullContent.includes("[FILE_EDIT:") && isEditRequest(msgContent, fileContext)) {
+        if (effectiveAgentId && !fullContent.includes("[FILE_EDIT:") && !fullContent.includes("[GENERATE_IMAGE:") && isEditRequest(msgContent, fileContext)) {
           // Extract raw file contents for the follow-up
           const rawFiles = fileContext.split(/\n\n---\n\n/).map(block => {
             const lines = block.split("\n");
