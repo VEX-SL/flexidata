@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -24,10 +24,33 @@ const NAV_ITEMS = [
 
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [isArabic, setIsArabic] = useState(false);
+  const [isDark, setIsDark] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
   const supabase = createClient();
+
+  useEffect(() => {
+    const checkSettings = () => {
+      const dir = document.documentElement.getAttribute("dir");
+      const lang = document.documentElement.getAttribute("lang");
+      setIsArabic(dir === "rtl" || lang === "ar");
+
+      const darkClass = document.documentElement.classList.contains("dark");
+      setIsDark(darkClass);
+    };
+
+    checkSettings();
+
+    const observer = new MutationObserver(checkSettings);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["dir", "lang", "class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   function isActive(path: string) {
     if (path === "/dashboard") return pathname === "/dashboard";
@@ -39,9 +62,12 @@ export function AppSidebar() {
     router.push("/login");
   }
 
+  const logoSrc = isDark ? "/photos/auth-logo.png" : "/photos/whitebg.png";
+
   return (
     <aside
       aria-label="Sidebar"
+      dir={isArabic ? "rtl" : "ltr"}
       className={`h-screen sticky top-0 flex flex-col border-r border-border/60 bg-card/50 backdrop-blur-xl transition-all duration-300 ease-in-out flex-shrink-0 z-30 ${
         collapsed ? "w-20" : "w-64"
       }`}
@@ -51,7 +77,7 @@ export function AppSidebar() {
         <div className={`flex items-center gap-3 overflow-hidden ${collapsed ? "justify-center w-full" : ""}`}>
           <div className="relative w-8 h-8 shrink-0 flex items-center justify-center">
             <Image
-              src="/photos/auth-logo.png"
+              src={logoSrc}
               alt="Logo"
               fill
               className="object-contain rounded-lg"
@@ -69,9 +95,9 @@ export function AppSidebar() {
           <button
             onClick={() => setCollapsed(true)}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/85 transition-colors shrink-0"
-            title="Collapse sidebar"
+            title={isArabic ? "طي القائمة" : "Collapse sidebar"}
           >
-            <ChevronLeft size={16} />
+            {isArabic ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         )}
       </div>
@@ -82,9 +108,9 @@ export function AppSidebar() {
           <button
             onClick={() => setCollapsed(false)}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-colors"
-            title="Expand sidebar"
+            title={isArabic ? "توسيع القائمة" : "Expand sidebar"}
           >
-            <ChevronRight size={16} />
+            {isArabic ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
           </button>
         </div>
       )}
