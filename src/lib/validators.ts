@@ -19,6 +19,11 @@ const ALLOWED_MIME_TYPES = new Set([
   "audio/mpeg",
   "audio/wav",
   "audio/ogg",
+  "audio/webm",
+  "audio/flac",
+  "audio/aac",
+  "audio/m4a",
+  "audio/x-m4a",
   // Code files
   "text/html",
   "text/css",

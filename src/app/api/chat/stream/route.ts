@@ -47,8 +47,6 @@ const EDIT_KEYWORDS_EN = [
 function isEditRequest(msg: string, fileContext: string): boolean {
   if (!fileContext) return false;
   const lower = msg.toLowerCase();
-  // Skip if the message is about image generation/editing
-  if (/\b(صورة|ارسم|صور|الصورة|حول.*لـ|حول.*لون|لوّن|generate|draw|image|img2img|color)\b/i.test(lower)) return false;
   return EDIT_KEYWORDS_AR.some((k) => lower.includes(k)) ||
     EDIT_KEYWORDS_EN.some((k) => lower.includes(k));
 }
@@ -81,11 +79,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { chatId, content, agentId, refImageUrl } = body as {
+  const { chatId, content, agentId } = body as {
     chatId?: string;
     content: string;
     agentId?: string;
-    refImageUrl?: string;
   };
 
   const msgValidation = validateMessage(content);
@@ -217,9 +214,6 @@ export async function POST(request: Request) {
     buildSystemPrompt(promptMode) +
     (fileContext
       ? `\n\n## Provided Context:\n${fileContext}`
-      : "") +
-    (refImageUrl
-      ? `\n\n## Reference Image\nThe user has attached a reference image: ${refImageUrl}\nWhen the user asks to edit, transform, or modify this image, output [GENERATE_IMAGE: <detailed English prompt describing the desired result>] at the end of your response.`
       : "");
 
   const chatIdFinal = chat.id;
@@ -297,7 +291,7 @@ export async function POST(request: Request) {
         if (imagePrompts.length > 0) {
           const results = await Promise.allSettled(
             imagePrompts.map(async (prompt) => {
-              const result = await generateImage(prompt, refImageUrl);
+              const result = await generateImage(prompt);
               return { url: result.url, prompt };
             })
           );

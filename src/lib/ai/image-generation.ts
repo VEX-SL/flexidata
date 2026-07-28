@@ -8,24 +8,20 @@ interface ImageGenResult {
 
 /**
  * Generate an image using Together.ai (primary) or Pollinations.ai (fallback).
- * If imageUrl is provided, generates a new image based on it (img2img).
  */
-export async function generateImage(prompt: string, imageUrl?: string): Promise<ImageGenResult> {
+export async function generateImage(prompt: string): Promise<ImageGenResult> {
   if (TOGETHER_API_KEY) {
     try {
-      return await generateWithTogether(prompt, imageUrl);
+      return await generateWithTogether(prompt);
     } catch (e: any) {
       console.warn("[ImageGen] Together.ai failed, falling back to Pollinations:", e?.message);
     }
   }
 
-  return generateWithPollinations(prompt, imageUrl);
+  return generateWithPollinations(prompt);
 }
 
-async function generateWithTogether(prompt: string, imageUrl?: string): Promise<ImageGenResult> {
-  const model = imageUrl ? "stabilityai/stable-diffusion-xl-base-1.0" : TOGETHER_MODEL;
-  const steps = imageUrl ? 30 : 4;
-  
+async function generateWithTogether(prompt: string): Promise<ImageGenResult> {
   const res = await fetch("https://api.together.xyz/v1/images/generations", {
     method: "POST",
     headers: {
@@ -33,14 +29,13 @@ async function generateWithTogether(prompt: string, imageUrl?: string): Promise<
       Authorization: `Bearer ${TOGETHER_API_KEY}`,
     },
     body: JSON.stringify({
-      model: model,
+      model: TOGETHER_MODEL,
       prompt,
       width: 1024,
       height: 1024,
-      steps: steps,
+      steps: 4,
       n: 1,
       response_format: "url",
-      ...(imageUrl ? { image_url: imageUrl } : {}),
     }),
     signal: AbortSignal.timeout(30_000),
   });
@@ -57,18 +52,9 @@ async function generateWithTogether(prompt: string, imageUrl?: string): Promise<
   return { url, provider: "together" };
 }
 
-function generateWithPollinations(prompt: string, imageUrl?: string): Promise<ImageGenResult> {
+function generateWithPollinations(prompt: string): Promise<ImageGenResult> {
   const encoded = encodeURIComponent(prompt);
   const seed = Math.floor(Math.random() * 999999);
-  // For img2img, Pollinations requires the "kontext" model, not "flux"
-  const model = imageUrl ? "kontext" : "flux";
-  let url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&model=${model}&seed=${seed}&nologo=true`;
-
-  if (imageUrl) {
-    url += `&image=${encodeURIComponent(imageUrl)}`;
-  }
-
-  // Pollinations returns the image directly at the URL.
-  // We just return the URL — the client will fetch it.
+  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&model=flux&seed=${seed}&nologo=true`;
   return Promise.resolve({ url, provider: "pollinations" });
 }

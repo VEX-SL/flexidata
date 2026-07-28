@@ -20,8 +20,7 @@ export function useStreamChat(options: StreamChatOptions = {}) {
   const sendStream = useCallback(
     async (
       chatId: string | null,
-      content: string,
-      refImageUrl?: string
+      content: string
     ): Promise<{
       chatId: string;
       title: string | null;
@@ -43,7 +42,6 @@ export function useStreamChat(options: StreamChatOptions = {}) {
             chatId,
             content,
             agentId: options.agentId,
-            refImageUrl: refImageUrl || undefined,
           }),
           signal: abortRef.current.signal,
         });

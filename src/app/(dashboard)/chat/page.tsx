@@ -17,6 +17,7 @@ import {
 import { useTranslation } from "@/lib/i18n";
 import { useStreamChat } from "@/lib/hooks/use-stream-chat";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { AIAvatar, UserAvatar, ThinkingDots, StreamingCursor } from "@/components/chat-avatars";
 import { stripMarkdown } from "@/lib/strip-markdown";
 
 interface Message {
@@ -42,21 +43,9 @@ function EmptyState({ onSuggestion }: { onSuggestion: (s: string) => void }) {
   ];
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-8 px-4 py-12 select-none">
+    <div className="flex-1 flex flex-col items-center justify-center gap-8 px-4 select-none">
       <div className="flex flex-col items-center gap-4 text-center">
-        <div
-          style={{
-            width: 56, height: 56,
-            background: "linear-gradient(135deg, var(--color-primary), rgba(139,92,246,.8))",
-            borderRadius: 16,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 8px 24px rgba(99,102,241,.25)",
-          }}
-        >
-          <svg width="26" height="26" fill="none" viewBox="0 0 24 24">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="white" />
-          </svg>
-        </div>
+        <AIAvatar size={56} className="shadow-lg shadow-primary/20" />
         <div>
           <h2 className="text-lg font-semibold text-foreground tracking-tight">
             How can I help you?
@@ -250,7 +239,7 @@ function ChatContent() {
       {/* ── Main ── */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="h-12 border-b border-border flex items-center px-4 gap-3 bg-card/50 backdrop-blur-sm">
+        <div className="h-12 border-b border-border flex items-center px-4 gap-3 bg-card/50 backdrop-blur-sm flex-shrink-0">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -271,17 +260,7 @@ function ChatContent() {
               {messages.map((msg, idx) => (
                 <div key={msg.id} className="group">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    {/* AI avatar */}
-                    {msg.role === "assistant" && (
-                      <div
-                        className="w-7 h-7 rounded-lg shrink-0 mt-0.5 flex items-center justify-center"
-                        style={{ background: "linear-gradient(135deg, var(--color-primary), rgba(139,92,246,.8))" }}
-                      >
-                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="white" />
-                        </svg>
-                      </div>
-                    )}
+                    {msg.role === "assistant" && <AIAvatar size={28} className="mt-0.5" />}
 
                     <div className="flex flex-col gap-1.5 max-w-[80%]">
                       <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
@@ -332,15 +311,7 @@ function ChatContent() {
                       </div>
                     </div>
 
-                    {/* User avatar */}
-                    {msg.role === "user" && (
-                      <div className="w-7 h-7 rounded-lg shrink-0 mt-0.5 bg-primary/10 border border-primary/20 flex items-center justify-center">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
-                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                          <circle cx="12" cy="7" r="4" />
-                        </svg>
-                      </div>
-                    )}
+                    {msg.role === "user" && <UserAvatar size={28} className="mt-0.5" />}
                   </div>
                 </div>
               ))}
@@ -348,37 +319,19 @@ function ChatContent() {
               {/* Streaming */}
               {streaming && streamedContent && (
                 <div className="flex gap-3 justify-start">
-                  <div
-                    className="w-7 h-7 rounded-lg shrink-0 mt-0.5 flex items-center justify-center"
-                    style={{ background: "linear-gradient(135deg, var(--color-primary), rgba(139,92,246,.8))" }}
-                  >
-                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="white" />
-                    </svg>
-                  </div>
+                  <AIAvatar size={28} className="mt-0.5" />
                   <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-card border border-border text-foreground text-sm leading-relaxed">
                     <MarkdownRenderer content={streamedContent} />
-                    <span className="inline-block w-1.5 h-4 bg-foreground/60 animate-pulse ml-0.5 align-middle rounded-sm" />
+                    <StreamingCursor />
                   </div>
                 </div>
               )}
 
               {streaming && !streamedContent && (
                 <div className="flex gap-3 justify-start">
-                  <div
-                    className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center"
-                    style={{ background: "linear-gradient(135deg, var(--color-primary), rgba(139,92,246,.8))" }}
-                  >
-                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="white" />
-                    </svg>
-                  </div>
+                  <AIAvatar size={28} />
                   <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3.5">
-                    <div className="flex gap-1.5 items-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:0ms]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:150ms]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce [animation-delay:300ms]" />
-                    </div>
+                    <ThinkingDots />
                   </div>
                 </div>
               )}
@@ -388,7 +341,7 @@ function ChatContent() {
           )}
         </div>
 
-        {/* Input — fixed at bottom, never scrolls away */}
+        {/* Input */}
         <div className="shrink-0 border-t border-border/60 p-3">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-end gap-2 rounded-2xl border border-border bg-card px-3 py-2 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 transition-all">

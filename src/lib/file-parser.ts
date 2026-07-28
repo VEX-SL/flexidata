@@ -1,7 +1,8 @@
 /**
  * File Parser — extracts text from various file formats.
- * PDF → pdfjs-dist (legacy), DOCX → mammoth, Excel → xlsx, Images → tesseract.js
- * Video/Audio parsing will be added in Milestone 3 (ffmpeg + Whisper).
+ * PDF → unpdf + OCR fallback, DOCX → mammoth, Excel → xlsx,
+ * Images → tesseract.js, Audio → Whisper (client-side API call),
+ * Video → metadata extraction.
  */
 
 export async function parseFileBuffer(
@@ -11,6 +12,7 @@ export async function parseFileBuffer(
 ): Promise<string> {
   const type = mimeType.toLowerCase().split(";")[0].trim();
 
+  // ── Text files ──
   if (
     type === "text/plain" ||
     type === "application/json" ||
@@ -34,10 +36,12 @@ export async function parseFileBuffer(
     throw new Error(`Binary file cannot be parsed as text`);
   }
 
+  // ── PDF ──
   if (type === "application/pdf") {
     return extractPdfText(buffer);
   }
 
+  // ── DOCX ──
   if (
     type ===
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -45,6 +49,7 @@ export async function parseFileBuffer(
     return extractDocxText(buffer);
   }
 
+  // ── Excel ──
   if (
     type ===
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
@@ -53,8 +58,19 @@ export async function parseFileBuffer(
     return extractExcelText(buffer);
   }
 
+  // ── Images ──
   if (type.startsWith("image/")) {
     return extractImageText(buffer);
+  }
+
+  // ── Audio ──
+  if (type.startsWith("audio/")) {
+    return extractAudioText(buffer, fileName);
+  }
+
+  // ── Video ──
+  if (type.startsWith("video/")) {
+    return extractVideoText(buffer, fileName);
   }
 
   throw new Error(`Unsupported file type: ${mimeType}`);
@@ -169,4 +185,75 @@ async function extractImageText(buffer: Buffer): Promise<string> {
     console.error("[Parser] OCR failed:", err);
     return "[Could not extract text from image]";
   }
+}
+
+async function extractAudioText(buffer: Buffer, fileName?: string): Promise<string> {
+  try {
+    const name = fileName || "audio.wav";
+
+    // Send to the transcription API
+    const formData = new FormData();
+    const blob = new Blob([new Uint8Array(buffer)], { type: "audio/mpeg" });
+    formData.append("file", blob, name);
+
+    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000"
+      : "http://localhost:3000";
+
+    const res = await fetch(`${baseUrl}/api/audio/transcribe`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      // Fallback: return basic audio info
+      const sizeKB = Math.round(buffer.length / 1024);
+      return `[Audio file: ${name} (${sizeKB}KB). Transcription unavailable — upload via the chat interface for transcription.]`;
+    }
+
+    const data = await res.json();
+    if (data.text) {
+      return `**Audio Transcription** (${name}):\n\n${data.text}`;
+    }
+    return `[Audio file: ${name} — no speech detected]`;
+  } catch (err) {
+    console.error("[Parser] Audio extraction failed:", err);
+    const sizeKB = Math.round(buffer.length / 1024);
+    return `[Audio file: ${fileName || "unknown"} (${sizeKB}KB). Transcription requires the file to be uploaded through the chat interface.]`;
+  }
+}
+
+async function extractVideoText(buffer: Buffer, fileName?: string): Promise<string> {
+  const sizeKB = Math.round(buffer.length / 1024);
+  const sizeMB = (buffer.length / (1024 * 1024)).toFixed(1);
+
+  // Extract basic info from the buffer
+  let videoInfo = `**Video file**: ${fileName || "unknown"}\n`;
+  videoInfo += `- Size: ${sizeMB}MB\n`;
+  videoInfo += `- Format: ${fileName?.split(".").pop()?.toUpperCase() || "Unknown"}\n`;
+
+  // Try to detect video codec info from container headers
+  try {
+    if (buffer.length > 12) {
+      // Check for MP4/MOV container (ftyp box)
+      if (buffer.toString("ascii", 4, 8) === "ftyp") {
+        const brand = buffer.toString("ascii", 8, 12).trim();
+        videoInfo += `- Container: MP4 (${brand})\n`;
+      }
+      // Check for WebM (EBML header)
+      else if (buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3) {
+        videoInfo += `- Container: WebM/Matroska\n`;
+      }
+      // Check for AVI
+      else if (buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "AVI ") {
+        videoInfo += `- Container: AVI\n`;
+      }
+    }
+  } catch {}
+
+  videoInfo += `\n*To extract audio transcription from this video, upload it through the chat interface.*`;
+
+  return videoInfo;
 }
