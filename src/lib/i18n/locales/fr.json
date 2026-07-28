@@ -1,0 +1,86 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "chat": "Chat",
+    "agents": "Agents",
+    "settings": "Paramètres",
+    "signOut": "Déconnexion",
+    "newChat": "Nouveau chat"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "subtitle": "Aperçu de votre espace de travail",
+    "selectAgent": "Sélectionner un agent",
+    "noAgents": "Aucun agent",
+    "allChats": "Tous les chats",
+    "files": "Fichiers",
+    "agents": "Agents",
+    "newAgent": "Nouvel agent",
+    "noFiles": "Aucun fichier téléchargé",
+    "recentChats": "Chats récents",
+    "noChats": "Aucun chat"
+  },
+  "chat": {
+    "title": "Chat",
+    "placeholder": "Tapez votre message...",
+    "empty": "Comment puis-je vous aider ?",
+    "emptySub": "Demandez-moi n'importe quoi — je suis un assistant IA généraliste.",
+    "thinking": "Réflexion...",
+    "copy": "Copier",
+    "copied": "Copié !",
+    "regenerate": "Régénérer",
+    "disclaimer": "FlexiData est un modèle d'IA et peut produire des erreurs."
+  },
+  "agents": {
+    "title": "Vos Agents",
+    "subtitle": "Créez des agents IA spécialisés avec leurs propres bases de connaissances",
+    "create": "Créer un agent",
+    "namePlaceholder": "Nom de l'agent",
+    "descPlaceholder": "Description (facultatif)",
+    "creating": "Création...",
+    "noAgents": "Aucun agent",
+    "noAgentsSub": "Créez votre premier agent pour commencer.",
+    "chat": "Chat",
+    "delete": "Supprimer",
+    "confirmDelete": "Supprimer cet agent ?",
+    "backToFiles": "Retour aux fichiers",
+    "chatWith": "Chat avec {{name}}",
+    "chatSub": "Posez des questions sur les documents de cet agent.",
+    "uploadFiles": "Téléchargez des fichiers pour entraîner cet agent",
+    "dropHere": "Déposez le fichier ici",
+    "uploading": "Téléchargement...",
+    "agentFiles": "Fichiers de l'agent ({{count}})",
+    "deleteFile": "Supprimer le fichier ?",
+    "confirmDeleteFile": "Supprimer ce fichier ?"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Gérez votre compte et vos préférences",
+    "profile": "Profil",
+    "name": "Nom",
+    "email": "E-mail",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "saved": "Profil mis à jour",
+    "appearance": "Apparence",
+    "theme": "Thème",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "themeSystem": "Système",
+    "language": "Langue"
+  },
+  "fileStatus": {
+    "indexed": "Indexé",
+    "pending": "En attente",
+    "processing": "En cours",
+    "error": "Erreur"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur est survenue",
+    "retry": "Réessayer",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "back": "Retour"
+  }
+}

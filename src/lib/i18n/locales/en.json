@@ -1,0 +1,86 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "chat": "Chat",
+    "agents": "Agents",
+    "settings": "Settings",
+    "signOut": "Sign Out",
+    "newChat": "New Chat"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of your workspace",
+    "selectAgent": "Select Agent",
+    "noAgents": "No agents yet",
+    "allChats": "All Chats",
+    "files": "Files",
+    "agents": "Agents",
+    "newAgent": "New Agent",
+    "noFiles": "No files uploaded yet",
+    "recentChats": "Recent Chats",
+    "noChats": "No chats yet"
+  },
+  "chat": {
+    "title": "Chat",
+    "placeholder": "Type your message...",
+    "empty": "What can I help you with?",
+    "emptySub": "Ask me anything — I'm a general-purpose AI assistant.",
+    "thinking": "Thinking...",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "regenerate": "Regenerate",
+    "disclaimer": "FlexiData is an AI model and may produce errors."
+  },
+  "agents": {
+    "title": "Your Agents",
+    "subtitle": "Create specialized AI agents with their own knowledge bases",
+    "create": "Create Agent",
+    "namePlaceholder": "Agent name",
+    "descPlaceholder": "Description (optional)",
+    "creating": "Creating...",
+    "noAgents": "No agents yet",
+    "noAgentsSub": "Create your first agent to get started.",
+    "chat": "Chat",
+    "delete": "Delete",
+    "confirmDelete": "Delete this agent?",
+    "backToFiles": "Back to Files",
+    "chatWith": "Chat with {{name}}",
+    "chatSub": "Ask questions about this agent's documents and files.",
+    "uploadFiles": "Upload files to train this agent",
+    "dropHere": "Drop file here",
+    "uploading": "Uploading...",
+    "agentFiles": "Agent Files ({{count}})",
+    "deleteFile": "Delete file?",
+    "confirmDeleteFile": "Delete this file?"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Manage your account and preferences",
+    "profile": "Profile",
+    "name": "Name",
+    "email": "Email",
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "saved": "Profile updated",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "language": "Language"
+  },
+  "fileStatus": {
+    "indexed": "Indexed",
+    "pending": "Pending",
+    "processing": "Processing",
+    "error": "Error"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back"
+  }
+}

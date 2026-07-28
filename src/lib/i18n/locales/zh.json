@@ -1,0 +1,86 @@
+{
+  "nav": {
+    "dashboard": "控制面板",
+    "chat": "聊天",
+    "agents": "智能体",
+    "settings": "设置",
+    "signOut": "退出登录",
+    "newChat": "新聊天"
+  },
+  "dashboard": {
+    "title": "控制面板",
+    "subtitle": "工作空间概览",
+    "selectAgent": "选择智能体",
+    "noAgents": "暂无智能体",
+    "allChats": "所有聊天",
+    "files": "文件",
+    "agents": "智能体",
+    "newAgent": "新建智能体",
+    "noFiles": "暂无上传文件",
+    "recentChats": "最近聊天",
+    "noChats": "暂无聊天"
+  },
+  "chat": {
+    "title": "聊天",
+    "placeholder": "输入消息...",
+    "empty": "有什么可以帮你的？",
+    "emptySub": "随便问我 — 我是通用AI助手。",
+    "thinking": "思考中...",
+    "copy": "复制",
+    "copied": "已复制！",
+    "regenerate": "重新生成",
+    "disclaimer": "FlexiData 是一个AI模型，可能会产生错误。"
+  },
+  "agents": {
+    "title": "你的智能体",
+    "subtitle": "创建具有独立知识库的专业AI智能体",
+    "create": "创建智能体",
+    "namePlaceholder": "智能体名称",
+    "descPlaceholder": "描述（可选）",
+    "creating": "创建中...",
+    "noAgents": "暂无智能体",
+    "noAgentsSub": "创建你的第一个智能体开始吧。",
+    "chat": "聊天",
+    "delete": "删除",
+    "confirmDelete": "删除此智能体？",
+    "backToFiles": "返回文件",
+    "chatWith": "与 {{name}} 聊天",
+    "chatSub": "询问该智能体的文档和文件相关问题。",
+    "uploadFiles": "上传文件训练此智能体",
+    "dropHere": "将文件拖放到此处",
+    "uploading": "上传中...",
+    "agentFiles": "智能体文件 ({{count}})",
+    "deleteFile": "删除文件？",
+    "confirmDeleteFile": "删除此文件？"
+  },
+  "settings": {
+    "title": "设置",
+    "subtitle": "管理账户和偏好",
+    "profile": "个人资料",
+    "name": "姓名",
+    "email": "邮箱",
+    "save": "保存更改",
+    "saving": "保存中...",
+    "saved": "资料已更新",
+    "appearance": "外观",
+    "theme": "主题",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "themeSystem": "跟随系统",
+    "language": "语言"
+  },
+  "fileStatus": {
+    "indexed": "已索引",
+    "pending": "等待中",
+    "processing": "处理中",
+    "error": "错误"
+  },
+  "common": {
+    "loading": "加载中...",
+    "error": "发生错误",
+    "retry": "重试",
+    "cancel": "取消",
+    "confirm": "确认",
+    "back": "返回"
+  }
+}

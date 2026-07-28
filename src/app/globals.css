@@ -1,0 +1,65 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@import "highlight.js/styles/github-dark.css";
+
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #0a0a0a;
+  --color-card: #ffffff;
+  --color-card-foreground: #0a0a0a;
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f1f5f9;
+  --color-secondary-foreground: #0a0a0a;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-accent: #f1f5f9;
+  --color-accent-foreground: #0a0a0a;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #e2e8f0;
+  --color-input: #e2e8f0;
+  --color-ring: #2563eb;
+  --radius: 0.5rem;
+}
+
+[data-theme="dark"] {
+  --color-background: #09090b;
+  --color-foreground: #e4e4e7;
+  --color-card: #0f0f11;
+  --color-card-foreground: #e4e4e7;
+  --color-primary: #3b82f6;
+  --color-primary-foreground: #fafafa;
+  --color-secondary: #18181b;
+  --color-secondary-foreground: #e4e4e7;
+  --color-muted: #131316;
+  --color-muted-foreground: #71717a;
+  --color-accent: #1a1a1e;
+  --color-accent-foreground: #e4e4e7;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #fafafa;
+  --color-border: #1c1c20;
+  --color-input: #1c1c20;
+  --color-ring: #3b82f6;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* Code block styling */
+.hljs {
+  background: transparent !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+pre code.hljs {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
