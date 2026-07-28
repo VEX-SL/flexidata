@@ -93,7 +93,7 @@ function ChatContent() {
   const [input, setInput] = useState("");
   const [chatId, setChatId] = useState<string | null>(initialChatId);
   const [chatHistory, setChatHistory] = useState<ChatRecord[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -108,7 +108,7 @@ function ChatContent() {
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "40px";
+    el.style.height = "36px";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
 
@@ -388,8 +388,8 @@ function ChatContent() {
           )}
         </div>
 
-        {/* Input */}
-        <div className="border-t border-border/60 p-4">
+        {/* Input — fixed at bottom, never scrolls away */}
+        <div className="shrink-0 border-t border-border/60 p-3">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-end gap-2 rounded-2xl border border-border bg-card px-3 py-2 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
               <textarea
@@ -399,13 +399,13 @@ function ChatContent() {
                 onKeyDown={handleKeyDown}
                 placeholder={t("chat.placeholder")}
                 rows={1}
-                className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none py-2"
-                style={{ minHeight: "40px", maxHeight: "200px" }}
+                className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none py-1.5"
+                style={{ minHeight: "36px", maxHeight: "200px" }}
               />
               <button
                 onClick={streaming ? abort : handleSend}
                 disabled={!streaming && !input.trim()}
-                className={`p-2.5 rounded-xl shrink-0 self-end mb-0.5 transition-all ${
+                className={`p-2 rounded-xl shrink-0 self-end mb-0.5 transition-all ${
                   streaming
                     ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
                     : input.trim()
@@ -416,7 +416,7 @@ function ChatContent() {
                 {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               </button>
             </div>
-            <p className="text-center text-[11px] text-muted-foreground/50 mt-2">
+            <p className="text-center text-[11px] text-muted-foreground/50 mt-1.5">
               {t("chat.disclaimer")}
             </p>
           </div>
