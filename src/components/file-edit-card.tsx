@@ -578,9 +578,14 @@ function parseNewFileFormat(content: string): FileEdit[] {
 
   while ((match = regex.exec(content)) !== null) {
     const filename = normalizeFilename(match[1]);
-    const fileContent = match[2].trim();
+    let fileContent = match[2].trim();
 
     if (!filename || !fileContent) continue;
+
+    if (isDocumentFile(filename)) {
+      fileContent = cleanDocumentContent(fileContent);
+      if (!fileContent.trim()) continue;
+    }
 
     edits.push({
       id: `edit-${Date.now()}-${edits.length}`,
@@ -592,6 +597,42 @@ function parseNewFileFormat(content: string): FileEdit[] {
   }
 
   return edits;
+}
+
+const DOCUMENT_EXTENSIONS = ["docx", "pdf", "md", "txt", "rtf"];
+
+function isDocumentFile(filename: string): boolean {
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
+  return DOCUMENT_EXTENSIONS.includes(ext);
+}
+
+/**
+ * Strip trailing meta/completion lines (e.g. "تم إنشاء الملف بنجاح",
+ * "Created ...", "Done!") and trailing decorative dividers (---, ===, ***)
+ * from extracted document content. The model sometimes writes its chat
+ * confirmation message as the last line of the file.
+ */
+function cleanDocumentContent(content: string): string {
+  const lines = content.split("\n");
+  const META_RE =
+    /^(\*{1,2})?\s*(تم\s+إنشاء|تم\s+توليد|تم\s+حفظ|تم\s+رفع|Created|Generated|Saved|Done!?|Finished|Complete[d]?|Here\s+(is|are)\s+(your|the))[\s\S]*$/i;
+  const DIVIDER_RE = /^\s*(?:[-*=_])\s*(?:[-*=_])\s*(?:[-*=_])\s*$/;
+
+  let end = lines.length;
+  while (end > 0) {
+    const line = lines[end - 1].trim();
+    if (!line) {
+      end--;
+      continue;
+    }
+    if (DIVIDER_RE.test(line) || META_RE.test(line)) {
+      end--;
+      continue;
+    }
+    break;
+  }
+
+  return lines.slice(0, end).join("\n").trim();
 }
 
 function parseStandardFormat(content: string): FileEdit[] {
