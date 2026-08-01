@@ -16,7 +16,7 @@ import {
   Undo2,
   RotateCcw,
 } from "lucide-react";
-import { downloadText } from "@/lib/download";
+import { downloadConverted } from "@/lib/download";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 
 export interface FileEdit {
@@ -66,7 +66,7 @@ export function FileEditCard({
   }
 
   function handleDownload() {
-    downloadText(edit.replacement, edit.filename);
+    downloadConverted(edit.replacement, edit.filename);
   }
 
   function handleCopy() {
@@ -331,7 +331,7 @@ export function NewFileCard({
   }
 
   function handleDownload() {
-    downloadText(edit.replacement, edit.filename);
+    downloadConverted(edit.replacement, edit.filename);
   }
 
   function handleCopy() {

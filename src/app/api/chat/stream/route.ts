@@ -154,6 +154,7 @@ export async function POST(request: Request) {
   // Build context: only for agent chats
   let fileContext = "";
   let useAgentMode = false;
+  let attachedFilesList: string[] = [];
   const effectiveAgentId = agentId || chat.agent_id;
 
   if (effectiveAgentId) {
@@ -166,6 +167,21 @@ export async function POST(request: Request) {
 
     if (agent) {
       useAgentMode = true;
+
+      // Always inject the full list of attached files so the agent knows
+      // which files exist — even when RAG retrieval returns no matches.
+      try {
+        const { data: files } = await supabase
+          .from("agent_files")
+          .select("file_name")
+          .eq("agent_id", effectiveAgentId)
+          .order("created_at", { ascending: false });
+        if (files && files.length > 0) {
+          attachedFilesList = files.map((f: any) => f.file_name);
+        }
+      } catch (e: any) {
+        console.warn("[Chat] Failed to fetch attached files list:", e?.message);
+      }
 
       // Try RAG semantic search first
       try {
@@ -210,11 +226,17 @@ export async function POST(request: Request) {
   }
 
   const promptMode = useAgentMode ? "agent" : "general";
-  const systemPrompt =
-    buildSystemPrompt(promptMode) +
-    (fileContext
-      ? `\n\n## Provided Context:\n${fileContext}`
-      : "");
+  let systemPrompt = buildSystemPrompt(promptMode);
+
+  if (useAgentMode && attachedFilesList.length > 0) {
+    systemPrompt += `\n\n## Attached Files:\n${attachedFilesList
+      .map((f) => `- ${f}`)
+      .join("\n")}`;
+  }
+
+  if (fileContext) {
+    systemPrompt += `\n\n## Provided Context:\n${fileContext}`;
+  }
 
   const chatIdFinal = chat.id;
   const titleFinal = chat.title;

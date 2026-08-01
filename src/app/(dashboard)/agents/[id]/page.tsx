@@ -24,7 +24,7 @@ import {
   File,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
-import { downloadText } from "@/lib/download";
+import { downloadConverted } from "@/lib/download";
 
 interface Agent {
   id: string;
@@ -170,7 +170,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   async function handleDownloadFile(fileId: string, fileName: string) {
     setLoadingFile(fileId);
     const content = await fetchFileContent(fileId);
-    if (content) downloadText(content, fileName);
+    if (content) downloadConverted(content, fileName);
     setLoadingFile(null);
   }
 
