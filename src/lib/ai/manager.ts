@@ -64,7 +64,7 @@ export class ProviderManager {
           );
           const response = await provider.chatCompletion(truncatedRequest);
           console.log(`[ProviderManager] ${provider.name} succeeded`);
-          return response;
+          return { ...response, provider: provider.name };
         } catch (err: any) {
           const isAbort = err?.name === "AbortError";
           console.error(

@@ -12,6 +12,8 @@ export interface AIRequest {
 export interface AIResponse {
   content: string;
   model?: string;
+  /** Provider name that served the request (e.g. "groq"). */
+  provider?: string;
   usage?: {
     promptTokens?: number;
     completionTokens?: number;

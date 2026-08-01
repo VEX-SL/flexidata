@@ -1,0 +1,340 @@
+/**
+ * FlexiData AI — Document Intelligence Pipeline: core types.
+ *
+ * The pipeline is fully additive and plugin-based. Each document profile is an
+ * independent "package" (schema + prompt template + validation rules + export
+ * config + version), so new document types can be added without refactoring.
+ *
+ * Stages communicate ONLY through `PipelineState` (typed interface). The
+ * pipeline depends on the `AIClient` abstraction — never on a concrete
+ * provider. See ai.ts for the default wiring.
+ */
+
+import type { AIRequest, AIResponse } from "@/types";
+
+// ─── Field schema (declarative, JSON-serializable) ────────────────────────
+
+export type FieldType =
+  | "string"
+  | "number"
+  | "currency"
+  | "date"
+  | "boolean"
+  | "enum"
+  | "object"
+  | "array"
+  | "text";
+
+export interface FieldSchema {
+  /** Field key, snake_case (e.g. "invoice_number"). */
+  key: string;
+  type: FieldType;
+  /** Array element type when type === "array". */
+  itemsType?: FieldType;
+  /** Allowed values when type === "enum". */
+  enum?: string[];
+  label?: string;
+  description?: string;
+  /** When true, the validator flags the field as missing if absent. */
+  required?: boolean;
+  /** When true, contributes to the consistency signal if present. */
+  crossCheck?: boolean;
+}
+
+export interface ProfileSchema {
+  version: number;
+  fields: FieldSchema[];
+}
+
+// ─── Validation rules (declarative) ───────────────────────────────────────
+
+export type FieldValueKind =
+  | "string"
+  | "number"
+  | "currency"
+  | "date"
+  | "boolean"
+  | "enum";
+
+export interface ValidationRule {
+  key: string;
+  kind: FieldValueKind;
+  required?: boolean;
+  /** Regex source string; applied to the raw string value. */
+  pattern?: string;
+  /** E.g. "yyyy-mm-dd" for dates, "{amount} {currency}" for currency. */
+  format?: string;
+  min?: number;
+  max?: number;
+  /** For enum kind: allowed values. */
+  allowed?: string[];
+}
+
+export interface ValidationOutcome {
+  key: string;
+  ok: boolean;
+  message: string;
+  /** 0..1 contribution of this field to the validation signal. */
+  weight: number;
+}
+
+export interface ValidationResult {
+  ok: boolean;
+  /** Per-field outcomes. */
+  results: ValidationOutcome[];
+  /** Fields defined in the schema but missing from the extraction. */
+  missing: string[];
+}
+
+// ─── Extracted values ─────────────────────────────────────────────────────
+
+export type FieldSource = "ai" | "ocr" | "rule" | "user" | "verified";
+
+export interface FieldValue {
+  value: unknown;
+  /** 0..1 — per-field confidence. */
+  confidence: number;
+  source: FieldSource;
+  /** Status drives the human-review UI. */
+  status: "extracted" | "verified" | "edited" | "flagged";
+  /** Optional RAG anchor: chunk/file reference backing this value. */
+  anchor?: string;
+  /** Free-form extra data (e.g. date/time parts, raw match). */
+  meta?: Record<string, unknown>;
+}
+
+export type FieldsMap = Record<string, FieldValue>;
+
+// ─── Classification ───────────────────────────────────────────────────────
+
+export type ProfileType =
+  | "invoice"
+  | "receipt"
+  | "resume"
+  | "contract"
+  | "unknown";
+
+export type ClassificationSource = "ai" | "rule" | "fallback";
+
+export interface ClassificationResult {
+  profileType: ProfileType;
+  /** 0..1 classifier confidence. */
+  confidence: number;
+  source: ClassificationSource;
+  reasons: string[];
+  /** Candidate profiles from the classifier (AI), best first. */
+  candidates: Array<{ profileType: ProfileType; confidence: number }>;
+}
+
+// ─── Confidence engine ────────────────────────────────────────────────────
+
+export interface ConfidenceSignals {
+  validation: number;
+  consistency: number;
+  ocrQuality: number;
+  extraction: number;
+  missing: number;
+  /** Optional model-provided confidence (0..1). */
+  modelConfidence?: number;
+}
+
+export interface ConfidenceResult {
+  overall: number;
+  signals: ConfidenceSignals;
+  /** Human-readable breakdown for the review UI. */
+  summary: Array<{ label: string; score: number; detail?: string }>;
+}
+
+// ─── Extraction output ────────────────────────────────────────────────────
+
+export interface RawExtraction {
+  /** Raw fields as returned by the AI (pre-normalization). */
+  data: Record<string, unknown>;
+  /** Optional model-provided per-field confidence. */
+  confidence?: Record<string, number>;
+  /** Optional model-provided overall confidence (0..1). */
+  modelConfidence?: number;
+}
+
+export interface NormalizedField {
+  field: FieldSchema;
+  value: FieldValue;
+}
+
+export interface ExtractionResult {
+  profileType: ProfileType;
+  profileVersion: number;
+  fields: NormalizedField[];
+  /** Map view of the same fields, keyed by field key. */
+  fieldsMap: FieldsMap;
+  /** Fields that survived all post-processing filters. */
+  cleanFields: Record<string, unknown>;
+  /** Fields dropped by post-processing (e.g. PII scrubbing). */
+  droppedFields: Record<string, string>;
+  model?: string;
+  provider?: string;
+}
+
+export interface JobResult {
+  classification: ClassificationResult;
+  extraction: ExtractionResult;
+  validation: ValidationResult;
+  confidence: ConfidenceResult;
+}
+
+// ─── Document profile plugin ──────────────────────────────────────────────
+
+export interface ExtractionProfile {
+  id: string;
+  label: string;
+  /** Aliases/markers used by rule-based classification (multilingual). */
+  docTypes: string[];
+  schema: ProfileSchema;
+  /** Prompt template rendered by the PromptBuilder. `{{document}}` etc. */
+  promptTemplate: string;
+  validationRules: ValidationRule[];
+  /** Configured exporters for this profile (JSON/CSV/Excel/pdf/xlsx). */
+  exportConfig: {
+    formats: ExportFormat[];
+    csvColumns?: string[];
+    filename?: string;
+  };
+  version: number;
+}
+
+/** Metadata describing a registered profile plugin. */
+export interface ProfileInfo {
+  id: string;
+  label: string;
+  version: number;
+  docTypes: string[];
+  enabled: boolean;
+}
+
+export interface ProfilePlugin {
+  /** Metadata persisted in extraction_profiles. */
+  info: ProfileInfo;
+  /** The actual profile definition used by the pipeline. */
+  build: () => ExtractionProfile;
+}
+
+// ─── Pipeline orchestration ───────────────────────────────────────────────
+
+/**
+ * Shared, typed in-memory state. Stages read what they need and write their
+ * own slot. Adding a future stage = adding one optional slot here (additive,
+ * non-breaking) and registering it in the stage list.
+ */
+export interface PipelineState {
+  input: RunJobInput;
+  readonly sourceText: string;
+  readonly textStats: { length: number; lines: number };
+  classification?: ClassificationResult;
+  profile?: ExtractionProfile;
+  extraction?: ExtractionResult;
+  validation?: ValidationResult;
+  confidence?: ConfidenceResult;
+}
+
+/**
+ * Stage contract. A stage is a self-contained unit: it receives the shared
+ * state, does its job, and returns nothing but its writes to the state.
+ * Replacing a stage never touches the orchestrator — swap the instance.
+ */
+export interface PipelineStage {
+  readonly id: string;
+  run(ctx: PipelineState): Promise<void>;
+}
+
+export type TraceEventKind = "start" | "finish" | "error";
+
+/** One granular execution trace event (JSON-safe, analytics-ready). */
+export interface TraceEvent {
+  stage: string;
+  event: TraceEventKind;
+  ts: string;
+  durationMs?: number;
+  message: string;
+  data?: unknown;
+}
+
+export type PipelineStatus =
+  | "queued"
+  | "classifying"
+  | "extracting"
+  | "validating"
+  | "complete"
+  | "error";
+
+export interface RunJobInput {
+  sourceText: string;
+  fileName?: string;
+  mimeType?: string;
+  fileId?: string;
+  /** Pin a profile (skip/override classification). */
+  profileType?: ProfileType;
+}
+
+export interface RunJobOutput {
+  status: PipelineStatus;
+  trace: TraceEvent[];
+  job?: JobResult;
+  /** Structured stage error (never a raw exception). */
+  error?: StructuredError;
+}
+
+// ─── AI abstraction (dependency inversion) ────────────────────────────────
+// The pipeline depends on this interface; a concrete provider is wired in
+// ai.ts. ProviderManager is never imported by pipeline stages.
+
+export interface AIClient {
+  chatCompletion(request: AIRequest): Promise<AIResponse>;
+}
+
+// ─── Structured errors ────────────────────────────────────────────────────
+// Every stage failure maps to this shape: stable codes, retryability, optional
+// stage context and details. Raw exceptions are never returned to callers.
+
+export type PipelineErrorCode =
+  | "STAGE_FAILED"
+  | "CLASSIFICATION_FAILED"
+  | "EXTRACTION_FAILED"
+  | "AI_PROVIDER_ERROR"
+  | "FILE_READ_ERROR"
+  | "EMPTY_DOCUMENT"
+  | "NOT_FOUND"
+  | "BAD_REQUEST"
+  | "CONFLICT"
+  | "UNAUTHORIZED"
+  | "UNSUPPORTED_FORMAT"
+  | "UNKNOWN_ERROR";
+
+export interface StructuredError {
+  /** The pipeline stage that failed, when applicable. */
+  stage?: string;
+  code: PipelineErrorCode;
+  message: string;
+  retryable: boolean;
+  /** Optional machine-readable context (JSON-safe). */
+  details?: unknown;
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────
+
+export type ExportFormat = "json" | "csv" | "xlsx" | "pdf";
+
+export interface ExportOptions {
+  format: ExportFormat;
+  includeFlags?: boolean;
+  includeMeta?: boolean;
+}
+
+export interface ExportResult {
+  format: ExportFormat;
+  /** Raw bytes for binary formats (xlsx/pdf). */
+  buffer?: Uint8Array;
+  /** Text payload for json/csv. */
+  content?: string;
+  mimeType: string;
+  fileName: string;
+}
