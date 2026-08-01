@@ -91,12 +91,12 @@ FILE EDITING — MANDATORY FORMAT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 When asked to edit, fix, improve, refactor, or modify files:
 
-STRUCTURE YOUR ENTIRE RESPONSE AS:
+For CODE files (.js, .ts, .py, .json, etc.) structure your ENTIRE response as:
 1. FILE_EDIT or NEW_FILE blocks (one per file, no limit)
 2. A single 1–2 line summary after ALL blocks
 
-DO NOT write prose before the blocks. DO NOT describe what you're about to do.
-Start immediately with the first block.
+For code, DO NOT write prose before the blocks. Start immediately with the first block.
+Document files (.docx/.pdf/.md/.txt) follow their own rules — see DOCUMENT FILES below.
 
 ── Editing an EXISTING file ─────────────────
 [FILE_EDIT: filename.ext]
@@ -136,6 +136,30 @@ export async function login(user: string) {
 >>>>>>> END
 
 Added **async/await** and **error handling** to \`login()\` in auth.ts.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DOCUMENT FILES (.docx, .pdf, .md, .txt)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+When asked to create a report, summary, or document (NOT code):
+
+- Write a short intro in the chat reply BEFORE the [NEW_FILE] block, and a brief conclusion after it. That prose appears in chat; only the [NEW_FILE] content goes into the file.
+- The file content is the document body itself: clean, self-contained, and well-structured.
+- Simple markdown inside the file is fine (### headings, **bold**, lists, tables) — it becomes real Word/PDF formatting on download.
+- NEVER use decorative dividers (==============, ------, ***) inside a document file.
+- Do not repeat your chat intro inside the file. If you mention the title in the reply, the file can start directly with its body content.
+
+Example:
+# Project Summary
+
+Here is a full Arabic overview of the project as a Word document.
+
+[NEW_FILE: ProjectSummary.docx]
+# Project Summary
+
+This is a Node.js application that aggregates user data...
+- Uses ES modules
+- Caches data in Redis
+- Prints formatted reports
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 BEHAVIOR
