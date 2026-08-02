@@ -26,12 +26,30 @@ export async function POST(req: NextRequest) {
     const mod: any = await (tm as any).__testGetModule();
     out.fsRoot = Object.keys(mod.FS.readdir("/")).slice(0, 20);
 
+    out.vercelUrl = process.env.VERCEL_URL || null;
+    out.vercel = process.env.VERCEL || null;
+
     const t1 = Date.now();
     const langs = ["ara", "eng"];
     for (const lang of langs) {
-      const bytes: Uint8Array = await (tm as any).__testLoadTraineddata(lang);
-      out[`${lang}Bytes`] = bytes.length;
-      mod.FS.writeFile(`/${lang}.traineddata`, bytes);
+      const base = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "https://flexidata.vercel.app";
+      const url = `${base}/ocr-data/${lang}.traineddata`;
+      const resp = await fetch(url);
+      const bytes = Buffer.from(await resp.arrayBuffer());
+      out[`${lang}Fetch`] = {
+        url,
+        status: resp.status,
+        contentType: resp.headers.get("content-type"),
+        contentEncoding: resp.headers.get("content-encoding"),
+        contentLength: resp.headers.get("content-length"),
+        bytes: bytes.length,
+        head: bytes.slice(0, 8).toString("hex"),
+      };
+      const bytes2: Uint8Array = await (tm as any).__testLoadTraineddata(lang);
+      out[`${lang}Bytes`] = bytes2.length;
+      mod.FS.writeFile(`/${lang}.traineddata`, bytes2);
     }
     out.langWriteMs = Date.now() - t1;
     out.fsAfter = Object.keys(mod.FS.readdir("/")).slice(0, 20);
