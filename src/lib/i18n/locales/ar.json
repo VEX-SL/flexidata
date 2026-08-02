@@ -51,6 +51,11 @@
     "retry": "إعادة المحاولة",
     "rerun": "إعادة التشغيل",
     "reprocessing": "جاري إعادة التشغيل...",
+    "replace": "استبدال الملف",
+    "delete": "حذف",
+    "removeFile": "إزالة",
+    "confirm": "تأكيد",
+    "other": "أخرى",
     "loadingHistory": "جاري التحميل...",
     "stage": {
       "queued": "في الانتظار",

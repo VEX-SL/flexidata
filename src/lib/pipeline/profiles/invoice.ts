@@ -33,6 +33,54 @@ const schema = {
       description: "Items on the invoice with description, quantity, unit price and amount",
     },
   ],
+  groups: [
+    {
+      id: "document",
+      label: "Invoice",
+      keys: ["invoice_number", "invoice_date", "due_date"],
+    },
+    {
+      id: "parties",
+      label: "Parties",
+      keys: [
+        "seller_name",
+        "seller_tax_id",
+        "seller_address",
+        "buyer_name",
+        "buyer_tax_id",
+        "buyer_address",
+      ],
+    },
+    {
+      id: "amounts",
+      label: "Amounts",
+      keys: [
+        "currency",
+        "subtotal",
+        "tax_amount",
+        "tax_rate",
+        "discount_amount",
+        "shipping_amount",
+        "total_amount",
+        "amount_due",
+      ],
+    },
+    {
+      id: "payment",
+      label: "Payment",
+      keys: ["payment_method", "bank_name", "iban", "payment_terms"],
+    },
+    {
+      id: "details",
+      label: "Details",
+      keys: ["notes"],
+    },
+    {
+      id: "lineItems",
+      label: "Line items",
+      keys: ["line_items"],
+    },
+  ],
 };
 
 const promptTemplate = `You are an invoice data extraction engine.

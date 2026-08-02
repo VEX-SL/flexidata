@@ -82,3 +82,26 @@ export async function PATCH(
     return errorResponse(err);
   }
 }
+
+/**
+ * DELETE /api/pipeline/extractions/{id}
+ * Permanently removes an extraction and its source file (row + storage).
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const { user } = authResult;
+
+  const { id } = await params;
+
+  try {
+    const service = new PipelineService();
+    const result = await service.delete(user.id, id);
+    return NextResponse.json(result);
+  } catch (err) {
+    return errorResponse(err);
+  }
+}

@@ -64,16 +64,35 @@ export async function classifyDocument(
     }
   }
 
-  if (aiResult) {
-    return aiResult;
+  // Rule upgrade: never trust an unmarked "unknown" when the document text
+  // itself names a known type (e.g. the word "INVOICE" in the first lines).
+  // Otherwise the fallback profile kicks in and the user sees generic fields
+  // ("key_numbers") instead of the right structured schema.
+  if (!aiResult || aiResult.profileType === "unknown") {
+    const best = ruleClassify(sourceText, profiles);
+    if (best) {
+      if (aiResult) {
+        best.confidence = Math.min(
+          1,
+          Math.max(best.confidence, aiResult.confidence)
+        );
+        best.reasons = [
+          `AI classified as '${aiResult.profileType}', upgraded by rule match`,
+          ...best.reasons,
+        ];
+      } else {
+        best.reasons = ["Rule-based fallback (AI unavailable)"];
+      }
+      best.source = "rule";
+      return best;
+    }
+    if (aiResult) {
+      return aiResult;
+    }
   }
 
-  // Rule-based fallback (only reached when AI is unavailable/empty).
-  const best = ruleClassify(sourceText, profiles);
-  if (best) {
-    best.reasons = ["Rule-based fallback (AI unavailable)"];
-    best.source = "rule";
-    return best;
+  if (aiResult) {
+    return aiResult;
   }
 
   return {

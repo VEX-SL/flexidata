@@ -7,6 +7,17 @@ import type {
 /** Fields below this confidence are dropped into droppedFields. */
 const MIN_CONFIDENCE = 0.3;
 
+/** Empty values (including empty arrays/objects) are dropped, never exported. */
+export function isEmptyValue(v: unknown): boolean {
+  return (
+    v === null ||
+    v === undefined ||
+    v === "" ||
+    (Array.isArray(v) && v.length === 0) ||
+    (typeof v === "object" && !Array.isArray(v) && Object.keys(v).length === 0)
+  );
+}
+
 export interface PostProcessResult {
   fields: NormalizedField[];
   cleanFields: Record<string, unknown>;
@@ -31,7 +42,7 @@ export function postProcessFields(
       droppedFields[field.key] = "not found in document";
       continue;
     }
-    if (fv.value === null || fv.value === "" || fv.value === undefined) {
+    if (isEmptyValue(fv.value)) {
       droppedFields[field.key] = "empty value";
       continue;
     }

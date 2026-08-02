@@ -20,6 +20,7 @@ import type {
 } from "./types";
 import type { JobDTO, ExtractionListDTO, FieldDTO } from "./dto";
 import { exportExtraction } from "./exporter";
+import { isEmptyValue } from "./extractor/post-processor";
 
 /**
  * PipelineService — transport-agnostic pipeline execution.
@@ -55,7 +56,7 @@ export class PipelineService {
     let sourceText = req.sourceText?.trim() ?? "";
     let fileName = req.fileName;
     let mimeType = req.mimeType;
-    let fileId = req.fileId;
+    const fileId = req.fileId;
 
     if (!sourceText && fileId) {
       const resolved = await this.readFileText(userId, fileId);
@@ -279,7 +280,10 @@ export class PipelineService {
 
     let result;
     try {
-      result = exportExtraction(extraction, { format });
+      result = exportExtraction(extraction, { format }, {
+        confidence: Number(row.overall_confidence ?? 0),
+        extractedAt: row.completed_at ?? undefined,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (/phase 2/i.test(message)) {
@@ -403,7 +407,94 @@ export class PipelineService {
     return toJobDTO(fresh);
   }
 
+  /**
+   * POST /pipeline/extractions/{id}/replace — swap the source file of an
+   * existing extraction and re-run the pipeline in place. The old file (row +
+   * storage object) is deleted; reviewed edits for the previous document are
+   * intentionally discarded (they belong to the replaced file).
+   */
+  async replace(
+    userId: string,
+    id: string,
+    newFileId: string
+  ): Promise<{ job: JobDTO; created: boolean; rerun: boolean }> {
+    const row = await this.getRow(userId, id);
+
+    if (!isValidUUID(newFileId)) {
+      throw new PipelineError("Invalid file id", {
+        code: "BAD_REQUEST",
+        retryable: false,
+      });
+    }
+
+    const { data: newFile } = await this.supabase
+      .from("files")
+      .select("id")
+      .eq("id", newFileId)
+      .eq("user_id", userId)
+      .single();
+    if (!newFile) {
+      throw new PipelineError("File not found", {
+        code: "NOT_FOUND",
+        retryable: false,
+      });
+    }
+
+    // Delete the replaced file (row + storage object) once the extraction no
+    // longer references it.
+    const oldFileId = row.file_id;
+    await this.supabase
+      .from("extractions")
+      .update({
+        file_id: newFileId,
+        idempotency_key: `file:${newFileId}`,
+      })
+      .eq("id", id);
+    if (oldFileId && oldFileId !== newFileId) {
+      await this.deleteFileRecord(userId, oldFileId);
+    }
+
+    return this.run(userId, {
+      fileId: newFileId,
+      idempotencyKey: `file:${newFileId}`,
+      force: true,
+    });
+  }
+
+  /** DELETE /pipeline/extractions/{id} — remove an extraction and its file. */
+  async delete(userId: string, id: string): Promise<{ deleted: boolean }> {
+    const row = await this.getRow(userId, id);
+
+    if (row.file_id) {
+      await this.deleteFileRecord(userId, row.file_id);
+    }
+
+    await this.supabase.from("extractions").delete().eq("id", id).eq("user_id", userId);
+    return { deleted: true };
+  }
+
   // ── internals ─────────────────────────────────────────────────────
+
+  /** Delete a file record and its storage object (best-effort on storage). */
+  private async deleteFileRecord(userId: string, fileId: string): Promise<void> {
+    const { data: file } = await this.supabase
+      .from("files")
+      .select("id, name")
+      .eq("id", fileId)
+      .eq("user_id", userId)
+      .single();
+    if (!file) return;
+
+    try {
+      if (file.name) {
+        await this.supabase.storage.from("files").remove([file.name]);
+      }
+    } catch (err) {
+      console.error("[Pipeline] Storage cleanup failed:", err);
+    }
+
+    await this.supabase.from("files").delete().eq("id", fileId).eq("user_id", userId);
+  }
 
   private async readFileText(
     userId: string,
@@ -522,7 +613,7 @@ function rebuildExtraction(
   const cleanFields: Record<string, unknown> = {};
   for (const f of fields) {
     fieldsMap[f.field.key] = f.value;
-    if (f.value.value !== null && f.value.value !== "") {
+    if (!isEmptyValue(f.value.value)) {
       cleanFields[f.field.key] = f.value.value;
     }
   }

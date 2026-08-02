@@ -51,6 +51,11 @@
     "retry": "重试",
     "rerun": "重新运行",
     "reprocessing": "重新运行中...",
+    "replace": "替换文件",
+    "delete": "删除",
+    "removeFile": "移除",
+    "confirm": "确认",
+    "other": "其他",
     "loadingHistory": "加载中...",
     "stage": {
       "queued": "排队中",

@@ -55,6 +55,37 @@ const schema = {
       description: "Objects with keys: name, description, url",
     },
   ],
+  groups: [
+    {
+      id: "personal",
+      label: "Personal",
+      keys: [
+        "full_name",
+        "job_title",
+        "phone",
+        "email",
+        "location",
+        "linkedin",
+        "portfolio_url",
+        "years_of_experience",
+      ],
+    },
+    {
+      id: "summary",
+      label: "Summary",
+      keys: ["summary"],
+    },
+    {
+      id: "skills",
+      label: "Skills & languages",
+      keys: ["skills", "languages"],
+    },
+    {
+      id: "experience",
+      label: "Experience & education",
+      keys: ["experience", "education", "certifications", "projects"],
+    },
+  ],
 };
 
 const promptTemplate = `You are a resume / CV data extraction engine.

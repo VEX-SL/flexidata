@@ -26,6 +26,43 @@ const schema = {
       description: "Purchased items with description, quantity, unit price and amount",
     },
   ],
+  groups: [
+    {
+      id: "document",
+      label: "Receipt",
+      keys: ["receipt_number", "receipt_date"],
+    },
+    {
+      id: "merchant",
+      label: "Merchant",
+      keys: ["merchant_name", "merchant_tax_id", "merchant_address"],
+    },
+    {
+      id: "customer",
+      label: "Customer",
+      keys: ["customer_name"],
+    },
+    {
+      id: "amounts",
+      label: "Amounts",
+      keys: ["currency", "subtotal", "tax_amount", "discount_amount", "total_amount"],
+    },
+    {
+      id: "payment",
+      label: "Payment",
+      keys: ["payment_method", "cashier_name", "pos_number"],
+    },
+    {
+      id: "details",
+      label: "Details",
+      keys: ["notes"],
+    },
+    {
+      id: "lineItems",
+      label: "Line items",
+      keys: ["line_items"],
+    },
+  ],
 };
 
 const promptTemplate = `You are a receipt data extraction engine.

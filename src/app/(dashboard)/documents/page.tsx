@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Upload,
   FileText,
@@ -10,27 +10,55 @@ import {
   X,
   Pencil,
   CheckCircle2,
-  Circle,
   Download,
   RefreshCw,
+  Trash2,
   History,
   ScanText,
   Sparkles,
   ShieldCheck,
   Clipboard,
+  FileClock,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import {
-  usePipeline,
+  useDocuments,
+  type DocItem,
   type JobDTO,
   type FieldDTO,
-} from "@/lib/hooks/use-pipeline";
+} from "@/lib/hooks/use-documents";
 import { downloadBlob } from "@/lib/download";
 
-const STAGE_ORDER = ["queued", "classifying", "extracting", "validating", "complete"] as const;
+const RUNNING = new Set(["queued", "classifying", "extracting", "validating"]);
 const EXPORT_FORMATS = ["json", "csv"] as const;
 const ACCEPT =
   ".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp";
+
+/* ─── Client-side schema DTO (mirrors GET /api/pipeline/profiles) ─────── */
+
+interface FieldSchemaDTO {
+  key: string;
+  type: string;
+  itemsType?: string;
+  enum?: string[];
+  label?: string;
+  description?: string;
+  required?: boolean;
+}
+
+interface ProfileSchemaDTO {
+  id: string;
+  label: string;
+  version: number;
+  docTypes: string[];
+  schema?: {
+    version: number;
+    fields: FieldSchemaDTO[];
+    groups?: Array<{ id: string; label: string; keys: string[] }>;
+  };
+}
+
+/* ─── Helpers ─────────────────────────────────────────────────────────── */
 
 function humanize(key: string): string {
   return key
@@ -39,11 +67,10 @@ function humanize(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatValue(v: unknown): string {
+function displayValue(v: unknown): string {
   if (v === null || v === undefined || v === "") return "";
-  if (typeof v === "boolean") return String(v);
-  if (Array.isArray(v)) return v.map(formatValue).join(", ");
-  if (typeof v === "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return v.length ? JSON.stringify(v, null, 2) : "";
+  if (typeof v === "object") return JSON.stringify(v, null, 2);
   return String(v);
 }
 
@@ -53,85 +80,121 @@ function confidenceColor(c: number): string {
   return "#EF4444";
 }
 
-function isReady(field: FieldDTO): boolean {
-  const value = field.value;
-  const empty =
-    value === null || value === undefined || value === "" ||
-    (Array.isArray(value) && value.length === 0);
-  if (empty) return false;
-  return field.status === "verified" || field.status === "edited" || field.confidence >= 0.9;
+function parseDraft(def: FieldSchemaDTO | undefined, draft: string): unknown {
+  const type = def?.type ?? "string";
+  switch (type) {
+    case "number":
+    case "currency": {
+      if (!draft.trim()) return null;
+      const n = Number(draft.trim());
+      if (!Number.isFinite(n)) throw new Error("Value must be a number");
+      return n;
+    }
+    case "boolean": {
+      if (draft === "") return null;
+      return draft === "true" || draft === "1";
+    }
+    case "array": {
+      if (!draft.trim()) return [];
+      const v = JSON.parse(draft.trim());
+      if (!Array.isArray(v)) throw new Error("Value must be a JSON array");
+      return v;
+    }
+    case "object": {
+      if (!draft.trim()) return null;
+      const v = JSON.parse(draft.trim());
+      if (typeof v !== "object" || v === null || Array.isArray(v)) {
+        throw new Error("Value must be a JSON object");
+      }
+      return v;
+    }
+    default:
+      return draft;
+  }
 }
 
-export default function DocumentsPage() {
-  const { t } = useTranslation();  const {
-    phase,
-    job,
-    error,
-    activeFileName,
-    stageIndex,
-    runPipeline,
-    rerun,
-    loadJob,
-    saveFields,
-    reset,
-  } = usePipeline();
+/* ─── Page ────────────────────────────────────────────────────────────── */
 
+export default function DocumentsPage() {
+  const { t } = useTranslation();
+  const {
+    docs,
+    loading,
+    activeId,
+    setActiveId,
+    addFiles,
+    replace,
+    rerun,
+    remove,
+    saveFields,
+  } = useDocuments();
+
+  const [profiles, setProfiles] = useState<ProfileSchemaDTO[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [history, setHistory] = useState<JobDTO[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(true);
-  const [exportFormat, setExportFormat] = useState<(typeof EXPORT_FORMATS)[number]>("json");
+  const [busy, setBusy] = useState(false);
+  const [exportFormat, setExportFormat] =
+    useState<(typeof EXPORT_FORMATS)[number]>("json");
   const [exporting, setExporting] = useState(false);
   const [editing, setEditing] = useState<{ key: string; draft: string } | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [confirmKey, setConfirmKey] = useState<string | null>(null);
+  const [replaceFor, setReplaceFor] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const dropInputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/pipeline/extractions?limit=20");
-        if (res.ok) {
-          const data = await res.json();
-          setHistory(data.items ?? []);
-        }
-      } catch {
-        // ignore — history is non-critical
-      } finally {
-        setHistoryLoading(false);
-      }
-    })();
+    fetch("/api/pipeline/profiles")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setProfiles(data?.items ?? []))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (!job || (phase !== "complete" && phase !== "error")) return;
-    (async () => {
-      try {
-        const res = await fetch("/api/pipeline/extractions?limit=20");
-        if (res.ok) {
-          const data = await res.json();
-          setHistory(data.items ?? []);
-        }
-      } catch {
-        // ignore — history is non-critical
-      }
-    })();
-  }, [job, phase]);
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(id);
+  }, [toast]);
 
-  async function handleFile(file: File) {
-    if (!file) return;
-    setEditing(null);
-    setFieldError(null);
-    await runPipeline(file);
+  const profileLabel = useCallback(
+    (id: string): string => {
+      const p = profiles.find((x) => x.id === id);
+      return p?.label ?? t(`documents.profile.${id}`);
+    },
+    [profiles, t]
+  );
+
+  const activeDoc = activeId ? docs.find((d) => d.key === activeId) : null;
+  const activeJob = activeDoc?.job ?? null;
+  const activeSchema =
+    activeJob && activeJob.status === "complete"
+      ? profiles.find((p) => p.id === activeJob.profileType)?.schema
+      : undefined;
+
+  async function handleDropFiles(files: File[]) {
+    const list = Array.from(files ?? []);
+    if (!list.length) return;
+    setBusy(true);
+    try {
+      await addFiles(list);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function handleExport() {
-    if (!job) return;
+  async function handleExport(job: JobDTO) {
     setExporting(true);
     try {
       const res = await fetch(
         `/api/pipeline/extractions/${job.id}/export?format=${exportFormat}`
       );
-      if (!res.ok) return;
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setToast(body?.error?.message ?? "Export failed");
+        return;
+      }
       const blob = await res.blob();
       const cd = res.headers.get("Content-Disposition") ?? "";
       const match = cd.match(/filename="?([^"]+)"?/);
@@ -141,13 +204,22 @@ export default function DocumentsPage() {
     }
   }
 
-  async function handleFieldSave(key: string) {
+  function handleRowSelect(item: DocItem) {
+    setEditing(null);
+    setFieldError(null);
+    if (item.job) setActiveId(item.job.id);
+  }
+
+  async function handleFieldSave(job: JobDTO, key: string) {
     if (!editing) return;
+    const def = activeSchema?.fields.find((f) => f.key === key);
     setSavingKey(key);
     setFieldError(null);
     try {
-      await saveFields({ [key]: editing.draft });
+      const parsed = parseDraft(def, editing.draft);
+      await saveFields(job.id, { [key]: parsed });
       setEditing(null);
+      setToast(t("documents.saved"));
     } catch (e) {
       setFieldError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -155,13 +227,9 @@ export default function DocumentsPage() {
     }
   }
 
-  const fields = job?.fields ?? [];
-  const readyFields = fields.filter(isReady);
-  const reviewFields = fields.filter((f) => !isReady(f));
-  const missing = job?.validation?.missing ?? [];
-  const canRerun = !!activeFileName && (phase === "complete" || phase === "error");
-  const running =
-    phase === "queued" || phase === "classifying" || phase === "extracting" || phase === "validating";
+  const runningDocs = docs.filter(
+    (d) => d.job && RUNNING.has(d.job.status)
+  ).length;
 
   return (
     <>
@@ -170,7 +238,7 @@ export default function DocumentsPage() {
         .fd-doc-root { font-family: 'Sora', system-ui, sans-serif; }
         .fd-doc-hero {
           position: relative; overflow: hidden;
-          border-radius: 20px; padding: 2rem 1.75rem;
+          border-radius: 20px; padding: 1.8rem 1.75rem;
           background: linear-gradient(135deg, rgba(16,185,129,.1) 0%, rgba(99,102,241,.08) 50%, rgba(59,130,246,.06) 100%);
           border: 1px solid rgba(129,140,248,.12);
         }
@@ -187,11 +255,11 @@ export default function DocumentsPage() {
           border-radius: 16px; border: 1px solid var(--color-border);
           background: var(--color-card); overflow: hidden;
         }
-        .fd-doc-card-pad { padding: 1.4rem 1.4rem; }
+        .fd-doc-card-pad { padding: 1.3rem 1.3rem; }
         .fd-doc-btn {
-          display: inline-flex; align-items: center; gap: .5rem;
-          padding: .65rem 1.15rem; border-radius: 12px;
-          font-size: .85rem; font-weight: 600; font-family: inherit;
+          display: inline-flex; align-items: center; gap: .45rem;
+          padding: .55rem .95rem; border-radius: 11px;
+          font-size: .8rem; font-weight: 600; font-family: inherit;
           border: none; cursor: pointer; transition: all .2s;
         }
         .fd-doc-btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -210,33 +278,38 @@ export default function DocumentsPage() {
           border: 1px solid var(--color-border);
         }
         .fd-doc-btn-secondary:hover:not(:disabled) { border-color: rgba(99,102,241,.3); background: var(--color-accent); }
+        .fd-doc-btn-danger {
+          background: rgba(239,68,68,.12); color: #EF4444;
+          border: 1px solid rgba(239,68,68,.3);
+        }
+        .fd-doc-btn-danger:hover:not(:disabled) { background: rgba(239,68,68,.18); }
         .fd-doc-chip {
           display: inline-flex; align-items: center; gap: .35rem;
           padding: .28rem .6rem; border-radius: 999px;
-          font-size: .72rem; font-weight: 600;
+          font-size: .72rem; font-weight: 600; white-space: nowrap;
         }
         .fd-doc-upload {
-          position: relative; border-radius: 16px; padding: 2.2rem 1.5rem;
+          position: relative; border-radius: 16px; padding: 2rem 1.5rem;
           border: 2px dashed var(--color-border); text-align: center;
           transition: border-color .25s, background .25s; cursor: pointer;
         }
         .fd-doc-upload:hover { border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.03); }
         .fd-doc-upload.dragging { border-color: rgba(16,185,129,.55); background: rgba(16,185,129,.06); }
         .fd-doc-upload-icon {
-          width: 56px; height: 56px; border-radius: 16px; margin: 0 auto .9rem;
+          width: 54px; height: 54px; border-radius: 16px; margin: 0 auto .85rem;
           background: linear-gradient(135deg, rgba(16,185,129,.12), rgba(99,102,241,.08));
           display: flex; align-items: center; justify-content: center;
         }
-        .fd-doc-stage {
-          display: flex; align-items: center; gap: .8rem;
-          padding: .65rem .85rem; border-radius: 12px;
+        .fd-doc-row {
+          display: flex; align-items: center; gap: .85rem;
+          padding: .8rem .95rem; border-radius: 14px;
+          border: 1px solid var(--color-border); background: var(--color-card);
+          cursor: pointer; transition: background .15s, border-color .15s;
         }
-        .fd-doc-stage.done { color: var(--color-muted-foreground); }
-        .fd-doc-stage.active {
-          background: rgba(99,102,241,.07); border: 1px solid rgba(99,102,241,.15);
-        }
-        .fd-doc-stage-icon {
-          width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+        .fd-doc-row:hover { background: var(--color-accent); border-color: rgba(129,140,248,.25); }
+        .fd-doc-row.active { border-color: rgba(99,102,241,.45); background: rgba(99,102,241,.05); }
+        .fd-doc-row-icon {
+          width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
         }
         .fd-doc-field-row {
@@ -248,9 +321,16 @@ export default function DocumentsPage() {
         .fd-doc-field-row.editing { border-color: rgba(99,102,241,.3); background: rgba(99,102,241,.05); }
         .fd-doc-field-value {
           font-size: .88rem; font-weight: 600; color: var(--color-foreground);
-          word-break: break-word;
+          word-break: break-word; margin: 0;
         }
         .fd-doc-field-value.empty { color: var(--color-muted-foreground); font-weight: 400; font-style: italic; }
+        .fd-doc-field-pre {
+          font-size: .78rem; color: var(--color-foreground);
+          background: var(--color-muted); border-radius: 8px;
+          padding: .5rem .65rem; overflow-x: auto; max-height: 160px;
+          white-space: pre-wrap; word-break: break-word; margin: 0;
+          font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+        }
         .fd-doc-input {
           width: 100%; padding: .55rem .7rem; border-radius: 10px;
           font-size: .85rem; font-family: inherit;
@@ -265,363 +345,567 @@ export default function DocumentsPage() {
           background: var(--color-background); border: 1px solid var(--color-border);
           color: var(--color-foreground); outline: none; cursor: pointer;
         }
-        .fd-doc-hist-row {
-          display: flex; align-items: center; gap: .75rem;
-          padding: .7rem .85rem; border-radius: 12px;
-          border: 1px solid var(--color-border); background: var(--color-card);
-          cursor: pointer; transition: background .15s, border-color .15s;
-        }
-        .fd-doc-hist-row:hover { background: var(--color-accent); border-color: rgba(129,140,248,.2); }
-        .fd-doc-hist-row.active { border-color: rgba(99,102,241,.4); background: rgba(99,102,241,.06); }
         .fd-doc-banner {
           display: flex; align-items: center; gap: .6rem;
           padding: .7rem .9rem; border-radius: 12px; font-size: .8rem;
         }
         .fd-doc-banner.warn { background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.25); color: var(--color-foreground); }
         .fd-doc-banner.ok { background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.25); color: var(--color-foreground); }
+        .fd-doc-toast {
+          position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+          background: rgba(17,24,39,.92); color: #fff; padding: .65rem 1.1rem;
+          border-radius: 12px; font-size: .82rem; font-weight: 600; z-index: 60;
+          box-shadow: 0 8px 30px rgba(0,0,0,.25); animation: fd-doc-rise .25s ease both;
+        }
         @keyframes fd-doc-rise {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
         }
         .fd-doc-enter { animation: fd-doc-rise .5s cubic-bezier(.16,1,.3,1) both; }
         .fd-doc-enter-d1 { animation-delay: .1s; }
-        .fd-doc-enter-d2 { animation-delay: .18s; }
       `}</style>
 
       <div className="fd-doc-root h-full overflow-auto p-6" suppressHydrationWarning>
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-5xl mx-auto space-y-5">
+          {toast && <div className="fd-doc-toast">{toast}</div>}
+
           {/* Hero */}
           <div className="fd-doc-hero fd-doc-enter">
             <div className="fd-doc-hero-orb" />
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground m-0 relative z-[2]">
-              {t("documents.title")} <ScanText size={22} style={{ color: "#10B981", verticalAlign: "middle" }} />
-            </h1>
-            <p className="text-sm text-muted-foreground m-0 mt-1 relative z-[2]">{t("documents.subtitle")}</p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
-            {/* Main column */}
-            <div className="space-y-5 min-w-0">
-              {/* Upload zone */}
-              {phase === "idle" && (
-                <div
-                  className={`fd-doc-upload fd-doc-enter ${dragging ? "dragging" : ""}`}
-                  onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f); }}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    accept={ACCEPT}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
-                  />
-                  <div onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
-                    <div className="fd-doc-upload-icon">
-                      <Upload size={24} style={{ color: "#10B981" }} />
-                    </div>
-                    <p className="text-[.95rem] font-bold text-foreground m-0 mb-1">{t("documents.uploadTitle")}</p>
-                    <p className="text-[.8rem] text-muted-foreground m-0 mb-4">{t("documents.uploadSub")}</p>
-                    <span
-                      className="fd-doc-btn fd-doc-btn-primary"
-                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                    >
-                      <Upload size={15} />
-                      {t("documents.browse")}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Uploading */}
-              {phase === "uploading" && (
-                <div className="fd-doc-card fd-doc-card-pad fd-doc-enter">
-                  <div className="flex items-center gap-3">
-                    <Loader2 size={20} className="animate-spin" style={{ color: "#10B981" }} />
-                    <div>
-                      <p className="text-sm font-bold text-foreground m-0">{t("documents.uploading")}</p>
-                      <p className="text-xs text-muted-foreground m-0 mt-0.5 truncate">{activeFileName}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Running stages */}
-              {running && (
-                <div className="fd-doc-card fd-doc-card-pad fd-doc-enter">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="fd-doc-stage-icon" style={{ background: "rgba(99,102,241,.12)" }}>
-                      <Sparkles size={16} style={{ color: "#6366F1" }} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-foreground m-0 truncate">{activeFileName ?? t("documents.running")}</p>
-                      <p className="text-xs text-muted-foreground m-0 mt-0.5">
-                        {t("documents.running")}… {t(`documents.stage.${STAGE_ORDER[stageIndex]}`)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    {STAGE_ORDER.slice(0, 4).map((stage, i) => {
-                      const isActive = i === stageIndex;
-                      const isDone = i < stageIndex;
-                      return (
-                        <div key={stage} className={`fd-doc-stage ${isActive ? "active" : ""}`}>
-                          <div
-                            className="fd-doc-stage-icon"
-                            style={{
-                              background: isDone ? "rgba(34,197,94,.12)" : isActive ? "rgba(99,102,241,.12)" : "var(--color-muted)",
-                            }}
-                          >
-                            {isDone ? (
-                              <Check size={14} style={{ color: "#22C55E" }} />
-                            ) : isActive ? (
-                              <Loader2 size={14} className="animate-spin" style={{ color: "#6366F1" }} />
-                            ) : (
-                              <Circle size={12} style={{ color: "var(--color-muted-foreground)" }} />
-                            )}
-                          </div>
-                          <span
-                            className="text-[.82rem] font-semibold"
-                            style={{ color: isActive ? "var(--color-foreground)" : isDone ? "#22C55E" : "var(--color-muted-foreground)" }}
-                          >
-                            {t(`documents.stage.${stage}`)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Error */}
-              {phase === "error" && (
-                <div className="fd-doc-card fd-doc-card-pad fd-doc-enter">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="fd-doc-stage-icon" style={{ background: "rgba(239,68,68,.12)" }}>
-                      <AlertTriangle size={18} style={{ color: "#EF4444" }} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-foreground m-0">{t("documents.errorTitle")}</p>
-                      {activeFileName && <p className="text-xs text-muted-foreground m-0 mt-0.5 truncate">{activeFileName}</p>}
-                    </div>
-                  </div>
-                  <div className="fd-doc-banner warn mb-4">
-                    <AlertTriangle size={14} style={{ color: "#F59E0B", flexShrink: 0 }} />
-                    <span>{error ?? t("common.error")}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    {canRerun && (
-                      <button onClick={() => rerun()} className="fd-doc-btn fd-doc-btn-secondary">
-                        <RefreshCw size={15} />
-                        {t("documents.rerun")}
-                      </button>
-                    )}
-                    <button onClick={reset} className="fd-doc-btn fd-doc-btn-indigo">
-                      <Upload size={15} />
-                      {t("documents.uploadTitle")}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Review (complete) */}
-              {phase === "complete" && job && (
-                <div className="space-y-5">
-                  <div className="fd-doc-card fd-doc-card-pad fd-doc-enter">
-                    {/* Header */}
-                    <div className="flex flex-wrap items-center gap-3 mb-4">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="fd-doc-stage-icon" style={{ background: "rgba(16,185,129,.12)" }}>
-                          <FileText size={16} style={{ color: "#10B981" }} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-foreground m-0 truncate">
-                            {activeFileName ?? t(`documents.profile.${job.profileType}`)}
-                          </p>
-                          <p className="text-xs text-muted-foreground m-0 mt-0.5">
-                            {t(`documents.profile.${job.profileType}`)} · {t("documents.reviewTitle")}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex-1" />
-                      <span className="fd-doc-chip" style={{ background: "rgba(16,185,129,.1)", color: "#10B981" }}>
-                        <ShieldCheck size={13} />
-                        {Math.round((job.overallConfidence ?? 0) * 100)}% {t("documents.confidence").toLowerCase()}
-                      </span>
-                    </div>
-
-                    {/* Validation banner */}
-                    {missing.length > 0 ? (
-                      <div className="fd-doc-banner warn mb-4">
-                        <AlertTriangle size={14} style={{ color: "#F59E0B", flexShrink: 0 }} />
-                        <span>
-                          {t("documents.missingFields", { fields: missing.map(humanize).join(", ") })}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="fd-doc-banner ok mb-4">
-                        <CheckCircle2 size={14} style={{ color: "#22C55E", flexShrink: 0 }} />
-                        <span>{t("documents.allFieldsOk")}</span>
-                      </div>
-                    )}
-
-                    {fields.length === 0 && (
-                      <div className="text-center py-6 text-sm text-muted-foreground">{t("common.error")}</div>
-                    )}
-
-                    {/* Ready group */}
-                    {readyFields.length > 0 && (
-                      <div className="mb-3">
-                        <p className="text-[.72rem] font-bold uppercase tracking-wider text-[#22C55E] mb-2 px-1 flex items-center gap-1.5">
-                          <CheckCircle2 size={13} /> {t("documents.groupReady")}
-                        </p>
-                        <div className="space-y-1">
-                          {readyFields.map((field) => (
-                            <FieldRow
-                              key={field.key}
-                              field={field}
-                              t={t}
-                              editing={editing?.key === field.key ? editing : null}
-                              saving={savingKey === field.key}
-                              fieldError={fieldError}
-                              onStartEdit={() => { setFieldError(null); setEditing({ key: field.key, draft: formatValue(field.value) }); }}
-                              onDraft={(draft) => setEditing((prev) => (prev ? { ...prev, draft } : prev))}
-                              onSave={() => handleFieldSave(field.key)}
-                              onCancel={() => { setEditing(null); setFieldError(null); }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Review group */}
-                    {reviewFields.length > 0 && (
-                      <div>
-                        <p className="text-[.72rem] font-bold uppercase tracking-wider text-[#F59E0B] mb-2 px-1 flex items-center gap-1.5">
-                          <AlertTriangle size={13} /> {t("documents.groupReview")}
-                        </p>
-                        <div className="space-y-1">
-                          {reviewFields.map((field) => (
-                            <FieldRow
-                              key={field.key}
-                              field={field}
-                              t={t}
-                              editing={editing?.key === field.key ? editing : null}
-                              saving={savingKey === field.key}
-                              fieldError={fieldError}
-                              onStartEdit={() => { setFieldError(null); setEditing({ key: field.key, draft: formatValue(field.value) }); }}
-                              onDraft={(draft) => setEditing((prev) => (prev ? { ...prev, draft } : prev))}
-                              onSave={() => handleFieldSave(field.key)}
-                              onCancel={() => { setEditing(null); setFieldError(null); }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Export bar */}
-                  <div className="fd-doc-card fd-doc-card-pad fd-doc-enter flex flex-wrap items-center gap-3">
-                    <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                      <Download size={15} style={{ color: "#6366F1" }} />
-                      {t("documents.export")}
-                    </span>
-                    <select
-                      value={exportFormat}
-                      onChange={(e) => setExportFormat(e.target.value as (typeof EXPORT_FORMATS)[number])}
-                      className="fd-doc-select"
-                    >
-                      {EXPORT_FORMATS.map((f) => (
-                        <option key={f} value={f}>{f.toUpperCase()}</option>
-                      ))}
-                    </select>
-                    <div className="flex-1" />
-                    <button onClick={handleExport} disabled={exporting} className="fd-doc-btn fd-doc-btn-indigo">
-                      {exporting ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
-                      {t("documents.download")}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* History column */}
-            <div className="space-y-3 min-w-0 fd-doc-enter fd-doc-enter-d2">
-              <div className="flex items-center gap-2 px-1">
-                <History size={15} style={{ color: "var(--color-muted-foreground)" }} />
-                <span className="text-[.78rem] font-bold uppercase tracking-wider text-muted-foreground">
-                  {t("documents.history")}
+            <div className="flex flex-wrap items-center gap-3 relative z-[2]">
+              <h1 className="text-2xl font-extrabold tracking-tight text-foreground m-0">
+                {t("documents.title")}{" "}
+                <ScanText size={22} style={{ color: "#10B981", verticalAlign: "middle" }} />
+              </h1>
+              <div className="flex-1" />
+              {docs.length > 0 && (
+                <span className="fd-doc-chip" style={{ background: "rgba(99,102,241,.1)", color: "#6366F1" }}>
+                  <FileClock size={13} />
+                  {docs.length} · {runningDocs} {t("documents.running").toLowerCase()}
                 </span>
-              </div>
-              {historyLoading ? (
-                <div className="fd-doc-card fd-doc-card-pad flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 size={15} className="animate-spin" />
-                  {t("documents.loadingHistory")}
-                </div>
-              ) : history.length === 0 ? (
-                <div className="fd-doc-card fd-doc-card-pad text-center py-8">
-                  <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(99,102,241,.08)" }}>
-                    <Clipboard size={20} style={{ color: "#6366F1" }} />
-                  </div>
-                  <p className="text-sm font-bold text-foreground m-0 mb-1">{t("documents.noHistory")}</p>
-                  <p className="text-xs text-muted-foreground m-0">{t("documents.noHistorySub")}</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {history.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => loadJob(item.id)}
-                      className={`fd-doc-hist-row ${job?.id === item.id ? "active" : ""}`}
-                    >
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: item.status === "error" ? "rgba(239,68,68,.1)" : "rgba(16,185,129,.1)" }}>
-                        {item.status === "error" ? (
-                          <X size={15} style={{ color: "#EF4444" }} />
-                        ) : item.status === "complete" ? (
-                          <FileText size={15} style={{ color: "#10B981" }} />
-                        ) : (
-                          <Loader2 size={15} className="animate-spin" style={{ color: "#F59E0B" }} />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[.8rem] font-bold text-foreground m-0 truncate">
-                          {t(`documents.profile.${item.profileType}`)}
-                        </p>
-                        <p className="text-[.7rem] text-muted-foreground m-0 mt-0.5 truncate">
-                          {item.status === "complete"
-                            ? `${Math.round((item.overallConfidence ?? 0) * 100)}% · ${new Date(item.createdAt).toLocaleString()}`
-                            : `${t(`documents.stage.${item.status}`)} · ${new Date(item.createdAt).toLocaleString()}`}
-                        </p>
-                      </div>
-                      <span
-                        className="fd-doc-chip"
-                        style={
-                          item.status === "complete"
-                            ? { background: "rgba(16,185,129,.1)", color: "#10B981" }
-                            : item.status === "error"
-                              ? { background: "rgba(239,68,68,.1)", color: "#EF4444" }
-                              : { background: "rgba(245,158,11,.1)", color: "#F59E0B" }
-                        }
-                      >
-                        {t(`documents.stage.${item.status}`)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
               )}
             </div>
+            <p className="text-sm text-muted-foreground m-0 mt-1 relative z-[2]">
+              {t("documents.subtitle")}
+            </p>
           </div>
+
+          {/* Upload — always available */}
+          <div
+            className={`fd-doc-upload fd-doc-enter ${dragging ? "dragging" : ""}`}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); handleDropFiles(Array.from(e.dataTransfer.files)); }}
+            onClick={() => dropInputRef.current?.click()}
+          >
+            <input
+              ref={dropInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              accept={ACCEPT}
+              onChange={(e) => { const f = Array.from(e.target.files ?? []); if (f.length) handleDropFiles(f); e.target.value = ""; }}
+            />
+            <div className="fd-doc-upload-icon">
+              {busy ? (
+                <Loader2 size={24} className="animate-spin" style={{ color: "#10B981" }} />
+              ) : (
+                <Upload size={24} style={{ color: "#10B981" }} />
+              )}
+            </div>
+            <p className="text-[.95rem] font-bold text-foreground m-0 mb-1">
+              {busy ? t("documents.uploading") : t("documents.uploadTitle")}
+            </p>
+            <p className="text-[.8rem] text-muted-foreground m-0 mb-4">{t("documents.uploadSub")}</p>
+            <span
+              className="fd-doc-btn fd-doc-btn-primary"
+              onClick={(e) => { e.stopPropagation(); dropInputRef.current?.click(); }}
+            >
+              <Upload size={15} />
+              {t("documents.browse")}
+            </span>
+          </div>
+
+          {/* Documents list */}
+          <div className="space-y-2 fd-doc-enter fd-doc-enter-d1">
+            <div className="flex items-center gap-2 px-1">
+              <History size={15} style={{ color: "var(--color-muted-foreground)" }} />
+              <span className="text-[.78rem] font-bold uppercase tracking-wider text-muted-foreground">
+                {t("documents.history")}
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="fd-doc-card fd-doc-card-pad flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 size={15} className="animate-spin" />
+                {t("documents.loadingHistory")}
+              </div>
+            ) : docs.length === 0 ? (
+              <div className="fd-doc-card fd-doc-card-pad text-center py-10">
+                <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(99,102,241,.08)" }}>
+                  <Clipboard size={20} style={{ color: "#6366F1" }} />
+                </div>
+                <p className="text-sm font-bold text-foreground m-0 mb-1">{t("documents.noHistory")}</p>
+                <p className="text-xs text-muted-foreground m-0">{t("documents.noHistorySub")}</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {docs.map((item) => (
+                  <DocRow
+                    key={item.key}
+                    item={item}
+                    active={activeId === item.job?.id}
+                    profileLabel={profileLabel}
+                    t={t}
+                    exporting={exporting}
+                    exportFormat={exportFormat}
+                    confirmKey={confirmKey}
+                    onSelect={() => handleRowSelect(item)}
+                    onExport={(job) => handleExport(job)}
+                    onReplace={(id) => { setReplaceFor(id); replaceInputRef.current?.click(); }}
+                    onRerun={(id) => rerun(id)}
+                    onDelete={(id) => {
+                      if (confirmKey === id) { setConfirmKey(null); remove(id); }
+                      else setConfirmKey(id);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Replace file picker (shared) */}
+          <input
+            ref={replaceInputRef}
+            type="file"
+            className="hidden"
+            accept={ACCEPT}
+            onChange={(e) => {
+              const target = replaceFor;
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              setReplaceFor(null);
+              if (target && file) replace(target, file);
+            }}
+          />
+
+          {/* Review workspace */}
+          {activeJob && activeJob.status === "complete" && (
+            <ReviewWorkspace
+              job={activeJob}
+              profileLabel={profileLabel}
+              schema={activeSchema}
+              t={t}
+              editing={editing}
+              savingKey={savingKey}
+              fieldError={fieldError}
+              exportFormat={exportFormat}
+              setExportFormat={setExportFormat}
+              exporting={exporting}
+              onExport={() => handleExport(activeJob)}
+              onRerun={() => rerun(activeJob.id)}
+              onDelete={() => remove(activeJob.id)}
+              onStartEdit={(key) => {
+                setFieldError(null);
+                const def = activeSchema?.fields.find((f) => f.key === key);
+                const fv = activeJob.fields?.find((f) => f.key === key);
+                const type = def?.type ?? "string";
+                const value = fv?.value;
+                let draft = displayValue(value);
+                if (type === "boolean" && typeof value === "boolean") draft = String(value);
+                if ((type === "array" || type === "object") && value !== null && value !== undefined) {
+                  draft = JSON.stringify(value, null, 2);
+                }
+                setEditing({ key, draft });
+              }}
+              onDraft={(draft) => setEditing((prev) => (prev ? { ...prev, draft } : prev))}
+              onSave={(key) => handleFieldSave(activeJob, key)}
+              onCancel={() => { setEditing(null); setFieldError(null); }}
+            />
+          )}
+
+          {/* Running / error state for the active document */}
+          {activeDoc && activeJob && RUNNING.has(activeJob.status) && (
+            <div className="fd-doc-card fd-doc-card-pad fd-doc-enter">
+              <div className="flex items-center gap-3">
+                <div className="fd-doc-row-icon" style={{ background: "rgba(99,102,241,.12)" }}>
+                  <Loader2 size={18} className="animate-spin" style={{ color: "#6366F1" }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground m-0 truncate">{activeDoc.fileName}</p>
+                  <p className="text-xs text-muted-foreground m-0 mt-0.5">
+                    {t(`documents.stage.${activeJob.status}`)}…
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          {activeDoc && activeJob && activeJob.status === "error" && (
+            <div className="fd-doc-card fd-doc-card-pad fd-doc-enter">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="fd-doc-row-icon" style={{ background: "rgba(239,68,68,.12)" }}>
+                  <AlertTriangle size={18} style={{ color: "#EF4444" }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground m-0 truncate">{activeDoc.fileName}</p>
+                  <p className="text-xs text-muted-foreground m-0 mt-0.5">{t("documents.errorTitle")}</p>
+                </div>
+              </div>
+              <div className="fd-doc-banner warn mb-4">
+                <AlertTriangle size={14} style={{ color: "#F59E0B", flexShrink: 0 }} />
+                <span>{activeJob.error?.message ?? t("common.error")}</span>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => rerun(activeJob.id)} className="fd-doc-btn fd-doc-btn-secondary">
+                  <RefreshCw size={15} />
+                  {t("documents.rerun")}
+                </button>
+                <button onClick={() => remove(activeJob.id)} className="fd-doc-btn fd-doc-btn-danger">
+                  <Trash2 size={15} />
+                  {t("documents.delete")}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
   );
 }
 
-/* ─── Field row ─────────────────────────────────────────────────────────── */
+/* ─── Document row ────────────────────────────────────────────────────── */
+
+interface DocRowProps {
+  item: DocItem;
+  active: boolean;
+  profileLabel: (id: string) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  exporting: boolean;
+  exportFormat: string;
+  confirmKey: string | null;
+  onSelect: () => void;
+  onExport: (job: JobDTO) => void;
+  onReplace: (id: string) => void;
+  onRerun: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+function DocRow({
+  item,
+  active,
+  profileLabel,
+  t,
+  exporting,
+  exportFormat,
+  confirmKey,
+  onSelect,
+  onExport,
+  onReplace,
+  onRerun,
+  onDelete,
+}: DocRowProps) {
+  const { job, fileName, uploading, replacing, rerunning, removing, localError } = item;
+  const id = job?.id ?? item.key;
+  const running = !!job && RUNNING.has(job.status);
+  const complete = job?.status === "complete";
+  const error = job?.status === "error";
+  const busy = replacing || rerunning || removing;
+
+  const iconBg = error
+    ? "rgba(239,68,68,.12)"
+    : complete
+      ? "rgba(16,185,129,.12)"
+      : "rgba(245,158,11,.12)";
+  const iconColor = error ? "#EF4444" : complete ? "#10B981" : "#F59E0B";
+
+  const subtitle = job
+    ? `${profileLabel(job.profileType)} · ${new Date(job.createdAt).toLocaleString()}`
+    : new Date().toLocaleString();
+
+  return (
+    <div className={`fd-doc-row ${active ? "active" : ""}`} onClick={onSelect}>
+      <div className="fd-doc-row-icon" style={{ background: iconBg }}>
+        {uploading ? (
+          <Loader2 size={18} className="animate-spin" style={{ color: "#6366F1" }} />
+        ) : running ? (
+          <Loader2 size={18} className="animate-spin" style={{ color: iconColor }} />
+        ) : error ? (
+          <X size={18} style={{ color: iconColor }} />
+        ) : (
+          <FileText size={18} style={{ color: iconColor }} />
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-[.85rem] font-bold text-foreground m-0 truncate">
+            {fileName ?? job?.sourceText?.slice(0, 40) ?? t("documents.title")}
+          </p>
+          {complete && (
+            <span className="fd-doc-chip flex-shrink-0" style={{ background: "rgba(16,185,129,.1)", color: "#10B981" }}>
+              <ShieldCheck size={12} />
+              {Math.round((job.overallConfidence ?? 0) * 100)}%
+            </span>
+          )}
+        </div>
+        <p className="text-[.72rem] text-muted-foreground m-0 mt-0.5 truncate">{subtitle}</p>
+        {localError && (
+          <p className="text-[.72rem] m-0 mt-0.5 truncate" style={{ color: "#EF4444" }}>{localError}</p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {complete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onExport(job); }}
+            disabled={exporting}
+            className="fd-doc-btn fd-doc-btn-secondary"
+            style={{ padding: ".45rem .7rem" }}
+            title={`Export ${exportFormat.toUpperCase()}`}
+          >
+            {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          </button>
+        )}
+        {complete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRerun(id); }}
+            disabled={busy}
+            className="fd-doc-btn fd-doc-btn-secondary"
+            style={{ padding: ".45rem .7rem" }}
+            title={t("documents.rerun")}
+          >
+            {rerunning ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          </button>
+        )}
+        {!uploading && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onReplace(id); }}
+            disabled={busy}
+            className="fd-doc-btn fd-doc-btn-secondary"
+            style={{ padding: ".45rem .7rem" }}
+            title={t("documents.replace")}
+          >
+            {replacing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          </button>
+        )}
+        {uploading ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(id); }}
+            className="fd-doc-btn fd-doc-btn-danger"
+            style={{ padding: ".45rem .7rem" }}
+            title={t("documents.removeFile")}
+          >
+            <X size={14} />
+          </button>
+        ) : confirmKey === id ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(id); }}
+            className="fd-doc-btn fd-doc-btn-danger"
+            style={{ padding: ".45rem .7rem" }}
+          >
+            <Check size={14} />
+            {t("documents.confirm")}
+          </button>
+        ) : (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(id); }}
+            disabled={busy}
+            className="fd-doc-btn fd-doc-btn-secondary"
+            style={{ padding: ".45rem .7rem", color: "#EF4444" }}
+            title={t("documents.delete")}
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Review workspace ────────────────────────────────────────────────── */
+
+interface ReviewProps {
+  job: JobDTO;
+  profileLabel: (id: string) => string;
+  schema?: ProfileSchemaDTO["schema"];
+  t: (key: string, params?: Record<string, string | number>) => string;
+  editing: { key: string; draft: string } | null;
+  savingKey: string | null;
+  fieldError: string | null;
+  exportFormat: string;
+  setExportFormat: (f: (typeof EXPORT_FORMATS)[number]) => void;
+  exporting: boolean;
+  onExport: () => void;
+  onRerun: () => void;
+  onDelete: () => void;
+  onStartEdit: (key: string) => void;
+  onDraft: (draft: string) => void;
+  onSave: (key: string) => void;
+  onCancel: () => void;
+}
+
+function ReviewWorkspace(props: ReviewProps) {
+  const {
+    job,
+    profileLabel,
+    schema,
+    t,
+    editing,
+    savingKey,
+    fieldError,
+    exportFormat,
+    setExportFormat,
+    exporting,
+    onExport,
+    onRerun,
+    onDelete,
+    onStartEdit,
+    onDraft,
+    onSave,
+    onCancel,
+  } = props;
+
+  const fields = job.fields ?? [];
+  const byKey = new Map(fields.map((f) => [f.key, f]));
+  const missing = job.validation?.missing ?? [];
+  const fieldLabel = (key: string) =>
+    schema?.fields.find((f) => f.key === key)?.label ?? humanize(key);
+
+  const groups: Array<{ label: string; fields: FieldDTO[] }> = [];
+  if (schema?.groups?.length) {
+    const used = new Set<string>();
+    for (const g of schema.groups) {
+      const gf = g.keys.map((k) => byKey.get(k)).filter((f): f is FieldDTO => Boolean(f));
+      if (gf.length) {
+        groups.push({ label: g.label, fields: gf });
+        gf.forEach((f) => used.add(f.key));
+      }
+    }
+    const other = fields.filter((f) => !used.has(f.key));
+    if (other.length) groups.push({ label: t("documents.other"), fields: other });
+  } else if (fields.length) {
+    groups.push({ label: "", fields });
+  }
+
+  return (
+    <div className="space-y-4 fd-doc-enter">
+      {/* Header */}
+      <div className="fd-doc-card fd-doc-card-pad">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="fd-doc-row-icon" style={{ background: "rgba(16,185,129,.12)" }}>
+              <FileText size={16} style={{ color: "#10B981" }} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-foreground m-0 truncate">
+                {job.sourceText?.slice(0, 60) || profileLabel(job.profileType)}
+              </p>
+              <p className="text-xs text-muted-foreground m-0 mt-0.5">
+                {profileLabel(job.profileType)} · {t("documents.reviewTitle")}
+              </p>
+            </div>
+          </div>
+          <div className="flex-1" />
+          <span className="fd-doc-chip" style={{ background: "rgba(16,185,129,.1)", color: "#10B981" }}>
+            <ShieldCheck size={13} />
+            {Math.round((job.overallConfidence ?? 0) * 100)}% {t("documents.confidence").toLowerCase()}
+          </span>
+          {job.model && (
+            <span className="fd-doc-chip" style={{ background: "rgba(99,102,241,.08)", color: "#6366F1" }}>
+              <Sparkles size={12} />
+              {job.model}
+            </span>
+          )}
+        </div>
+
+        {/* Validation banner */}
+        {missing.length > 0 ? (
+          <div className="fd-doc-banner warn mb-4">
+            <AlertTriangle size={14} style={{ color: "#F59E0B", flexShrink: 0 }} />
+            <span>{t("documents.missingFields", { fields: missing.map(fieldLabel).join(", ") })}</span>
+          </div>
+        ) : (
+          <div className="fd-doc-banner ok mb-4">
+            <CheckCircle2 size={14} style={{ color: "#22C55E", flexShrink: 0 }} />
+            <span>{t("documents.allFieldsOk")}</span>
+          </div>
+        )}
+
+        {/* Field groups */}
+        {groups.length === 0 ? (
+          <div className="text-center py-6 text-sm text-muted-foreground">{t("common.error")}</div>
+        ) : (
+          <div className="space-y-5">
+            {groups.map((g) => (
+              <div key={g.label || "root"}>
+                {g.label && (
+                  <p className="text-[.72rem] font-bold uppercase tracking-wider text-muted-foreground mb-2 px-1">
+                    {g.label}
+                  </p>
+                )}
+                <div className="space-y-1">
+                  {g.fields.map((field) => (
+                    <FieldRow
+                      key={field.key}
+                      field={field}
+                      label={fieldLabel(field.key)}
+                      def={schema?.fields.find((f) => f.key === field.key)}
+                      t={t}
+                      editing={editing?.key === field.key ? editing : null}
+                      saving={savingKey === field.key}
+                      fieldError={fieldError}
+                      onStartEdit={() => onStartEdit(field.key)}
+                      onDraft={onDraft}
+                      onSave={() => onSave(field.key)}
+                      onCancel={onCancel}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Actions + export */}
+      <div className="fd-doc-card fd-doc-card-pad flex flex-wrap items-center gap-3">
+        <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
+          <Download size={15} style={{ color: "#6366F1" }} />
+          {t("documents.export")}
+        </span>
+        <select
+          value={exportFormat}
+          onChange={(e) => setExportFormat(e.target.value as (typeof EXPORT_FORMATS)[number])}
+          className="fd-doc-select"
+        >
+          {EXPORT_FORMATS.map((f) => (
+            <option key={f} value={f}>{f.toUpperCase()}</option>
+          ))}
+        </select>
+        <div className="flex-1" />
+        <button onClick={onRerun} className="fd-doc-btn fd-doc-btn-secondary">
+          <RefreshCw size={15} />
+          {t("documents.rerun")}
+        </button>
+        <button onClick={onDelete} className="fd-doc-btn fd-doc-btn-danger">
+          <Trash2 size={15} />
+          {t("documents.delete")}
+        </button>
+        <button onClick={onExport} disabled={exporting} className="fd-doc-btn fd-doc-btn-indigo">
+          {exporting ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+          {t("documents.download")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Field row ───────────────────────────────────────────────────────── */
 
 interface FieldRowProps {
   field: FieldDTO;
+  label: string;
+  def?: FieldSchemaDTO;
   t: (key: string, params?: Record<string, string | number>) => string;
   editing: { key: string; draft: string } | null;
   saving: boolean;
@@ -634,6 +918,8 @@ interface FieldRowProps {
 
 function FieldRow({
   field,
+  label,
+  def,
   t,
   editing,
   saving,
@@ -643,58 +929,53 @@ function FieldRow({
   onSave,
   onCancel,
 }: FieldRowProps) {
-  const value = formatValue(field.value);
+  const value = displayValue(field.value);
   const empty = value === "";
   const color = confidenceColor(field.confidence);
-  const isBool = typeof field.value === "boolean";
+  const type = def?.type ?? "string";
   const inEdit = editing?.key === field.key;
+  const isStructured = type === "array" || type === "object";
+
+  const statusColor =
+    field.status === "edited"
+      ? "#8B5CF6"
+      : field.status === "verified"
+        ? "#22C55E"
+        : "#6366F1";
 
   return (
     <div className={`fd-doc-field-row ${inEdit ? "editing" : ""}`}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
           <span className="text-[.74rem] font-bold uppercase tracking-wide text-muted-foreground truncate">
-            {humanize(field.key)}
+            {label}
           </span>
+          {def?.required && (
+            <span className="text-[.68rem] font-bold" style={{ color: "#F59E0B" }}>•</span>
+          )}
           <span
             className="fd-doc-chip"
             style={{
-              background: field.status === "edited" ? "rgba(139,92,246,.1)" : "rgba(99,102,241,.08)",
-              color: field.status === "edited" ? "#8B5CF6" : "#6366F1",
+              background: `${statusColor}1A`,
+              color: statusColor,
               padding: ".12rem .45rem",
               fontSize: ".64rem",
             }}
           >
-            {field.status === "edited"
-              ? t("documents.fieldStatus.edited")
-              : field.source
-                ? t(`documents.fieldSource.${field.source}`) || field.source
-                : t("documents.fieldStatus.extracted")}
+            {t(`documents.fieldStatus.${field.status}`) || field.status}
           </span>
         </div>
+
         {inEdit ? (
           <div>
-            {isBool ? (
-              <select
-                value={editing!.draft}
-                onChange={(e) => onDraft(e.target.value)}
-                className="fd-doc-input"
-                autoFocus
-                onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
-              >
-                <option value="true">true</option>
-                <option value="false">false</option>
-              </select>
-            ) : (
-              <input
-                type="text"
-                value={editing!.draft}
-                onChange={(e) => onDraft(e.target.value)}
-                className="fd-doc-input"
-                autoFocus
-                onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
-              />
-            )}
+            <Editor
+              type={type}
+              def={def}
+              draft={editing!.draft}
+              onDraft={onDraft}
+              onSave={onSave}
+              onCancel={onCancel}
+            />
             {fieldError && (
               <p className="text-[.72rem] text-destructive mt-1.5 flex items-center gap-1">
                 <AlertTriangle size={12} />
@@ -702,8 +983,12 @@ function FieldRow({
               </p>
             )}
           </div>
+        ) : empty ? (
+          <p className="fd-doc-field-value empty">—</p>
+        ) : isStructured ? (
+          <pre className="fd-doc-field-pre">{value}</pre>
         ) : (
-          <p className={`fd-doc-field-value ${empty ? "empty" : ""}`}>{empty ? "—" : value}</p>
+          <p className="fd-doc-field-value">{value}</p>
         )}
       </div>
 
@@ -735,5 +1020,90 @@ function FieldRow({
         </button>
       )}
     </div>
+  );
+}
+
+/* ─── Type-aware field editor ─────────────────────────────────────────── */
+
+function Editor({
+  type,
+  def,
+  draft,
+  onDraft,
+  onSave,
+  onCancel,
+}: {
+  type: string;
+  def?: FieldSchemaDTO;
+  draft: string;
+  onDraft: (draft: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  if (type === "enum" && def?.enum?.length) {
+    return (
+      <select
+        value={draft}
+        onChange={(e) => onDraft(e.target.value)}
+        className="fd-doc-input"
+        autoFocus
+        onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
+      >
+        <option value="">—</option>
+        {def.enum.map((opt) => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
+    );
+  }
+  if (type === "boolean") {
+    return (
+      <select
+        value={draft}
+        onChange={(e) => onDraft(e.target.value)}
+        className="fd-doc-input"
+        autoFocus
+        onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
+      >
+        <option value="">—</option>
+        <option value="true">true</option>
+        <option value="false">false</option>
+      </select>
+    );
+  }
+  if (type === "date") {
+    return (
+      <input
+        type="date"
+        value={draft}
+        onChange={(e) => onDraft(e.target.value)}
+        className="fd-doc-input"
+        autoFocus
+        onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
+      />
+    );
+  }
+  if (type === "array" || type === "object") {
+    return (
+      <textarea
+        value={draft}
+        onChange={(e) => onDraft(e.target.value)}
+        className="fd-doc-input"
+        rows={5}
+        autoFocus
+        onKeyDown={(e) => { if (e.key === "Escape") onCancel(); }}
+        style={{ fontFamily: "'SF Mono', ui-monospace, Consolas, monospace", fontSize: ".78rem" }}
+      />
+    );
+  }
+  return (
+    <input
+      type="text"
+      value={draft}
+      onChange={(e) => onDraft(e.target.value)}
+      className="fd-doc-input"
+      autoFocus
+      onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
+    />
   );
 }

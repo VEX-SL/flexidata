@@ -15,6 +15,18 @@ const schema = {
     { key: "key_numbers", type: "array" as const, itemsType: "string" as const, label: "Key numbers", description: "Prominent numbers (references, amounts, quantities)" },
     { key: "summary", type: "text" as const, label: "Summary", description: "2-4 sentence summary of the document" },
   ],
+  groups: [
+    {
+      id: "document",
+      label: "Document",
+      keys: ["document_title", "document_date", "author_name", "recipient_name"],
+    },
+    {
+      id: "details",
+      label: "Details",
+      keys: ["key_numbers", "summary"],
+    },
+  ],
 };
 
 const promptTemplate = `You are a generic document data extraction engine.

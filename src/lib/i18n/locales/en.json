@@ -51,6 +51,11 @@
     "retry": "Retry",
     "rerun": "Re-run",
     "reprocessing": "Re-running...",
+    "replace": "Replace file",
+    "delete": "Delete",
+    "removeFile": "Remove",
+    "confirm": "Confirm",
+    "other": "Other",
     "loadingHistory": "Loading...",
     "stage": {
       "queued": "Queued",

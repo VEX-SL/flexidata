@@ -44,6 +44,8 @@ export interface FieldSchema {
 export interface ProfileSchema {
   version: number;
   fields: FieldSchema[];
+  /** Optional ordered field groups used by the review UI. */
+  groups?: Array<{ id: string; label: string; keys: string[] }>;
 }
 
 // ─── Validation rules (declarative) ───────────────────────────────────────

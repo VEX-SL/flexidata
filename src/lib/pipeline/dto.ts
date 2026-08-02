@@ -26,6 +26,7 @@ export interface ErrorDTO {
 export interface JobDTO {
   id: string;
   status: string;
+  fileId: string | null;
   profileType: ProfileType | string;
   profileVersion: number;
   pipelineVersion: number;
@@ -62,6 +63,7 @@ export interface ProfileDTO {
 export interface ExtractionRow {
   id: string;
   status: string;
+  file_id?: string | null;
   profile_type: ProfileType | string;
   profile_version: number;
   pipeline_version: number;
@@ -88,6 +90,7 @@ export function toJobDTO(row: ExtractionRow): JobDTO {
   return {
     id: row.id,
     status: row.status,
+    fileId: row.file_id ?? null,
     profileType: row.profile_type,
     profileVersion: row.profile_version,
     pipelineVersion: row.pipeline_version,

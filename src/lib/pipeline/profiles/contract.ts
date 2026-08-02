@@ -22,6 +22,41 @@ const schema = {
     { key: "key_obligations", type: "array" as const, itemsType: "object" as const, label: "Key obligations", description: "Objects with keys: party, obligation" },
     { key: "summary", type: "text" as const, label: "Summary", description: "2-4 sentence summary of the contract purpose" },
   ],
+  groups: [
+    {
+      id: "document",
+      label: "Contract",
+      keys: ["contract_title", "contract_date", "effective_date", "expiry_date"],
+    },
+    {
+      id: "parties",
+      label: "Parties",
+      keys: ["party_a_name", "party_a_type", "party_b_name", "party_b_type"],
+    },
+    {
+      id: "terms",
+      label: "Terms",
+      keys: [
+        "jurisdiction",
+        "currency",
+        "contract_value",
+        "payment_terms",
+        "renewal_terms",
+        "notice_period",
+        "governing_law",
+      ],
+    },
+    {
+      id: "obligations",
+      label: "Obligations",
+      keys: ["signatories", "key_obligations"],
+    },
+    {
+      id: "summary",
+      label: "Summary",
+      keys: ["summary"],
+    },
+  ],
 };
 
 const promptTemplate = `You are a contract data extraction engine.
