@@ -65,8 +65,17 @@ export function parseRaw(content: string): RawExtraction {
 
   const obj = parsed as Record<string, unknown>;
 
+  // Models may echo the profile schema shape (`{version, fields}`), wrap
+  // fields under `data`, or return a flat object. Unwrap the first of
+  // `data` / `fields` that holds the extracted values, falling back to the
+  // root object.
+  const data =
+    (obj.data as Record<string, unknown>) ??
+    (obj.fields as Record<string, unknown>) ??
+    obj;
+
   return {
-    data: (obj.data as Record<string, unknown>) ?? obj,
+    data,
     confidence:
       (obj.confidence as Record<string, number>) ??
       (obj.confidences as Record<string, number>) ??

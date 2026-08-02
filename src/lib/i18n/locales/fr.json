@@ -1,6 +1,7 @@
 {
   "nav": {
     "dashboard": "Tableau de bord",
+    "documents": "Documents",
     "chat": "Chat",
     "agents": "Agents",
     "settings": "Paramètres",
@@ -19,6 +20,66 @@
     "noFiles": "Aucun fichier téléchargé",
     "recentChats": "Chats récents",
     "noChats": "Aucun chat"
+  },
+  "documents": {
+    "title": "Documents",
+    "subtitle": "Téléchargez des documents et extrayez automatiquement les données structurées",
+    "uploadTitle": "Télécharger un document",
+    "uploadSub": "PDF, Word, Excel, Images, CSV — jusqu'à 50 Mo. L'extraction démarre automatiquement.",
+    "browse": "Parcourir les fichiers",
+    "uploading": "Téléchargement...",
+    "dropHere": "Déposez votre fichier ici",
+    "running": "Exécution du pipeline d'extraction",
+    "reviewTitle": "Champs extraits",
+    "missingFields": "Champs obligatoires manquants : {{fields}}",
+    "allFieldsOk": "Tous les champs obligatoires ont été extraits",
+    "groupReady": "Confiance élevée",
+    "groupReview": "À vérifier",
+    "edit": "Modifier",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "saved": "Enregistré",
+    "reset": "Réinitialiser",
+    "confidence": "Confiance",
+    "export": "Exporter",
+    "exportFormat": "Format",
+    "download": "Télécharger",
+    "history": "Extractions récentes",
+    "noHistory": "Aucune extraction",
+    "noHistorySub": "Téléchargez un document pour commencer.",
+    "errorTitle": "Échec de l'extraction",
+    "retry": "Réessayer",
+    "rerun": "Relancer",
+    "reprocessing": "Relance...",
+    "loadingHistory": "Chargement...",
+    "stage": {
+      "queued": "En file",
+      "classifying": "Classification",
+      "extracting": "Extraction",
+      "validating": "Validation",
+      "complete": "Terminé",
+      "error": "Erreur"
+    },
+    "profile": {
+      "invoice": "Facture",
+      "receipt": "Reçu",
+      "resume": "CV",
+      "contract": "Contrat",
+      "unknown": "Document"
+    },
+    "fieldStatus": {
+      "extracted": "Extrait",
+      "verified": "Vérifié",
+      "edited": "Modifié",
+      "flagged": "Signalé"
+    },
+    "fieldSource": {
+      "ai": "IA",
+      "ocr": "OCR",
+      "rule": "Règle",
+      "user": "Manuel",
+      "verified": "Vérifié"
+    }
   },
   "chat": {
     "title": "Chat",

@@ -1,6 +1,7 @@
 {
   "nav": {
     "dashboard": "控制面板",
+    "documents": "文档",
     "chat": "聊天",
     "agents": "智能体",
     "settings": "设置",
@@ -19,6 +20,66 @@
     "noFiles": "暂无上传文件",
     "recentChats": "最近聊天",
     "noChats": "暂无聊天"
+  },
+  "documents": {
+    "title": "文档",
+    "subtitle": "上传文档并自动提取结构化数据",
+    "uploadTitle": "上传文档",
+    "uploadSub": "PDF、Word、Excel、图片、CSV — 最大 50 MB。上传后自动开始提取。",
+    "browse": "浏览文件",
+    "uploading": "上传中...",
+    "dropHere": "将文件拖放到此处",
+    "running": "正在运行提取流程",
+    "reviewTitle": "提取的字段",
+    "missingFields": "缺少必填字段：{{fields}}",
+    "allFieldsOk": "所有必填字段均已提取",
+    "groupReady": "高置信度",
+    "groupReview": "需要检查",
+    "edit": "编辑",
+    "save": "保存",
+    "cancel": "取消",
+    "saved": "已保存",
+    "reset": "重置",
+    "confidence": "置信度",
+    "export": "导出",
+    "exportFormat": "格式",
+    "download": "下载",
+    "history": "最近提取",
+    "noHistory": "暂无提取记录",
+    "noHistorySub": "上传文档以开始。",
+    "errorTitle": "提取失败",
+    "retry": "重试",
+    "rerun": "重新运行",
+    "reprocessing": "重新运行中...",
+    "loadingHistory": "加载中...",
+    "stage": {
+      "queued": "排队中",
+      "classifying": "分类中",
+      "extracting": "提取中",
+      "validating": "验证中",
+      "complete": "已完成",
+      "error": "错误"
+    },
+    "profile": {
+      "invoice": "发票",
+      "receipt": "收据",
+      "resume": "简历",
+      "contract": "合同",
+      "unknown": "文档"
+    },
+    "fieldStatus": {
+      "extracted": "已提取",
+      "verified": "已验证",
+      "edited": "已编辑",
+      "flagged": "已标记"
+    },
+    "fieldSource": {
+      "ai": "AI",
+      "ocr": "OCR",
+      "rule": "规则",
+      "user": "手动",
+      "verified": "已验证"
+    }
   },
   "chat": {
     "title": "聊天",

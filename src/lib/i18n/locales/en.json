@@ -1,6 +1,7 @@
 {
   "nav": {
     "dashboard": "Dashboard",
+    "documents": "Documents",
     "chat": "Chat",
     "agents": "Agents",
     "settings": "Settings",
@@ -19,6 +20,66 @@
     "noFiles": "No files uploaded yet",
     "recentChats": "Recent Chats",
     "noChats": "No chats yet"
+  },
+  "documents": {
+    "title": "Documents",
+    "subtitle": "Upload documents and extract structured data automatically",
+    "uploadTitle": "Upload a document",
+    "uploadSub": "PDF, Word, Excel, Images, CSV — up to 50 MB. Extraction runs automatically.",
+    "browse": "Browse files",
+    "uploading": "Uploading...",
+    "dropHere": "Drop your file here",
+    "running": "Running extraction pipeline",
+    "reviewTitle": "Extracted Fields",
+    "missingFields": "Missing required fields: {{fields}}",
+    "allFieldsOk": "All required fields extracted",
+    "groupReady": "High confidence",
+    "groupReview": "Review needed",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Saved",
+    "reset": "Reset",
+    "confidence": "Confidence",
+    "export": "Export",
+    "exportFormat": "Format",
+    "download": "Download",
+    "history": "Recent Extractions",
+    "noHistory": "No extractions yet",
+    "noHistorySub": "Upload a document to get started.",
+    "errorTitle": "Extraction failed",
+    "retry": "Retry",
+    "rerun": "Re-run",
+    "reprocessing": "Re-running...",
+    "loadingHistory": "Loading...",
+    "stage": {
+      "queued": "Queued",
+      "classifying": "Classifying",
+      "extracting": "Extracting",
+      "validating": "Validating",
+      "complete": "Complete",
+      "error": "Error"
+    },
+    "profile": {
+      "invoice": "Invoice",
+      "receipt": "Receipt",
+      "resume": "Resume",
+      "contract": "Contract",
+      "unknown": "Document"
+    },
+    "fieldStatus": {
+      "extracted": "Extracted",
+      "verified": "Verified",
+      "edited": "Edited",
+      "flagged": "Flagged"
+    },
+    "fieldSource": {
+      "ai": "AI",
+      "ocr": "OCR",
+      "rule": "Rule",
+      "user": "Manual",
+      "verified": "Verified"
+    }
   },
   "chat": {
     "title": "Chat",

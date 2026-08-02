@@ -11,6 +11,7 @@ import type {
   AIClient,
   ExtractionResult,
   ExportFormat,
+  FieldSchema,
   FieldsMap,
   NormalizedField,
   ProfileType,
@@ -300,6 +301,108 @@ export class PipelineService {
     };
   }
 
+  /**
+   * PATCH /pipeline/extractions/{id} — persist user field corrections.
+   * Accepts a `fields` map (key → value). Edited values are marked with
+   * status "edited" / source "verified" and confidence 1; the overall
+   * confidence and validation snapshot are recomputed to match. Immutable
+   * metadata (status, provider, model, trace) is never touched.
+   */
+  async updateFields(
+    userId: string,
+    id: string,
+    overrides: Record<string, unknown>
+  ): Promise<JobDTO> {
+    const row = await this.getRow(userId, id);
+
+    if (row.status !== "complete") {
+      throw new PipelineError(
+        `Extraction not ready for editing (status: ${row.status})`,
+        { code: "BAD_REQUEST", retryable: false }
+      );
+    }
+
+    const profile = getProfileManager().getOrFallback(String(row.profile_type));
+    const schemaKeys = new Set(profile.schema.fields.map((f) => f.key));
+    const unknown = Object.keys(overrides).filter((k) => !schemaKeys.has(k));
+    if (unknown.length > 0) {
+      throw new PipelineError(`Unknown field(s): ${unknown.join(", ")}`, {
+        code: "BAD_REQUEST",
+        retryable: false,
+      });
+    }
+
+    const stored = (Array.isArray(row.fields_json)
+      ? row.fields_json
+      : []) as FieldDTO[];
+    const byKey = new Map(stored.map((f) => [f.key, f] as const));
+
+    for (const [key, rawValue] of Object.entries(overrides)) {
+      const schema = profile.schema.fields.find((f) => f.key === key)!;
+      const value = coerceValue(rawValue, schema.type);
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.value = value;
+        existing.confidence = 1;
+        existing.source = "verified";
+        existing.status = "edited";
+      } else {
+        byKey.set(key, {
+          key,
+          value,
+          confidence: 1,
+          source: "verified",
+          status: "edited",
+        });
+      }
+    }
+
+    const fields = Array.from(byKey.values());
+
+    // Recompute overall confidence (required fields weighted 2x, same as the
+    // pipeline's extraction signal) from the edited snapshot.
+    const weightOf = (f: FieldDTO) =>
+      profile.schema.fields.find((s) => s.key === f.key)?.required ? 2 : 1;
+    const totalWeight = fields.reduce((s, f) => s + weightOf(f), 0);
+    const overall =
+      fields.length && totalWeight > 0
+        ? fields.reduce((s, f) => s + f.confidence * weightOf(f), 0) /
+          totalWeight
+        : 0;
+
+    // Recompute missing required fields from the edited snapshot.
+    const missing = profile.schema.fields
+      .filter((f) => f.required)
+      .map((f) => f.key)
+      .filter((key) => {
+        const fv = byKey.get(key);
+        return (
+          !fv ||
+          fv.value === null ||
+          fv.value === undefined ||
+          fv.value === ""
+        );
+      });
+
+    const confidenceJson =
+      row.confidence_json && typeof row.confidence_json === "object"
+        ? { ...row.confidence_json, overall }
+        : { overall, signals: {} };
+
+    await this.supabase
+      .from("extractions")
+      .update({
+        fields_json: fields,
+        overall_confidence: round4(overall),
+        confidence_json: confidenceJson,
+        validation_json: { ok: missing.length === 0, missing },
+      })
+      .eq("id", id);
+
+    const fresh = await this.getRow(userId, id);
+    return toJobDTO(fresh);
+  }
+
   // ── internals ─────────────────────────────────────────────────────
 
   private async readFileText(
@@ -448,6 +551,34 @@ function serializeFields(extraction: ExtractionResult): FieldDTO[] {
 
 function round4(n: number): number {
   return Math.round(n * 10000) / 10000;
+}
+
+/** Coerce an edited value to the field schema type (light validation). */
+function coerceValue(raw: unknown, type: FieldSchema["type"]): unknown {
+  if (raw === null || raw === undefined || raw === "") {
+    return type === "string" || type === "text" ? "" : null;
+  }
+  if (type === "number" || type === "currency") {
+    const n = typeof raw === "number" ? raw : Number(String(raw));
+    if (!Number.isFinite(n)) {
+      throw new PipelineError(`'${String(raw)}' is not a number`, {
+        code: "BAD_REQUEST",
+        retryable: false,
+      });
+    }
+    return n;
+  }
+  if (type === "boolean") {
+    if (typeof raw === "boolean") return raw;
+    const s = String(raw).toLowerCase();
+    if (["true", "1", "yes"].includes(s)) return true;
+    if (["false", "0", "no"].includes(s)) return false;
+    throw new PipelineError(`'${String(raw)}' is not a boolean`, {
+      code: "BAD_REQUEST",
+      retryable: false,
+    });
+  }
+  return raw;
 }
 
 // Row type is intentionally loose: it mirrors the DB row for DTO mapping.

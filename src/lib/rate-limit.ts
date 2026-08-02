@@ -17,7 +17,7 @@ if (typeof setInterval !== "undefined") {
 const PRESETS = {
   chat: { limit: 30, windowSeconds: 60 },
   upload: { limit: 10, windowSeconds: 60 },
-  pipeline: { limit: 20, windowSeconds: 60 },
+  pipeline: { limit: 30, windowSeconds: 60 },
   auth: { limit: 10, windowSeconds: 15 * 60 },
 } as const;
 

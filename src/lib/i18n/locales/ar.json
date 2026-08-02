@@ -1,6 +1,7 @@
 {
   "nav": {
     "dashboard": "لوحة التحكم",
+    "documents": "المستندات",
     "chat": "المحادثة",
     "agents": "الوكلاء",
     "settings": "الإعدادات",
@@ -19,6 +20,66 @@
     "noFiles": "لم يتم رفع ملفات بعد",
     "recentChats": "المحادثات الأخيرة",
     "noChats": "لا توجد محادثات"
+  },
+  "documents": {
+    "title": "المستندات",
+    "subtitle": "ارفع المستندات واستخرج البيانات المنظمة تلقائيًا",
+    "uploadTitle": "ارفع مستندًا",
+    "uploadSub": "PDF وWord وExcel والصور وCSV — حتى 50 ميجابايت. يبدأ الاستخراج تلقائيًا.",
+    "browse": "تصفح الملفات",
+    "uploading": "جاري الرفع...",
+    "dropHere": "أسقط ملفك هنا",
+    "running": "جاري تشغيل خط أنابيب الاستخراج",
+    "reviewTitle": "الحقول المستخرجة",
+    "missingFields": "حقول مطلوبة ناقصة: {{fields}}",
+    "allFieldsOk": "تم استخراج جميع الحقول المطلوبة",
+    "groupReady": "ثقة عالية",
+    "groupReview": "بحاجة للمراجعة",
+    "edit": "تعديل",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "saved": "تم الحفظ",
+    "reset": "إعادة تعيين",
+    "confidence": "الثقة",
+    "export": "تصدير",
+    "exportFormat": "الصيغة",
+    "download": "تنزيل",
+    "history": "الاستخراجات الأخيرة",
+    "noHistory": "لا توجد استخراجات بعد",
+    "noHistorySub": "ارفع مستندًا للبدء.",
+    "errorTitle": "فشل الاستخراج",
+    "retry": "إعادة المحاولة",
+    "rerun": "إعادة التشغيل",
+    "reprocessing": "جاري إعادة التشغيل...",
+    "loadingHistory": "جاري التحميل...",
+    "stage": {
+      "queued": "في الانتظار",
+      "classifying": "التصنيف",
+      "extracting": "الاستخراج",
+      "validating": "التحقق",
+      "complete": "مكتمل",
+      "error": "خطأ"
+    },
+    "profile": {
+      "invoice": "فاتورة",
+      "receipt": "إيصال",
+      "resume": "سيرة ذاتية",
+      "contract": "عقد",
+      "unknown": "مستند"
+    },
+    "fieldStatus": {
+      "extracted": "مستخرج",
+      "verified": "متحقق منه",
+      "edited": "تم تعديله",
+      "flagged": "مُعلّم"
+    },
+    "fieldSource": {
+      "ai": "الذكاء الاصطناعي",
+      "ocr": "OCR",
+      "rule": "قاعدة",
+      "user": "يدوي",
+      "verified": "متحقق منه"
+    }
   },
   "chat": {
     "title": "المحادثة",

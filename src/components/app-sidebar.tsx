@@ -13,10 +13,12 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ScanText,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { key: "dashboard", path: "/dashboard", icon: LayoutDashboard },
+  { key: "documents", path: "/documents", icon: ScanText },
   { key: "agents", path: "/agents", icon: Bot },
   { key: "chat", path: "/chat", icon: MessageSquare },
   { key: "settings", path: "/settings", icon: Settings },
