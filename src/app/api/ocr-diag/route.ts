@@ -1,68 +1,57 @@
 import { NextResponse } from "next/server";
 import path from "path";
-import os from "os";
 import fs from "fs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const out: Record<string, unknown> = {
-    node: process.version,
-    cwd: process.cwd(),
-    time: new Date().toISOString(),
-  };
+  const out: Record<string, unknown> = { node: process.version, cwd: process.cwd() };
 
-  const candidates = [
-    "/ROOT/node_modules/tesseract.js-core",
-    path.join(process.cwd(), "node_modules", "tesseract.js-core"),
-    path.resolve("node_modules/tesseract.js-core"),
-    path.join(path.dirname(process.execPath), "..", "node_modules", "tesseract.js-core"),
-    "/var/task/node_modules/tesseract.js-core",
-  ];
-
-  const found: Array<Record<string, unknown>> = [];
-  for (const dir of candidates) {
-    let listing: string[] | null = null;
-    let err: string | null = null;
+  try {
+    const Module = require("module");
+    const resolvedCore = Module._resolveFilename("tesseract.js-core/tesseract-core-relaxedsimd", module);
+    out.resolvedCore = resolvedCore;
+    out.resolvedCoreDir = path.dirname(resolvedCore);
     try {
-      listing = fs.readdirSync(dir);
+      out.resolvedCoreDirListing = fs.readdirSync(path.dirname(resolvedCore));
     } catch (e) {
-      err = String(e);
+      out.resolvedCoreDirListing = String(e);
     }
-    if (listing || err) {
-      found.push({
-        dir,
-        exists: !!listing,
-        listing: listing,
-        error: err,
-        wasmStat: listing
-          ? (() => {
-              try {
-                const st = fs.statSync(path.join(dir, "tesseract-core-relaxedsimd.wasm"));
-                return { size: st.size };
-              } catch (e2) {
-                return { missing: String(e2) };
-              }
-            })()
-          : null,
-      });
+    try {
+      out.wasmStat = fs.statSync(path.join(path.dirname(resolvedCore), "tesseract-core-relaxedsimd.wasm")).size;
+    } catch (e) {
+      out.wasmStat = String(e);
+    }
+    try {
+      const resolvedTess = Module._resolveFilename("tesseract.js", module);
+      out.resolvedTesseract = resolvedTess;
+      out.workerPath = path.join(path.dirname(resolvedTess), "src", "worker", "node", "defaultOptions.js");
+    } catch (e) {
+      out.resolvedTesseract = String(e);
+    }
+    const modulePaths = Module._nodeModulePaths(path.dirname(module.filename || process.cwd()));
+    out.routeModulePaths = modulePaths;
+    out.routeFilename = module.filename || null;
+  } catch (e) {
+    out.error = String(e);
+  }
+
+  // root layout
+  const roots = ["/ROOT", "/var/task"];
+  for (const root of roots) {
+    try {
+      const st = fs.lstatSync(root);
+      out[`lstat_${root}`] = { isSymlink: st.isSymbolicLink(), isDir: st.isDirectory() };
+    } catch (e) {
+      out[`lstat_${root}`] = String(e);
     }
   }
-  out.coreDirs = found;
-
-  // where does require('tesseract.js-core/...') resolve? use process.module paths via Module._nodeModulePaths
-  const Module = require("module");
-  const modulePaths = Module._nodeModulePaths(path.join("/ROOT", ".next", "server", "app", "api"));
-  out.modulePaths = modulePaths;
-  const glob = require("fs").readdirSync as (p: string) => string[];
-  const searchRoots = ["/ROOT/node_modules", path.join(process.cwd(), "node_modules")];
-  for (const root of searchRoots) {
+  for (const nm of ["/ROOT/node_modules", "/var/task/node_modules"]) {
     try {
-      const entries = glob(root);
-      out["has_" + root] = entries.filter((e) => e.includes("tesseract") || e.includes("wasm-feature"));
-    } catch {
-      out["has_" + root] = "unreadable";
+      out[`listing_${nm}`] = fs.readdirSync(nm).filter((e) => e.includes("tesseract") || e.includes("core") || e.includes("wasm") || e.includes("xenova") || e.includes("napi"));
+    } catch (e) {
+      out[`listing_${nm}`] = String(e);
     }
   }
 
