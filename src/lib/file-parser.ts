@@ -1,41 +1,13 @@
 /**
  * File Parser — extracts text from various file formats.
  * PDF → unpdf + OCR fallback, DOCX → mammoth, Excel → xlsx,
- * Images → tesseract.js, Audio → Whisper (client-side API call),
+ * Images → main-thread OCR (tesseract.js-core), Audio → Whisper,
  * Video → metadata extraction.
  */
-import os from "os";
-import path from "path";
 import fs from "fs";
 
-// Keep tesseract's language data out of the repo root: the default cachePath
-// (".") resolves against the worker's cwd, which for the Next server is the
-// project directory. Pin it to the OS temp dir instead (and pre-create the
-// folder — tesseract silently skips caching when the write target is missing).
-const OCR_CACHE_PATH = path.join(os.tmpdir(), "tesseract-ocr");
-try {
-  fs.mkdirSync(OCR_CACHE_PATH, { recursive: true });
-} catch {
-  // cache is best-effort; OCR still works without it
-}
+import { recognizeMainThread } from "@/lib/tesseract-main";
 
-// Ship the tesseract language data with the app instead of relying on a
-// runtime download. On Vercel the traineddata lives in `public/` (served by
-// the app's own CDN); locally we point tesseract at the directory directly.
-const OCR_DATA_DIR = path.join(process.cwd(), "public", "ocr-data");
-const OCR_LANG_DIR = process.env.VERCEL
-  ? `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://flexidata.vercel.app"}/ocr-data`
-  : OCR_DATA_DIR;
-
-const OCR_OPTIONS = {
-  logger: () => {},
-  cachePath: OCR_CACHE_PATH,
-  langPath: OCR_LANG_DIR,
-  gzip: false,
-};
-
-// tesseract.js never surfaces worker_thread failures (it registers `onerror`,
-// a browser-only API), so a failed/stalled OCR worker can hang forever.
 // Bound every OCR call with a hard timeout so the pipeline can never get
 // stuck; on failure the caller falls back to the "no text" path.
 const OCR_TIMEOUT_MS = 25_000;
@@ -158,7 +130,6 @@ async function ocrPdfPages(buffer: Buffer): Promise<string> {
 
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const { createCanvas } = await import("@/lib/pdf-canvas");
-  const Tesseract = await import("tesseract.js");
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = "";
   const doc = await pdfjsLib.getDocument({
@@ -184,8 +155,8 @@ async function ocrPdfPages(buffer: Buffer): Promise<string> {
     } as any).promise;
 
     const imageData = ctx.getImageData(0, 0, viewport.width, viewport.height);
-    const { data: { text } } = await withOcrTimeout(
-      Tesseract.default.recognize(imageData, "ara+eng", OCR_OPTIONS)
+    const text = await withOcrTimeout(
+      recognizeMainThread(imageData, "ara+eng")
     );
     if (text.trim()) {
       allText += text + "\n";
@@ -224,11 +195,8 @@ async function extractExcelText(buffer: Buffer): Promise<string> {
 
 async function extractImageText(buffer: Buffer): Promise<string> {
   try {
-    const Tesseract = await import("tesseract.js");
-    const {
-      data: { text },
-    } = await withOcrTimeout(
-      Tesseract.default.recognize(buffer, "ara+eng", OCR_OPTIONS)
+    const text = await withOcrTimeout(
+      recognizeMainThread(buffer, "ara+eng")
     );
     return text?.trim() || "[No text found in image]";
   } catch (err) {
