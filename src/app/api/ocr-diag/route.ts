@@ -41,7 +41,22 @@ export async function GET() {
   // 2. tesseract.js-core load directly (no worker thread)
   try {
     const t0 = Date.now();
-    const Core = require("tesseract.js-core/tesseract-core-relaxedsimd");
+    const coreJsPath = require.resolve("tesseract.js-core/tesseract-core-relaxedsimd");
+    out.coreJsPath = coreJsPath;
+    const coreDir = path.dirname(coreJsPath);
+    try {
+      out.coreDirListing = fs.readdirSync(coreDir);
+    } catch (e) {
+      out.coreDirListingError = String(e);
+    }
+    const wasmPath = path.join(coreDir, "tesseract-core-relaxedsimd.wasm");
+    try {
+      const st = fs.statSync(wasmPath);
+      out.wasmStat = { size: st.size, exists: true };
+    } catch (e) {
+      out.wasmStat = { exists: false, error: String(e) };
+    }
+    const Core = require(coreJsPath);
     await withTimeout(
       Core({}).then((m: unknown) => { out.coreLoaded = true; out.coreType = typeof m; }),
       20000
