@@ -4,6 +4,20 @@
  * Images → tesseract.js, Audio → Whisper (client-side API call),
  * Video → metadata extraction.
  */
+import os from "os";
+import path from "path";
+import fs from "fs";
+
+// Keep tesseract's language data out of the repo root: the default cachePath
+// (".") resolves against the worker's cwd, which for the Next server is the
+// project directory. Pin it to the OS temp dir instead (and pre-create the
+// folder — tesseract silently skips caching when the write target is missing).
+const OCR_CACHE_PATH = path.join(os.tmpdir(), "tesseract-ocr");
+try {
+  fs.mkdirSync(OCR_CACHE_PATH, { recursive: true });
+} catch {
+  // cache is best-effort; OCR still works without it
+}
 
 export async function parseFileBuffer(
   buffer: Buffer,
@@ -136,7 +150,7 @@ async function ocrPdfPages(buffer: Buffer): Promise<string> {
     } as any).promise;
 
     const imageData = ctx.getImageData(0, 0, viewport.width, viewport.height);
-    const { data: { text } } = await Tesseract.default.recognize(imageData, "ara+eng", { logger: () => {} });
+    const { data: { text } } = await Tesseract.default.recognize(imageData, "ara+eng", { logger: () => {}, cachePath: OCR_CACHE_PATH });
     if (text.trim()) {
       allText += text + "\n";
     }
@@ -179,6 +193,7 @@ async function extractImageText(buffer: Buffer): Promise<string> {
       data: { text },
     } = await Tesseract.default.recognize(buffer, "ara+eng", {
       logger: () => {},
+      cachePath: OCR_CACHE_PATH,
     });
     return text?.trim() || "[No text found in image]";
   } catch (err) {
