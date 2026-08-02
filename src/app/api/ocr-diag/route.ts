@@ -6,95 +6,64 @@ import fs from "fs";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms);
-    p.then(
-      (v) => { clearTimeout(t); resolve(v); },
-      (e) => { clearTimeout(t); reject(e); }
-    );
-  });
-}
-
 export async function GET() {
-  const out: Record<string, unknown> = { node: process.version, time: new Date().toISOString() };
+  const out: Record<string, unknown> = {
+    node: process.version,
+    cwd: process.cwd(),
+    time: new Date().toISOString(),
+  };
 
-  // 1. worker_threads availability
-  try {
-    const wt = require("worker_threads");
-    out.workerThreadsAvailable = true;
-    const spawn = new Promise((resolve, reject) => {
-      const w = new wt.Worker(
-        `const { parentPort } = require('worker_threads'); parentPort.postMessage('worker-alive-' + process.version);`,
-        { eval: true }
-      );
-      w.once("message", resolve);
-      w.once("error", reject);
-      setTimeout(() => reject(new Error("worker spawn timeout")), 10000);
-    });
-    out.workerThreadsMessage = await withTimeout(spawn, 15000);
-  } catch (e) {
-    out.workerThreadsAvailable = false;
-    out.workerThreadsError = String(e);
-  }
+  const candidates = [
+    "/ROOT/node_modules/tesseract.js-core",
+    path.join(process.cwd(), "node_modules", "tesseract.js-core"),
+    path.resolve("node_modules/tesseract.js-core"),
+    path.join(path.dirname(process.execPath), "..", "node_modules", "tesseract.js-core"),
+    "/var/task/node_modules/tesseract.js-core",
+  ];
 
-  // 2. tesseract.js-core load directly (no worker thread)
-  try {
-    const t0 = Date.now();
-    const coreJsPath = require.resolve("tesseract.js-core/tesseract-core-relaxedsimd");
-    out.coreJsPath = coreJsPath;
-    const coreDir = path.dirname(coreJsPath);
+  const found: Array<Record<string, unknown>> = [];
+  for (const dir of candidates) {
+    let listing: string[] | null = null;
+    let err: string | null = null;
     try {
-      out.coreDirListing = fs.readdirSync(coreDir);
+      listing = fs.readdirSync(dir);
     } catch (e) {
-      out.coreDirListingError = String(e);
+      err = String(e);
     }
-    const wasmPath = path.join(coreDir, "tesseract-core-relaxedsimd.wasm");
-    try {
-      const st = fs.statSync(wasmPath);
-      out.wasmStat = { size: st.size, exists: true };
-    } catch (e) {
-      out.wasmStat = { exists: false, error: String(e) };
+    if (listing || err) {
+      found.push({
+        dir,
+        exists: !!listing,
+        listing: listing,
+        error: err,
+        wasmStat: listing
+          ? (() => {
+              try {
+                const st = fs.statSync(path.join(dir, "tesseract-core-relaxedsimd.wasm"));
+                return { size: st.size };
+              } catch (e2) {
+                return { missing: String(e2) };
+              }
+            })()
+          : null,
+      });
     }
-    const Core = require(coreJsPath);
-    await withTimeout(
-      Core({}).then((m: unknown) => { out.coreLoaded = true; out.coreType = typeof m; }),
-      20000
-    );
-    out.coreLoadMs = Date.now() - t0;
-  } catch (e) {
-    out.coreLoaded = false;
-    out.coreError = String(e);
   }
+  out.coreDirs = found;
 
-  // 3. full tesseract recognize with langdata from our CDN, 40s cap
-  const cachePath = path.join(os.tmpdir(), "tesseract-ocr-diag");
-  try {
-    fs.mkdirSync(cachePath, { recursive: true });
-  } catch {}
-  try {
-    const Tesseract = require("tesseract.js");
-    const api = Tesseract.default || Tesseract;
-    const t0 = Date.now();
-    const png = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
-      "base64"
-    );
-    const result = (await withTimeout(
-      api.recognize(png, "eng", {
-        logger: () => {},
-        cachePath,
-        langPath: `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"}/ocr-data`,
-        gzip: false,
-      }),
-      40000
-    )) as { data?: { text?: string } };
-    out.recognizeMs = Date.now() - t0;
-    out.recognizeOk = true;
-    out.recognizeText = (result.data?.text || "").trim().slice(0, 200);
-  } catch (e) {
-    out.recognizeOk = false;
-    out.recognizeError = String(e);
+  // where does require('tesseract.js-core/...') resolve? use process.module paths via Module._nodeModulePaths
+  const Module = require("module");
+  const modulePaths = Module._nodeModulePaths(path.join("/ROOT", ".next", "server", "app", "api"));
+  out.modulePaths = modulePaths;
+  const glob = require("fs").readdirSync as (p: string) => string[];
+  const searchRoots = ["/ROOT/node_modules", path.join(process.cwd(), "node_modules")];
+  for (const root of searchRoots) {
+    try {
+      const entries = glob(root);
+      out["has_" + root] = entries.filter((e) => e.includes("tesseract") || e.includes("wasm-feature"));
+    } catch {
+      out["has_" + root] = "unreadable";
+    }
   }
 
   return NextResponse.json(out);
