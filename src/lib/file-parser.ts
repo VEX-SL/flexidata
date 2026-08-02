@@ -19,6 +19,40 @@ try {
   // cache is best-effort; OCR still works without it
 }
 
+// Ship the tesseract language data with the app instead of relying on a
+// runtime download. On Vercel the traineddata lives in `public/` (served by
+// the app's own CDN); locally we point tesseract at the directory directly.
+const OCR_DATA_DIR = path.join(process.cwd(), "public", "ocr-data");
+const OCR_LANG_DIR = process.env.VERCEL
+  ? `${process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://flexidata.vercel.app"}/ocr-data`
+  : OCR_DATA_DIR;
+
+const OCR_OPTIONS = {
+  logger: () => {},
+  cachePath: OCR_CACHE_PATH,
+  langPath: OCR_LANG_DIR,
+  gzip: false,
+};
+
+// tesseract.js never surfaces worker_thread failures (it registers `onerror`,
+// a browser-only API), so a failed/stalled OCR worker can hang forever.
+// Bound every OCR call with a hard timeout so the pipeline can never get
+// stuck; on failure the caller falls back to the "no text" path.
+const OCR_TIMEOUT_MS = 25_000;
+
+function withOcrTimeout<T>(promise: Promise<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`OCR timed out after ${OCR_TIMEOUT_MS}ms`)),
+      OCR_TIMEOUT_MS
+    );
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); }
+    );
+  });
+}
+
 export async function parseFileBuffer(
   buffer: Buffer,
   mimeType: string,
@@ -150,7 +184,9 @@ async function ocrPdfPages(buffer: Buffer): Promise<string> {
     } as any).promise;
 
     const imageData = ctx.getImageData(0, 0, viewport.width, viewport.height);
-    const { data: { text } } = await Tesseract.default.recognize(imageData, "ara+eng", { logger: () => {}, cachePath: OCR_CACHE_PATH });
+    const { data: { text } } = await withOcrTimeout(
+      Tesseract.default.recognize(imageData, "ara+eng", OCR_OPTIONS)
+    );
     if (text.trim()) {
       allText += text + "\n";
     }
@@ -191,10 +227,9 @@ async function extractImageText(buffer: Buffer): Promise<string> {
     const Tesseract = await import("tesseract.js");
     const {
       data: { text },
-    } = await Tesseract.default.recognize(buffer, "ara+eng", {
-      logger: () => {},
-      cachePath: OCR_CACHE_PATH,
-    });
+    } = await withOcrTimeout(
+      Tesseract.default.recognize(buffer, "ara+eng", OCR_OPTIONS)
+    );
     return text?.trim() || "[No text found in image]";
   } catch (err) {
     console.error("[Parser] OCR failed:", err);
