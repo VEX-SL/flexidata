@@ -323,7 +323,10 @@ export default function DocumentsPage() {
                     </div>
                     <p className="text-[.95rem] font-bold text-foreground m-0 mb-1">{t("documents.uploadTitle")}</p>
                     <p className="text-[.8rem] text-muted-foreground m-0 mb-4">{t("documents.uploadSub")}</p>
-                    <span className="fd-doc-btn fd-doc-btn-primary" onClick={(e) => e.stopPropagation()}>
+                    <span
+                      className="fd-doc-btn fd-doc-btn-primary"
+                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                    >
                       <Upload size={15} />
                       {t("documents.browse")}
                     </span>
