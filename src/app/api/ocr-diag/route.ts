@@ -57,7 +57,7 @@ export async function GET() {
     mod.FS.writeFile("/eng.traineddata", new Uint8Array(langData));
 
     const api = new mod.TessBaseAPI();
-    api.Init(null, "eng", mod.OEM.DEFAULT);
+    api.Init(null, "eng", 3 /* OEM.DEFAULT */);
 
     // tiny BMP 30x15, white bg, black bar
     const w = 30, h = 15;
