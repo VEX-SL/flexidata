@@ -65,7 +65,7 @@ export async function GET() {
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
       "base64"
     );
-    const { data } = await withTimeout(
+    const result = (await withTimeout(
       api.recognize(png, "eng", {
         logger: () => {},
         cachePath,
@@ -73,10 +73,10 @@ export async function GET() {
         gzip: false,
       }),
       40000
-    );
+    )) as { data?: { text?: string } };
     out.recognizeMs = Date.now() - t0;
     out.recognizeOk = true;
-    out.recognizeText = (data.text || "").trim().slice(0, 200);
+    out.recognizeText = (result.data?.text || "").trim().slice(0, 200);
   } catch (e) {
     out.recognizeOk = false;
     out.recognizeError = String(e);
