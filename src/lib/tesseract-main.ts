@@ -60,7 +60,7 @@ const traineddataCache = new Map<string, Uint8Array>();
 function traineddataFsPaths(lang: string): string[] {
   const f = `${lang}.traineddata`;
   return [
-    path.join(process.cwd(), "public", "ocr-data", f),
+    path.join(/* turbopackIgnore: true */ process.cwd(), "public", "ocr-data", f),
     path.resolve("public", "ocr-data", f),
     `/var/task/public/ocr-data/${f}`,
   ];
@@ -116,14 +116,6 @@ async function ensureLangsLoaded(mod: any, langs: string): Promise<void> {
   }
 }
 
-export async function __testGetModule(): Promise<any> {
-  return getTesseractModule();
-}
-
-export async function __testLoadTraineddata(lang: string): Promise<Uint8Array> {
-  return loadTraineddataBytes(lang);
-}
-
 let sharedApi: { mod: any; api: any; langs: string } | null = null;
 
 async function getApi(langs: string): Promise<{ mod: any; api: any }> {
@@ -137,7 +129,7 @@ async function getApi(langs: string): Promise<{ mod: any; api: any }> {
   return { mod, api };
 }
 
-export function setImage(mod: any, api: any, image: Buffer): void {
+function setImage(mod: any, api: any, image: Buffer): void {
   // Same logic as tesseract.js worker-script/utils/setImage.js
   const isBmp =
     (image[0] === 66 && image[1] === 77) ||
