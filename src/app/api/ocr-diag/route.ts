@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import os from "os";
 import fs from "fs";
@@ -14,6 +14,26 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
       (e) => { clearTimeout(t); reject(e); }
     );
   });
+}
+
+export async function POST(req: NextRequest) {
+  const out: Record<string, unknown> = { node: process.version, time: new Date().toISOString() };
+  try {
+    const body = await req.arrayBuffer();
+    out.bodyBytes = body.byteLength;
+    const t0 = Date.now();
+    const { recognizeMainThread } = await import("@/lib/tesseract-main");
+    out.importMs = Date.now() - t0;
+    const t1 = Date.now();
+    const text = await withTimeout(recognizeMainThread(Buffer.from(body), "ara+eng"), 45000);
+    out.ocrMs = Date.now() - t1;
+    out.text = (text || "").slice(0, 200);
+    out.textLen = (text || "").length;
+  } catch (e) {
+    out.error = String(e);
+    out.errorStack = (e as Error).stack?.slice(0, 1500);
+  }
+  return NextResponse.json(out);
 }
 
 export async function GET() {
