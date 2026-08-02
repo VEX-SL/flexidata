@@ -57,24 +57,48 @@ async function getTesseractModule(): Promise<any> {
 
 const traineddataCache = new Map<string, Uint8Array>();
 
+function traineddataFsPaths(lang: string): string[] {
+  const f = `${lang}.traineddata`;
+  return [
+    path.join(process.cwd(), "public", "ocr-data", f),
+    path.resolve("public", "ocr-data", f),
+    `/var/task/public/ocr-data/${f}`,
+  ];
+}
+
 async function loadTraineddataBytes(lang: string): Promise<Uint8Array> {
   const cached = traineddataCache.get(lang);
   if (cached) return cached;
 
-  let bytes: Buffer;
-  if (process.env.VERCEL) {
-    const base =
-      process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "https://flexidata.vercel.app";
-    const resp = await fetch(`${base}/ocr-data/${lang}.traineddata`);
-    if (!resp.ok) throw new Error(`traineddata ${lang} fetch failed: ${resp.status}`);
-    bytes = Buffer.from(await resp.arrayBuffer());
-  } else {
-    bytes = fs.readFileSync(
-      path.join(process.cwd(), "public", "ocr-data", `${lang}.traineddata`)
-    );
+  let bytes: Buffer | null = null;
+
+  // Prefer the filesystem copy (Vercel ships public/ inside /var/task,
+  // so this works locally and in the lambda without any HTTP round-trip).
+  for (const p of traineddataFsPaths(lang)) {
+    try {
+      if (fs.existsSync(p)) { bytes = fs.readFileSync(p); break; }
+    } catch {
+      // keep trying other candidates
+    }
   }
+
+  // Fallback: fetch from the app origin. Avoid the deployment-specific
+  // VERCEL_URL, which can return an HTML page for non-routed paths.
+  if (!bytes) {
+    const bases: string[] = ["https://flexidata.vercel.app"];
+    if (process.env.VERCEL_URL) bases.unshift(`https://${process.env.VERCEL_URL}`);
+    for (const base of bases) {
+      try {
+        const resp = await fetch(`${base}/ocr-data/${lang}.traineddata`);
+        const buf = Buffer.from(await resp.arrayBuffer());
+        if (resp.ok && buf.length > 100_000) { bytes = buf; break; }
+      } catch {
+        // try next base
+      }
+    }
+  }
+
+  if (!bytes) throw new Error(`traineddata "${lang}" unavailable (fs + fetch)`);
 
   const data = new Uint8Array(bytes);
   traineddataCache.set(lang, data);
