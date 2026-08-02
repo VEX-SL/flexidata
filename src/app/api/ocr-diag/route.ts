@@ -21,14 +21,44 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.arrayBuffer();
     out.bodyBytes = body.byteLength;
-    const t0 = Date.now();
-    const { recognizeMainThread } = await import("@/lib/tesseract-main");
-    out.importMs = Date.now() - t0;
+
+    const tm = await import("@/lib/tesseract-main");
+    const mod: any = await (tm as any).__testGetModule();
+    out.fsRoot = Object.keys(mod.FS.readdir("/")).slice(0, 20);
+
     const t1 = Date.now();
-    const text = await withTimeout(recognizeMainThread(Buffer.from(body), "ara+eng"), 45000);
-    out.ocrMs = Date.now() - t1;
-    out.text = (text || "").slice(0, 200);
-    out.textLen = (text || "").length;
+    const langs = ["ara", "eng"];
+    for (const lang of langs) {
+      const bytes: Uint8Array = await (tm as any).__testLoadTraineddata(lang);
+      out[`${lang}Bytes`] = bytes.length;
+      mod.FS.writeFile(`/${lang}.traineddata`, bytes);
+    }
+    out.langWriteMs = Date.now() - t1;
+    out.fsAfter = Object.keys(mod.FS.readdir("/")).slice(0, 20);
+
+    const api = new mod.TessBaseAPI();
+    const stAra = api.Init(null, "ara", 3 /* OEM.DEFAULT */);
+    out.initAra = stAra;
+    const stEng = api.Init(null, "eng", 3 /* OEM.DEFAULT */);
+    out.initEng = stEng;
+    const stBoth = api.Init(null, "ara+eng", 3 /* OEM.DEFAULT */);
+    out.initBoth = stBoth;
+    if (stBoth !== 0) {
+      out.lastError = api.LastErrorString?.() || "n/a";
+    }
+
+    const st = stBoth === 0 ? stBoth : (stEng === 0 ? stEng : stAra);
+    if (st !== 0) throw new Error(`all init attempts failed`);
+
+    const { setImage } = tm as any;
+    const t2 = Date.now();
+    (setImage as (m: any, a: any, b: Buffer) => void)(mod, api, Buffer.from(body));
+    out.setImageMs = Date.now() - t2;
+    const t3 = Date.now();
+    api.Recognize(null);
+    out.recognizeMs = Date.now() - t3;
+    out.text = (api.GetUTF8Text() || "").slice(0, 200);
+    api.Delete();
   } catch (e) {
     out.error = String(e);
     out.errorStack = (e as Error).stack?.slice(0, 1500);

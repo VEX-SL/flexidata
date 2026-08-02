@@ -92,6 +92,14 @@ async function ensureLangsLoaded(mod: any, langs: string): Promise<void> {
   }
 }
 
+export async function __testGetModule(): Promise<any> {
+  return getTesseractModule();
+}
+
+export async function __testLoadTraineddata(lang: string): Promise<Uint8Array> {
+  return loadTraineddataBytes(lang);
+}
+
 let sharedApi: { mod: any; api: any; langs: string } | null = null;
 
 async function getApi(langs: string): Promise<{ mod: any; api: any }> {
@@ -105,7 +113,7 @@ async function getApi(langs: string): Promise<{ mod: any; api: any }> {
   return { mod, api };
 }
 
-function setImage(mod: any, api: any, image: Buffer): void {
+export function setImage(mod: any, api: any, image: Buffer): void {
   // Same logic as tesseract.js worker-script/utils/setImage.js
   const isBmp =
     (image[0] === 66 && image[1] === 77) ||
