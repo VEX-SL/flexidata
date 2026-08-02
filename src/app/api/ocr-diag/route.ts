@@ -29,6 +29,28 @@ export async function POST(req: NextRequest) {
     out.vercelUrl = process.env.VERCEL_URL || null;
     out.vercel = process.env.VERCEL || null;
 
+    out.fsProbe = {};
+    const probes = [
+      path.join(process.cwd(), "public", "ocr-data", "ara.traineddata"),
+      path.join(process.cwd(), "ocr-data", "ara.traineddata"),
+      "/var/task/public/ocr-data/ara.traineddata",
+      "/var/task/ocr-data/ara.traineddata",
+      "/var/task/.next/server/ocr-data/ara.traineddata",
+    ];
+    const fsProbe = out.fsProbe as Record<string, unknown>;
+    for (const p of probes) {
+      fsProbe[p] = fs.existsSync(p) ? fs.statSync(p).size : "missing";
+    }
+
+    const aliasUrl = "https://flexidata.vercel.app/ocr-data/ara.traineddata";
+    try {
+      const ar = await fetch(aliasUrl);
+      const ab = Buffer.from(await ar.arrayBuffer());
+      out.aliasFetch = { status: ar.status, ct: ar.headers.get("content-type"), bytes: ab.length, head: ab.slice(0, 8).toString("hex") };
+    } catch (e) {
+      out.aliasFetch = { error: String(e) };
+    }
+
     const t1 = Date.now();
     const langs = ["ara", "eng"];
     for (const lang of langs) {
