@@ -3,6 +3,36 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve as pathResolve } from "node:path";
 
 const ROOT = pathResolve(fileURLToPath(new URL("../", import.meta.url)));
+const TESSERACT_MAIN = pathResolve(ROOT, "src", "lib", "tesseract-main.ts");
+
+// tesseract-main.ts resolves its CJS require via `eval("require")` (opaque to
+// Turbopack so the Next build can't trace the dynamic path.join). Plain Node
+// ESM has no `require` binding, so when the harness loads it we swap the line
+// for createRequire before evaluation. Run the harness with
+// `--import ./tests/set-require.mjs` so the module can also be imported
+// statically (that preload binds `require` on the main thread's globalThis).
+export async function load(url, context, nextLoad) {
+  let matched = false;
+  try {
+    matched = fileURLToPath(url) === TESSERACT_MAIN;
+  } catch {}
+  if (matched) {
+    const real = await nextLoad(url, context);
+    let source =
+      typeof real.source === "string"
+        ? real.source
+        : new TextDecoder().decode(real.source);
+    if (!source.includes("createRequire")) {
+      source = source.replace(
+        'const runtimeRequire = eval("require");',
+        "const runtimeRequire = createRequire(import.meta.url);"
+      );
+      source = 'import { createRequire } from "node:module";\n' + source;
+    }
+    return { ...real, source };
+  }
+  return nextLoad(url, context);
+}
 
 function isFile(p) {
   try {

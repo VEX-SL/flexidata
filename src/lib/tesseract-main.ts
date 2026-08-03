@@ -8,13 +8,16 @@
  */
 import fs from "fs";
 import path from "path";
-import { createRequire } from "node:module";
 
 // Resolve the CJS require for the emscripten core + wasm-feature-detect.
-// Inside Next's bundle `require` exists; in a plain Node (ESM) runtime —
-// cron jobs, CLI scripts, queue workers — fall back to createRequire.
-const runtimeRequire =
-  typeof require === "function" ? require : createRequire(import.meta.url);
+// Must stay opaque to Turbopack: a statically-resolvable require (createRequire)
+// makes Turbopack trace the dynamic path.join and the build fails with
+// "Module not found: Can't resolve ... tesseract.js-core". Direct `eval` runs
+// in the module scope where Next's bundle provides `require`. Node 24 rejects
+// this in type-stripped modules, so the test loader (tests/loader.mjs) swaps
+// this line for createRequire when running outside Next.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const runtimeRequire = eval("require");
 
 const CORE_VARIANTS = [
   { js: "tesseract-core-relaxedsimd.js", wasm: "tesseract-core-relaxedsimd.wasm", test: "relaxedSimd" },
