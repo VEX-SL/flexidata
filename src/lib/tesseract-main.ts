@@ -8,9 +8,13 @@
  */
 import fs from "fs";
 import path from "path";
+import { createRequire } from "node:module";
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const runtimeRequire = eval("require");
+// Resolve the CJS require for the emscripten core + wasm-feature-detect.
+// Inside Next's bundle `require` exists; in a plain Node (ESM) runtime —
+// cron jobs, CLI scripts, queue workers — fall back to createRequire.
+const runtimeRequire =
+  typeof require === "function" ? require : createRequire(import.meta.url);
 
 const CORE_VARIANTS = [
   { js: "tesseract-core-relaxedsimd.js", wasm: "tesseract-core-relaxedsimd.wasm", test: "relaxedSimd" },
