@@ -9,9 +9,18 @@ import type {
 
 const DEFAULT_FIELD_CONFIDENCE = 0.85;
 
+/** Per-field model envelope: { raw, value, confidence, evidence }. */
+interface FieldEnvelope {
+  raw?: unknown;
+  value: unknown;
+  confidence?: number;
+  evidence?: string;
+}
+
 /**
  * Normalizer — coerces raw AI values into typed FieldValue objects
  * using each profile's field schema (numbers, currency, dates, enums, ...).
+ * Raw values (verbatim from the source) are preserved on `rawValue`.
  */
 export function normalizeFields(
   profile: ExtractionProfile,
@@ -20,20 +29,45 @@ export function normalizeFields(
   const map: FieldsMap = {};
 
   for (const field of profile.schema.fields) {
-    const rawValue = raw.data[field.key];
-    if (rawValue === undefined || rawValue === null) continue;
+    const entry = raw.data[field.key];
+    if (entry === undefined || entry === null) continue;
 
-    const confidence = clamp(raw.confidence?.[field.key] ?? DEFAULT_FIELD_CONFIDENCE);
+    const envelope = unwrapEnvelope(entry);
+    const rawValue = envelope.raw !== undefined ? envelope.raw : entry;
 
     map[field.key] = {
-      value: coerce(field, rawValue),
-      confidence,
+      value: coerce(field, envelope.value),
+      rawValue,
+      confidence: clamp(
+        envelope.confidence ??
+          raw.confidence?.[field.key] ??
+          DEFAULT_FIELD_CONFIDENCE
+      ),
       source: "ai",
       status: "extracted",
+      meta: envelope.evidence ? { evidenceQuote: envelope.evidence } : undefined,
     };
   }
 
   return map;
+}
+
+/**
+ * A field value is either a bare primitive/array (backward-compatible with
+ * flat model output) or an object envelope { raw, value, confidence, evidence }.
+ */
+function unwrapEnvelope(entry: unknown): FieldEnvelope {
+  if (isPlainObject(entry) && ("value" in entry || "raw" in entry)) {
+    const obj = entry as Record<string, unknown>;
+    return {
+      raw: obj.raw,
+      value: "value" in obj ? obj.value : obj.raw,
+      confidence:
+        typeof obj.confidence === "number" ? obj.confidence : undefined,
+      evidence: typeof obj.evidence === "string" ? obj.evidence : undefined,
+    };
+  }
+  return { value: entry };
 }
 
 /** Cast a raw value to the field's declared type. */
@@ -85,16 +119,21 @@ function toNumber(value: unknown): number | null {
 
 function toDate(value: unknown): string | null {
   if (typeof value === "string") {
+    let v = value.trim();
+    // Strip a trailing time when the OCR/text carried a timestamp:
+    // "02-07-2028 18:30:12" → "02-07-2028"
+    const timeSuffix = v.match(/^(\d{1,4}[/-]\d{1,2}[/-]\d{1,4})\s+\d{1,2}:\d{2}/);
+    if (timeSuffix) v = timeSuffix[1];
     // Already ISO (YYYY-MM-DD)
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
     // MM/DD/YYYY or DD/MM/YYYY
-    const slash = value.match(/^(\d{1,4})[/-](\d{1,2})[/-](\d{1,4})$/);
+    const slash = v.match(/^(\d{1,4})[/-](\d{1,2})[/-](\d{1,4})$/);
     if (slash) {
       const [a, b, c] = [slash[1], slash[2], slash[3]];
       if (a.length === 4) return `${a}-${pad(b)}-${pad(c)}`;
       if (c.length === 4) return `${c}-${pad(b)}-${pad(a)}`;
     }
-    const parsed = new Date(value);
+    const parsed = new Date(v);
     if (!Number.isNaN(parsed.getTime())) {
       return parsed.toISOString().slice(0, 10);
     }
@@ -119,7 +158,9 @@ function normalizeEnum(field: FieldSchema, value: unknown): string | null {
   const raw = String(value).trim().toUpperCase();
   if (!field.enum || field.enum.length === 0) return raw || null;
   const match = field.enum.find((allowed) => allowed.toUpperCase() === raw);
-  return match ?? (raw || null);
+  // Only accept values from the allowed set — never "invent" a currency/enum
+  // the model guessed. Non-matching values become null and are dropped later.
+  return match ?? null;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

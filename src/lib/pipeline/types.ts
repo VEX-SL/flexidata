@@ -35,6 +35,12 @@ export interface FieldSchema {
   enum?: string[];
   label?: string;
   description?: string;
+  /**
+   * Semantic category used for evidence grounding (e.g. "tax", "date",
+   * "total"). Derived from `key` by default; override when the key naming
+   * convention doesn't capture the document semantics.
+   */
+  labelGroup?: string;
   /** When true, the validator flags the field as missing if absent. */
   required?: boolean;
   /** When true, contributes to the consistency signal if present. */
@@ -92,20 +98,74 @@ export interface ValidationResult {
 
 export type FieldSource = "ai" | "ocr" | "rule" | "user" | "verified";
 
+export type FieldStatus = "extracted" | "verified" | "edited" | "flagged";
+
+/** Where a field's value came from in the source document. */
+export interface FieldEvidence {
+  /** Exact source span (best-guess OCR line, verbatim). */
+  quote: string;
+  /** Index into the OcrDocument lines (when structured OCR is available). */
+  lineIndex?: number;
+  /** How the evidence was established. */
+  role: "value-match" | "label-match" | "derived" | "semantic";
+  /** Mean OCR word confidence over the quoted span (0..1), when known. */
+  confidence?: number;
+  /** The full OCR line for human review. */
+  context?: string;
+}
+
 export interface FieldValue {
+  /** Normalized / validated value (what the app commits). */
   value: unknown;
-  /** 0..1 — per-field confidence. */
+  /**
+   * Verbatim value as it appears in the source text. Always preserved so the
+   * raw OCR reading is never lost behind normalization.
+   */
+  rawValue?: unknown;
+  /** 0..1 — composed per-field confidence (OCR × extraction × validation). */
   confidence: number;
   source: FieldSource;
   /** Status drives the human-review UI. */
-  status: "extracted" | "verified" | "edited" | "flagged";
-  /** Optional RAG anchor: chunk/file reference backing this value. */
-  anchor?: string;
+  status: FieldStatus;
+  /** Anchors in the source document that support this value. */
+  evidence?: FieldEvidence[];
   /** Free-form extra data (e.g. date/time parts, raw match). */
   meta?: Record<string, unknown>;
 }
 
 export type FieldsMap = Record<string, FieldValue>;
+
+// ─── OCR input (probabilistic, not a text blob) ───────────────────────────
+
+export interface OcrWord {
+  text: string;
+  /** Tesseract word confidence (0..1). Undefined when unavailable. */
+  confidence?: number;
+}
+
+export interface OcrLine {
+  text: string;
+  /** Mean word confidence for the line. Undefined when unavailable. */
+  confidence?: number;
+  words: OcrWord[];
+}
+
+/**
+ * Structured OCR result. `text` is the best-guess rendering (kept for
+ * backward compatibility); `lines`/`words` carry per-token confidence so the
+ * pipeline can treat OCR as probabilistic input instead of absolute truth.
+ */
+export interface OcrDocument {
+  text: string;
+  lines: OcrLine[];
+  language?: string;
+  /**
+   * Page mean OCR confidence (0..1) from Tesseract's MeanTextConf, when
+   * available. Per-word confidences are frequently unavailable from the
+   * emscripten core, so this page-level signal is the fallback.
+   */
+  confidence?: number;
+}
 
 // ─── Classification ───────────────────────────────────────────────────────
 
@@ -231,6 +291,8 @@ export interface PipelineState {
   input: RunJobInput;
   readonly sourceText: string;
   readonly textStats: { length: number; lines: number };
+  /** Structured OCR input when available (else derived from sourceText). */
+  readonly ocr?: OcrDocument;
   classification?: ClassificationResult;
   profile?: ExtractionProfile;
   extraction?: ExtractionResult;
@@ -275,6 +337,8 @@ export interface RunJobInput {
   fileId?: string;
   /** Pin a profile (skip/override classification). */
   profileType?: ProfileType;
+  /** Structured OCR input (word-level confidence) when available. */
+  ocr?: OcrDocument;
 }
 
 export interface RunJobOutput {

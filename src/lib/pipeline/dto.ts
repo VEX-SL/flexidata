@@ -9,6 +9,16 @@ import type { ProfileType, StructuredError } from "./types";
 export interface FieldDTO {
   key: string;
   value: unknown;
+  /** Verbatim source value (raw OCR reading), when preserved. */
+  raw?: unknown;
+  /** Source-document anchors supporting the value. */
+  evidence?: Array<{
+    quote: string;
+    lineIndex?: number;
+    role?: string;
+    confidence?: number;
+    context?: string;
+  }>;
   confidence: number;
   source: string;
   status: string;

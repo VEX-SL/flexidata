@@ -5,5 +5,6 @@ import "./receipt-extraction.test.ts";
 import "./validation.test.ts";
 import "./export.test.ts";
 import "./prompts.test.ts";
+import "./agent-context.test.ts";
 
 await run();

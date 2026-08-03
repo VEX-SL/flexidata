@@ -12,6 +12,7 @@ export function confidenceStage(): PipelineStage {
       ctx.confidence = computeConfidence(ctx.extraction, ctx.validation, {
         sourceText: ctx.sourceText,
         textStats: ctx.textStats,
+        ocr: ctx.ocr,
       });
     },
   };

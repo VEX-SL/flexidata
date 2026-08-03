@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import { toStructuredError } from "./errors";
 import { stageSummary, traceEvent } from "./trace";
+import { buildOcrDocument } from "./ocr";
 
 /**
  * Pipeline — pure coordinator. It knows nothing about specific stages:
@@ -27,6 +28,9 @@ export class Pipeline {
         length: input.sourceText.length,
         lines: input.sourceText.split("\n").length,
       },
+      // Structured OCR when the file path provided it; otherwise derive a
+      // neutral (unknown-confidence) document from the text itself.
+      ocr: input.ocr ?? buildOcrDocument(input.sourceText),
     };
 
     const trace: TraceEvent[] = [];

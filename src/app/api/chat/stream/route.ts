@@ -6,6 +6,7 @@ import { getProviderManager } from "@/lib/ai/manager";
 import { buildSystemPrompt } from "@/lib/ai/prompts";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { searchRelevantChunks, buildRAGContext } from "@/lib/rag/search";
+import { buildAgentDocumentContext } from "@/lib/agent/document-context";
 import { generateImage } from "@/lib/ai/image-generation";
 
 const MAX_HISTORY = 20;
@@ -183,7 +184,29 @@ export async function POST(request: Request) {
         console.warn("[Chat] Failed to fetch attached files list:", e?.message);
       }
 
-      // Try RAG semantic search first
+      // Structured-first context: verified fields + evidence for every
+      // document, with raw OCR as supporting evidence only.
+      try {
+        const { data: docs } = await supabase
+          .from("documents")
+          .select("title, parsed_content, structured_content")
+          .eq("agent_id", effectiveAgentId)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (docs && docs.length > 0) {
+          const built = buildAgentDocumentContext(docs);
+          fileContext = built.context;
+          console.log(
+            `[Chat] Agent ${effectiveAgentId}: ${built.structuredCount} structured + ${built.rawCount} raw documents (${fileContext.length} chars)`
+          );
+        }
+      } catch (e: any) {
+        console.warn("[Chat] Failed to load document context:", e?.message);
+      }
+
+      // RAG relevant passages as supplementary raw evidence (retrieval only —
+      // never overrides the structured fields above).
       try {
         const searchResults = await searchRelevantChunks(
           effectiveAgentId,
@@ -192,35 +215,19 @@ export async function POST(request: Request) {
         );
 
         if (searchResults.length > 0) {
-          fileContext = buildRAGContext(searchResults);
-          console.log(
-            `[Chat] RAG: found ${searchResults.length} relevant chunks for agent ${effectiveAgentId}`
-          );
+          const ragContext = buildRAGContext(searchResults);
+          if (ragContext) {
+            fileContext +=
+              (fileContext ? "\n\n---\n\n" : "") +
+              "## Relevant passages (supporting raw text)\n\n" +
+              ragContext;
+            console.log(
+              `[Chat] RAG: found ${searchResults.length} relevant chunks for agent ${effectiveAgentId}`
+            );
+          }
         }
       } catch (e: any) {
-        console.warn("[Chat] RAG search failed, falling back to full text:", e?.message);
-      }
-
-      // Fallback: if no RAG results, load full documents (for pre-RAG uploads)
-      if (!fileContext) {
-        const { data: docs } = await supabase
-          .from("documents")
-          .select("title, parsed_content")
-          .eq("agent_id", effectiveAgentId)
-          .order("created_at", { ascending: false })
-          .limit(5);
-
-        if (docs && docs.length > 0) {
-          fileContext = docs
-            .map(
-              (d) =>
-                `### ${d.title}\n${d.parsed_content?.slice(0, 30_000) || ""}`
-            )
-            .join("\n\n---\n\n");
-          console.log(
-            `[Chat] Fallback: loaded ${docs.length} full documents (${fileContext.length} chars)`
-          );
-        }
+        console.warn("[Chat] RAG search failed:", e?.message);
       }
     }
   }

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { isValidUUID } from "@/lib/validators";
-import { parseFileBuffer } from "@/lib/file-parser";
+import { parseFileBufferDetailed } from "@/lib/file-parser";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { chunkText } from "@/lib/rag/chunker";
 import { embedTexts, toPgVectorLiteral } from "@/lib/rag/embedding";
+import { extractStructuredDocument } from "@/lib/pipeline/structured-document";
+import type { OcrDocument } from "@/lib/pipeline/types";
 
 export async function GET(
   request: Request,
@@ -152,16 +154,18 @@ export async function POST(
 
   const fileBuffer = Buffer.from(await file.arrayBuffer());
 
-  // Parse file content
-  let textContent = "";
+  // Parse file content (detailed: keeps structured OCR for the pipeline)
+  let parsed: { text: string; ocr?: OcrDocument };
   try {
-    textContent = await parseFileBuffer(fileBuffer, file.type, file.name);
+    parsed = await parseFileBufferDetailed(fileBuffer, file.type, file.name);
   } catch (e) {
     return NextResponse.json(
       { error: "Could not parse file" },
       { status: 400 }
     );
   }
+
+  const textContent = parsed.text;
 
   if (!textContent.trim()) {
     return NextResponse.json(
@@ -272,6 +276,39 @@ export async function POST(
       .from("agent_files")
       .update({ status: "indexed" })
       .eq("id", agentFile.id);
+  }
+
+  // Structured extraction: run the SAME engine as /documents and store the
+  // Structured Document on the document row. Chat consumes this as the
+  // authoritative reading; raw parsed_content stays as supporting evidence.
+  try {
+    const structured = await extractStructuredDocument({
+      sourceText: textContent,
+      fileName: file.name,
+      mimeType: file.type,
+      ocr: parsed.ocr,
+    });
+
+    if (structured) {
+      await supabase
+        .from("documents")
+        .update({ structured_content: structured })
+        .eq("id", doc.id);
+      console.log(
+        `[Extraction] Stored structured document for "${file.name}" ` +
+          `(${structured.fields.length} fields, ${structured.dropped.length} dropped, ` +
+          `confidence ${structured.overallConfidence})`
+      );
+    } else {
+      console.log(
+        `[Extraction] No structured document for "${file.name}" — raw fallback stays in effect`
+      );
+    }
+  } catch (e: any) {
+    console.error(
+      `[Extraction] Structured extraction failed for "${file.name}":`,
+      e?.message
+    );
   }
 
   return NextResponse.json({

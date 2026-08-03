@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidUUID } from "@/lib/validators";
-import { parseFileBuffer } from "@/lib/file-parser";
+import { parseFileBufferDetailed } from "@/lib/file-parser";
 import { runPipeline } from "./defaults";
 import { getProfileManager } from "./profiles/registry";
 import { PIPELINE_VERSION, MAX_SOURCE_TEXT } from "./constants";
@@ -11,9 +11,11 @@ import type {
   AIClient,
   ExtractionResult,
   ExportFormat,
+  FieldEvidence,
   FieldSchema,
   FieldsMap,
   NormalizedField,
+  OcrDocument,
   ProfileType,
   RunJobInput,
   StructuredError,
@@ -50,12 +52,14 @@ export class PipelineService {
       profileType?: ProfileType;
       idempotencyKey?: string;
       force?: boolean;
+      ocr?: OcrDocument;
     }
   ): Promise<{ job: JobDTO; created: boolean; rerun: boolean }> {
     // ── Resolve + validate input ─────────────────────────────────────
     let sourceText = req.sourceText?.trim() ?? "";
     let fileName = req.fileName;
     let mimeType = req.mimeType;
+    let ocr = req.ocr;
     const fileId = req.fileId;
 
     if (!sourceText && fileId) {
@@ -63,6 +67,7 @@ export class PipelineService {
       sourceText = resolved.text;
       fileName = resolved.fileName;
       mimeType = resolved.mimeType;
+      ocr = resolved.ocr;
     }
 
     if (!sourceText) {
@@ -170,6 +175,7 @@ export class PipelineService {
       mimeType,
       fileId,
       profileType: req.profileType,
+      ocr,
     };
 
     const out = await runPipeline(input, { ai: this.ai });
@@ -499,7 +505,7 @@ export class PipelineService {
   private async readFileText(
     userId: string,
     fileId: string
-  ): Promise<{ text: string; fileName?: string; mimeType?: string }> {
+  ): Promise<{ text: string; ocr?: OcrDocument; fileName?: string; mimeType?: string }> {
     if (!isValidUUID(fileId)) {
       throw new PipelineError("Invalid file id", {
         code: "BAD_REQUEST",
@@ -544,8 +550,8 @@ export class PipelineService {
       });
     }
 
-    const text = await parseFileBuffer(buffer, file.mime_type, file.original_name);
-    if (!text.trim()) {
+    const parsed = await parseFileBufferDetailed(buffer, file.mime_type, file.original_name);
+    if (!parsed.text.trim()) {
       throw new PipelineError("No text could be extracted from the file", {
         code: "EMPTY_DOCUMENT",
         retryable: false,
@@ -553,7 +559,8 @@ export class PipelineService {
     }
 
     return {
-      text: text.slice(0, MAX_SOURCE_TEXT),
+      text: parsed.text.slice(0, MAX_SOURCE_TEXT),
+      ocr: parsed.ocr,
       fileName: file.original_name,
       mimeType: file.mime_type,
     };
@@ -602,9 +609,11 @@ function rebuildExtraction(
       field: fieldSchema ?? { key: s.key, type: "string", label: s.key },
       value: {
         value: s.value,
+        rawValue: s.raw,
         confidence: s.confidence,
         source: s.source as never,
         status: s.status as never,
+        evidence: s.evidence as FieldEvidence[] | undefined,
       },
     };
   });
@@ -634,6 +643,8 @@ function serializeFields(extraction: ExtractionResult): FieldDTO[] {
   return extraction.fields.map((f) => ({
     key: f.field.key,
     value: f.value.value,
+    raw: f.value.rawValue,
+    evidence: f.value.evidence,
     confidence: round4(f.value.confidence),
     source: f.value.source,
     status: f.value.status,

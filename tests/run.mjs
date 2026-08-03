@@ -4,8 +4,11 @@ const result = spawnSync(
   process.execPath,
   [
     "--experimental-strip-types",
+    "--experimental-transform-types",
     "--experimental-loader",
     "./tests/loader.mjs",
+    "--import",
+    "./tests/set-require.mjs",
     "tests/_entry.ts",
   ],
   {

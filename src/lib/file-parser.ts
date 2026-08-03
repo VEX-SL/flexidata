@@ -7,6 +7,7 @@
 import fs from "fs";
 
 import { recognizeMainThread } from "@/lib/tesseract-main";
+import type { OcrDocument } from "@/lib/pipeline/types";
 
 // Bound every OCR call with a hard timeout so the pipeline can never get
 // stuck; on failure the caller falls back to the "no text" path.
@@ -25,11 +26,25 @@ function withOcrTimeout<T>(promise: Promise<T>): Promise<T> {
   });
 }
 
+export interface ParseResult {
+  text: string;
+  /** Structured OCR document (word-level confidence) when available. */
+  ocr?: OcrDocument;
+}
+
 export async function parseFileBuffer(
   buffer: Buffer,
   mimeType: string,
   fileName?: string
 ): Promise<string> {
+  return (await parseFileBufferDetailed(buffer, mimeType, fileName)).text;
+}
+
+export async function parseFileBufferDetailed(
+  buffer: Buffer,
+  mimeType: string,
+  fileName?: string
+): Promise<ParseResult> {
   const type = mimeType.toLowerCase().split(";")[0].trim();
 
   // ── Text files ──
@@ -44,7 +59,7 @@ export async function parseFileBuffer(
     type === "text/javascript" ||
     type.startsWith("text/")
   ) {
-    return buffer.toString("utf-8").slice(0, 500_000);
+    return { text: buffer.toString("utf-8").slice(0, 500_000) };
   }
 
   // Handle common unknown types as text (Windows sometimes sends .txt as octet-stream)
@@ -52,7 +67,7 @@ export async function parseFileBuffer(
     const text = buffer.toString("utf-8");
     const nonTextRatio =
       (text.match(/[\x00-\x08\x0E-\x1F]/g) || []).length / Math.max(text.length, 1);
-    if (nonTextRatio < 0.1) return text.slice(0, 500_000);
+    if (nonTextRatio < 0.1) return { text: text.slice(0, 500_000) };
     throw new Error(`Binary file cannot be parsed as text`);
   }
 
@@ -66,7 +81,7 @@ export async function parseFileBuffer(
     type ===
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ) {
-    return extractDocxText(buffer);
+    return { text: await extractDocxText(buffer) };
   }
 
   // ── Excel ──
@@ -75,7 +90,7 @@ export async function parseFileBuffer(
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
     type === "application/vnd.ms-excel"
   ) {
-    return extractExcelText(buffer);
+    return { text: await extractExcelText(buffer) };
   }
 
   // ── Images ──
@@ -85,18 +100,18 @@ export async function parseFileBuffer(
 
   // ── Audio ──
   if (type.startsWith("audio/")) {
-    return extractAudioText(buffer, fileName);
+    return { text: await extractAudioText(buffer, fileName) };
   }
 
   // ── Video ──
   if (type.startsWith("video/")) {
-    return extractVideoText(buffer, fileName);
+    return { text: await extractVideoText(buffer, fileName) };
   }
 
   throw new Error(`Unsupported file type: ${mimeType}`);
 }
 
-async function extractPdfText(buffer: Buffer): Promise<string> {
+async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
   try {
     const { extractText } = await import("unpdf");
     const result = await extractText(new Uint8Array(buffer));
@@ -105,9 +120,9 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
     // If text is short (scanned/image PDF), render each page to image then OCR
     if (cleaned.length < 500) {
       try {
-        const ocrText = await ocrPdfPages(buffer);
-        if (ocrText.length > cleaned.length) {
-          return ocrText.slice(0, 500_000);
+        const ocr = await ocrPdfPages(buffer);
+        if (ocr.text.length > cleaned.length) {
+          return { text: ocr.text.slice(0, 500_000), ocr };
         }
       } catch (e) {
         console.error("[Parser] PDF OCR failed:", e);
@@ -115,18 +130,18 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
     }
 
     if (cleaned.length >= 50) {
-      return cleaned.slice(0, 500_000);
+      return { text: cleaned.slice(0, 500_000) };
     }
-    return await extractImageText(buffer);
+    return extractImageText(buffer);
   } catch (err) {
     console.error("[Parser] PDF extraction failed:", err);
     throw new Error("Failed to parse PDF file");
   }
 }
 
-async function ocrPdfPages(buffer: Buffer): Promise<string> {
+async function ocrPdfPages(buffer: Buffer): Promise<OcrDocument> {
   const { isCanvasAvailable } = await import("@/lib/pdf-canvas");
-  if (!isCanvasAvailable()) return "";
+  if (!isCanvasAvailable()) return { text: "", lines: [] };
 
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const { createCanvas } = await import("@/lib/pdf-canvas");
@@ -139,7 +154,8 @@ async function ocrPdfPages(buffer: Buffer): Promise<string> {
     useSystemFonts: true,
   }).promise;
 
-  let allText = "";
+  const allLines: OcrDocument["lines"] = [];
+  const chunks: string[] = [];
 
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
@@ -155,15 +171,16 @@ async function ocrPdfPages(buffer: Buffer): Promise<string> {
     } as any).promise;
 
     const imageData = ctx.getImageData(0, 0, viewport.width, viewport.height);
-    const text = await withOcrTimeout(
+    const pageOcr = await withOcrTimeout(
       recognizeMainThread(imageData, "ara+eng")
     );
-    if (text.trim()) {
-      allText += text + "\n";
+    if (pageOcr.text.trim()) {
+      chunks.push(pageOcr.text);
+      allLines.push(...pageOcr.lines);
     }
   }
 
-  return allText.trim();
+  return { text: chunks.join("\n").trim(), lines: allLines };
 }
 
 async function extractDocxText(buffer: Buffer): Promise<string> {
@@ -193,15 +210,15 @@ async function extractExcelText(buffer: Buffer): Promise<string> {
   }
 }
 
-async function extractImageText(buffer: Buffer): Promise<string> {
+async function extractImageText(buffer: Buffer): Promise<ParseResult> {
   try {
-    const text = await withOcrTimeout(
+    const ocr = await withOcrTimeout(
       recognizeMainThread(buffer, "ara+eng")
     );
-    return text?.trim() || "[No text found in image]";
+    return { text: ocr.text?.trim() || "[No text found in image]", ocr };
   } catch (err) {
     console.error("[Parser] OCR failed:", err);
-    return "[Could not extract text from image]";
+    return { text: "[Could not extract text from image]" };
   }
 }
 

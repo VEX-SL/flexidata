@@ -4,6 +4,7 @@ import { checkRateLimit, getClientIdentifier } from "@/lib/rate-limit";
 import { validateMessage, isValidUUID } from "@/lib/validators";
 import { getProviderManager } from "@/lib/ai/manager";
 import { buildSystemPrompt } from "@/lib/ai/prompts";
+import { buildAgentDocumentContext } from "@/lib/agent/document-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const MAX_HISTORY = 20;
@@ -125,19 +126,17 @@ export async function POST(request: Request) {
       useAgentMode = true;
       const { data: docs } = await supabase
         .from("documents")
-        .select("title, parsed_content")
+        .select("title, parsed_content, structured_content")
         .eq("agent_id", effectiveAgentId)
         .order("created_at", { ascending: false })
         .limit(5);
 
       if (docs && docs.length > 0) {
-        fileContext = docs
-          .map(
-            (d) =>
-              `### Document: ${d.title}\n${d.parsed_content?.slice(0, 30_000) || ""}`
-          )
-          .join("\n\n---\n\n");
-        console.log(`[Chat] Agent ${effectiveAgentId}: found ${docs.length} documents (${fileContext.length} chars)`);
+        const built = buildAgentDocumentContext(docs);
+        fileContext = built.context;
+        console.log(
+          `[Chat] Agent ${effectiveAgentId}: ${built.structuredCount} structured + ${built.rawCount} raw documents (${fileContext.length} chars)`
+        );
       } else {
         console.log(`[Chat] Agent ${effectiveAgentId}: no documents found`);
       }

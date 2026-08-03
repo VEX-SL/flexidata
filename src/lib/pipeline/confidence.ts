@@ -2,6 +2,7 @@ import type {
   ConfidenceResult,
   ConfidenceSignals,
   ExtractionResult,
+  OcrDocument,
   ValidationResult,
 } from "./types";
 
@@ -9,6 +10,8 @@ import type {
 export interface ConfidenceInput {
   sourceText: string;
   textStats?: { length: number; lines: number };
+  /** Structured OCR input (word-level confidence) when available. */
+  ocr?: OcrDocument;
 }
 
 /**
@@ -66,10 +69,25 @@ function consistencySignal(extraction: ExtractionResult): number {
 }
 
 /**
- * Signal 3 — OCR / text quality heuristic.
- * Short or near-empty text suggests scanned/poor OCR.
+ * Signal 3 — OCR / text quality.
+ * When structured OCR is available, prefer real per-word/per-line confidence;
+ * fall back to the page mean OCR confidence, then a length heuristic.
  */
 function ocrQualitySignal(input: ConfidenceInput): number {
+  const confs: number[] = [];
+  if (input.ocr) {
+    for (const line of input.ocr.lines) {
+      if (typeof line.confidence === "number") confs.push(line.confidence);
+      for (const word of line.words) {
+        if (typeof word.confidence === "number") confs.push(word.confidence);
+      }
+    }
+  }
+  if (confs.length > 0) return clamp(mean(confs));
+  if (typeof input.ocr?.confidence === "number") {
+    return clamp(input.ocr.confidence);
+  }
+
   const length = input.textStats?.length ?? input.sourceText.length;
   if (length <= 0) return 0.2;
   if (length < 100) return 0.4;
@@ -106,6 +124,10 @@ function combine(signals: ConfidenceSignals): number {
     signals.extraction * 0.3 +
     signals.missing * 0.1;
   return clamp(weighted);
+}
+
+function mean(xs: number[]): number {
+  return xs.reduce((s, n) => s + n, 0) / xs.length;
 }
 
 function clamp(n: number): number {

@@ -8,6 +8,7 @@
  */
 import fs from "fs";
 import path from "path";
+import type { OcrDocument, OcrLine, OcrWord } from "@/lib/pipeline/types";
 
 // Resolve the CJS require for the emscripten core + wasm-feature-detect.
 // Must stay opaque to Turbopack: a statically-resolvable require (createRequire)
@@ -160,7 +161,15 @@ function setImage(mod: any, api: any, image: Buffer): void {
 
 export type OcrInput = Buffer | Uint8Array | { data: ArrayLike<number>; width: number; height: number };
 
-export async function recognizeMainThread(input: OcrInput, langs = "eng"): Promise<string> {
+/**
+ * Recognize an image and return a structured OcrDocument: the best-guess text
+ * plus per-line/per-word confidence from Tesseract, so downstream stages can
+ * treat OCR as probabilistic input instead of absolute truth.
+ */
+export async function recognizeMainThread(
+  input: OcrInput,
+  langs = "eng"
+): Promise<OcrDocument> {
   const { mod, api } = await getApi(langs);
 
   let buf: Buffer;
@@ -176,5 +185,46 @@ export async function recognizeMainThread(input: OcrInput, langs = "eng"): Promi
 
   setImage(mod, api, buf);
   api.Recognize(null);
-  return (api.GetUTF8Text() || "").trim();
+
+  const text = (api.GetUTF8Text() || "").trim();
+
+  // Tesseract reports the page mean confidence (0..100) via MeanTextConf;
+  // map it to 0..1. (AllWordConfidences is bound in tesseract.js-core 7.x but
+  // marshals an empty vector at runtime, so per-word confidence is not
+  // reliably available — the page mean is the honest signal we can use.)
+  let pageConfidence: number | undefined;
+  try {
+    if (typeof api.MeanTextConf === "function") {
+      const mean = Number(api.MeanTextConf());
+      if (Number.isFinite(mean) && mean > 0) {
+        pageConfidence = Math.min(1, Math.max(0, mean / 100));
+      }
+    }
+  } catch {
+    pageConfidence = undefined;
+  }
+
+  return {
+    text,
+    language: langs,
+    confidence: pageConfidence,
+    lines: buildLines(text, pageConfidence),
+  };
+}
+
+function buildLines(text: string, pageConfidence?: number): OcrLine[] {
+  const lines: OcrLine[] = [];
+  for (const lineText of text.split("\n")) {
+    const words: OcrWord[] = lineText
+      .trim()
+      .split(/\s+/)
+      .filter((t) => t.length > 0)
+      .map((t) => ({ text: t }));
+    lines.push({
+      text: lineText,
+      confidence: pageConfidence,
+      words,
+    });
+  }
+  return lines;
 }

@@ -128,13 +128,23 @@ CREATE TABLE IF NOT EXISTS public.agent_files (
 -- 7. Documents (parsed content for RAG)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS public.documents (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_id        UUID NOT NULL REFERENCES public.agents(id) ON DELETE CASCADE,
-  source_file_id  UUID NOT NULL REFERENCES public.agent_files(id) ON DELETE CASCADE,
-  title           TEXT NOT NULL,
-  parsed_content  TEXT,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id            UUID NOT NULL REFERENCES public.agents(id) ON DELETE CASCADE,
+  source_file_id      UUID NOT NULL REFERENCES public.agent_files(id) ON DELETE CASCADE,
+  title               TEXT NOT NULL,
+  parsed_content      TEXT,
+  -- Structured Document produced by the extraction engine (same engine as
+  -- /documents). JSONB: {profileType, profileLabel, overallConfidence,
+  -- extractedAt, fields[], dropped[]}. Null until the pipeline run completes;
+  -- chat falls back to raw parsed_content while null.
+  structured_content  JSONB,
+  created_at          TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Idempotent column add for databases created before the structured pipeline
+-- was wired into the agent flow.
+ALTER TABLE public.documents
+  ADD COLUMN IF NOT EXISTS structured_content JSONB;
 
 -- ==========================================
 -- 8. Document Chunks (pgvector embeddings for RAG)
