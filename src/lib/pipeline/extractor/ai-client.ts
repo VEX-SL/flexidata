@@ -26,24 +26,48 @@ export async function extractWithAI(
   input: AiExtractionInput,
   ai: AIClient = defaultAIClient
 ): Promise<AiExtractionOutput> {
-  if (!input.prompt || input.prompt.trim().length === 0) {
-    throw new Error("Extraction prompt is empty");
-  }
-
-  const request: AIRequest = {
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: input.prompt },
-    ],
-    maxTokens: 4096,
-    temperature: 0,
-  };
-
-  const response = await ai.chatCompletion(request);
-
+  const response = await ai.chatCompletion(buildRequest(input.prompt));
   return {
     model: input.model ?? response.model ?? "unknown",
     provider: response.provider,
     content: response.content ?? "",
+  };
+}
+
+/**
+ * Cross-provider retry — re-issues the extraction prompt skipping providers
+ * already used for this document. Only wired when the AIClient implements
+ * `retryProviders`; callers must already have exhausted deterministic recovery.
+ */
+export async function extractWithAIRetry(
+  input: AiExtractionInput,
+  ai: AIClient,
+  skipProviders: string[]
+): Promise<AiExtractionOutput> {
+  if (!ai.retryProviders) {
+    throw new Error("AIClient does not support provider rotation");
+  }
+  const response = await ai.retryProviders(
+    buildRequest(input.prompt),
+    skipProviders
+  );
+  return {
+    model: input.model ?? response.model ?? "unknown",
+    provider: response.provider,
+    content: response.content ?? "",
+  };
+}
+
+function buildRequest(prompt: string): AIRequest {
+  if (!prompt || prompt.trim().length === 0) {
+    throw new Error("Extraction prompt is empty");
+  }
+  return {
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
+    maxTokens: 4096,
+    temperature: 0,
   };
 }

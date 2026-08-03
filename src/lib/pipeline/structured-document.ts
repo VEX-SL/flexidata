@@ -29,6 +29,8 @@ export interface StructuredField {
   source: string;
   status: string;
   evidence?: StructuredFieldEvidence[];
+  /** Distinct grounded candidates when status is "ambiguous". */
+  alternatives?: unknown[];
 }
 
 export interface StructuredDroppedField {
@@ -77,6 +79,7 @@ export function toStructuredDocument(out: RunJobOutput): StructuredDocument | nu
         role: e.role,
         confidence: e.confidence !== undefined ? round4(e.confidence) : undefined,
       })),
+      alternatives: f.value.alternatives,
     })),
     dropped: Object.entries(extraction.droppedFields).map(([key, reason]) => ({
       key,

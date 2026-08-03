@@ -22,6 +22,8 @@ export interface FieldDTO {
   confidence: number;
   source: string;
   status: string;
+  /** Distinct grounded candidates when status is "ambiguous". */
+  alternatives?: unknown[];
 }
 
 /** HTTP status / stage error — same stable shape everywhere. */

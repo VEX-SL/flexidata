@@ -49,19 +49,7 @@ export async function extractDocument(
     ai
   );
 
-  const raw: RawExtraction = parseRaw(aiCall.content);
-  const normalizedMap = normalizeFields(input.profile, raw);
-
-  const candidates: ExtractionResult = {
-    profileType: input.profile.id as ExtractionResult["profileType"],
-    profileVersion: input.profile.version,
-    fields: candidateFields(input.profile, normalizedMap),
-    fieldsMap: normalizedMap,
-    cleanFields: candidateCleanFields(normalizedMap),
-    droppedFields: {},
-    model: aiCall.model,
-    provider: aiCall.provider,
-  };
+  const candidates = candidatesFromAICall(input.profile, aiCall);
 
   if (opts.grounded === false) return candidates;
 
@@ -71,6 +59,30 @@ export async function extractDocument(
     input.sourceText,
     input.ocr
   );
+}
+
+/**
+ * Build the candidate extraction (normalized, ungrounded) from a raw AI call.
+ * Shared by the main extraction path and the recovery stage's cross-provider
+ * retry so both construct candidates identically.
+ */
+export function candidatesFromAICall(
+  profile: ExtractionProfile,
+  aiCall: { content: string; model?: string; provider?: string }
+): ExtractionResult {
+  const raw: RawExtraction = parseRaw(aiCall.content);
+  const normalizedMap = normalizeFields(profile, raw);
+
+  return {
+    profileType: profile.id as ExtractionResult["profileType"],
+    profileVersion: profile.version,
+    fields: candidateFields(profile, normalizedMap),
+    fieldsMap: normalizedMap,
+    cleanFields: candidateCleanFields(normalizedMap),
+    droppedFields: {},
+    model: aiCall.model,
+    provider: aiCall.provider,
+  };
 }
 
 function candidateFields(

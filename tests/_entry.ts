@@ -6,5 +6,6 @@ import "./validation.test.ts";
 import "./export.test.ts";
 import "./prompts.test.ts";
 import "./agent-context.test.ts";
+import "./recovery.test.ts";
 
 await run();

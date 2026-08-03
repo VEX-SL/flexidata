@@ -98,7 +98,7 @@ export interface ValidationResult {
 
 export type FieldSource = "ai" | "ocr" | "rule" | "user" | "verified";
 
-export type FieldStatus = "extracted" | "verified" | "edited" | "flagged";
+export type FieldStatus = "extracted" | "verified" | "edited" | "flagged" | "ambiguous";
 
 /** Where a field's value came from in the source document. */
 export interface FieldEvidence {
@@ -129,6 +129,11 @@ export interface FieldValue {
   status: FieldStatus;
   /** Anchors in the source document that support this value. */
   evidence?: FieldEvidence[];
+  /**
+   * Distinct grounded candidates when the value could not be resolved
+   * (status "ambiguous"). Each entry is the coerced candidate value.
+   */
+  alternatives?: unknown[];
   /** Free-form extra data (e.g. date/time parts, raw match). */
   meta?: Record<string, unknown>;
 }
@@ -355,6 +360,15 @@ export interface RunJobOutput {
 
 export interface AIClient {
   chatCompletion(request: AIRequest): Promise<AIResponse>;
+  /**
+   * Optional: re-issue a request while skipping providers already known to be
+   * weak for this document (used by the recovery stage's cross-provider retry).
+   * Not implemented by test fakes — absent means "no provider rotation".
+   */
+  retryProviders?(
+    request: AIRequest,
+    skipProviders: string[]
+  ): Promise<AIResponse>;
 }
 
 // ─── Structured errors ────────────────────────────────────────────────────

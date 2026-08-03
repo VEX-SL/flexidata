@@ -356,6 +356,7 @@ export class PipelineService {
         existing.confidence = 1;
         existing.source = "verified";
         existing.status = "edited";
+        existing.alternatives = undefined;
       } else {
         byKey.set(key, {
           key,
@@ -614,6 +615,7 @@ function rebuildExtraction(
         source: s.source as never,
         status: s.status as never,
         evidence: s.evidence as FieldEvidence[] | undefined,
+        alternatives: s.alternatives,
       },
     };
   });
@@ -648,6 +650,7 @@ function serializeFields(extraction: ExtractionResult): FieldDTO[] {
     confidence: round4(f.value.confidence),
     source: f.value.source,
     status: f.value.status,
+    alternatives: f.value.alternatives,
   }));
 }
 

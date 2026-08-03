@@ -49,11 +49,17 @@ export class ProviderManager {
 
   async chatCompletion(
     request: AIRequest,
-    retryAttempts = 2
+    retryAttempts = 2,
+    opts: { skipProviders?: string[] } = {}
   ): Promise<AIResponse> {
     let lastError: Error | null = null;
 
     for (const provider of this.providers) {
+      if (opts.skipProviders?.includes(provider.name)) {
+        console.log(`[ProviderManager] Skipping ${provider.name} (already used)`);
+        continue;
+      }
+
       // Truncate context if provider has known token limits
       const truncatedRequest = this.truncateForProvider(provider.name, request);
 

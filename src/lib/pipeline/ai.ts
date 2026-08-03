@@ -9,4 +9,6 @@ import type { AIClient } from "./types";
  */
 export const defaultAIClient: AIClient = {
   chatCompletion: (request) => getProviderManager().chatCompletion(request),
+  retryProviders: (request, skipProviders) =>
+    getProviderManager().chatCompletion(request, 1, { skipProviders }),
 };
