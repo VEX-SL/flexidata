@@ -15,3 +15,9 @@ export function createCanvas(width: number, height: number) {
 export function isCanvasAvailable(): boolean {
   return _canvas !== null;
 }
+
+/** Decode an encoded image buffer into a canvas Image (no EXIF applied). */
+export function loadImage(source: Buffer | Uint8Array | string) {
+  if (!_canvas) throw new Error("Canvas not available — native module @napi-rs/canvas not installed");
+  return _canvas.loadImage(source);
+}
