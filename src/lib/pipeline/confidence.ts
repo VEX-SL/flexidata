@@ -17,7 +17,8 @@ export interface ConfidenceInput {
 /**
  * Confidence Engine — multi-signal, not just the model's self-reported score.
  * Signals: validation success, cross-field consistency, OCR quality,
- * extraction (per-field) confidence, missing-required penalty.
+ * extraction (per-field) confidence, missing-required penalty, evidence
+ * coverage/quality, and uncertainty (flagged/ambiguous/recovered fields).
  * The model's own confidence is optional and low-weight.
  */
 export function computeConfidence(
@@ -31,7 +32,12 @@ export function computeConfidence(
     ocrQuality: ocrQualitySignal(input),
     extraction: extractionSignal(extraction),
     missing: missingSignal(validation),
+    evidence: evidenceSignal(extraction),
+    uncertainty: uncertaintySignal(extraction),
   };
+  if (typeof extraction.modelConfidence === "number") {
+    signals.modelConfidence = clamp(extraction.modelConfidence);
+  }
 
   const overall = combine(signals);
 
@@ -43,6 +49,8 @@ export function computeConfidence(
       { label: "Cross-field consistency", score: signals.consistency },
       { label: "OCR / text quality", score: signals.ocrQuality },
       { label: "Extraction confidence", score: signals.extraction },
+      { label: "Evidence grounding", score: signals.evidence },
+      { label: "Uncertainty", score: signals.uncertainty },
       { label: "Missing required fields", score: signals.missing },
     ],
   };
@@ -115,14 +123,57 @@ function missingSignal(validation: ValidationResult): number {
   return clamp(1 - penalty);
 }
 
+/** Signal 6 — share of kept fields grounded in OCR evidence, × evidence quality. */
+function evidenceSignal(extraction: ExtractionResult): number {
+  const kept = extraction.fields;
+  if (kept.length === 0) return 0;
+  let coverage = 0;
+  let quality = 0;
+  let qualityCount = 0;
+  for (const f of kept) {
+    const ev = f.value.evidence ?? [];
+    if (ev.length > 0) coverage += 1;
+    for (const e of ev) {
+      if (typeof e.confidence === "number") {
+        quality += e.confidence;
+        qualityCount += 1;
+      }
+    }
+  }
+  coverage = coverage / kept.length;
+  if (qualityCount === 0) return clamp(coverage);
+  return clamp(coverage * 0.5 + (quality / qualityCount) * 0.5);
+}
+
+/** Signal 7 — inverse uncertainty: any flagged/ambiguous/recovered field lowers it. */
+function uncertaintySignal(extraction: ExtractionResult): number {
+  const kept = extraction.fields;
+  if (kept.length === 0) return 0;
+  let uncertain = 0;
+  for (const f of kept) {
+    const status = f.value.status;
+    const reasons = f.value.reasons ?? [];
+    if (
+      status === "flagged" ||
+      status === "ambiguous" ||
+      (status !== "verified" && reasons.length > 0)
+    ) {
+      uncertain += 1;
+    }
+  }
+  return clamp(1 - uncertain / kept.length);
+}
+
 function combine(signals: ConfidenceSignals): number {
   // Validation and extraction are the primary signals.
   const weighted =
-    signals.validation * 0.35 +
-    signals.consistency * 0.15 +
+    signals.validation * 0.3 +
+    signals.consistency * 0.1 +
     signals.ocrQuality * 0.1 +
     signals.extraction * 0.3 +
-    signals.missing * 0.1;
+    signals.evidence * 0.1 +
+    signals.uncertainty * 0.05 +
+    signals.missing * 0.05;
   return clamp(weighted);
 }
 

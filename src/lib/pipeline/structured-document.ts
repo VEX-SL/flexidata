@@ -1,7 +1,7 @@
 import { runPipeline } from "./defaults";
 import { getProfileManager } from "./profiles/registry";
 import { MAX_SOURCE_TEXT } from "./constants";
-import type { RunJobInput, RunJobOutput } from "./types";
+import type { RunJobInput, RunJobOutput, UncertaintyReason } from "./types";
 
 /**
  * Structured Document — the pipeline's final artifact, JSON-safe so it can be
@@ -31,6 +31,8 @@ export interface StructuredField {
   evidence?: StructuredFieldEvidence[];
   /** Distinct grounded candidates when status is "ambiguous". */
   alternatives?: unknown[];
+  /** Why this value is uncertain (flagged/ambiguous/low confidence). */
+  reasons?: UncertaintyReason[];
 }
 
 export interface StructuredDroppedField {
@@ -80,6 +82,7 @@ export function toStructuredDocument(out: RunJobOutput): StructuredDocument | nu
         confidence: e.confidence !== undefined ? round4(e.confidence) : undefined,
       })),
       alternatives: f.value.alternatives,
+      reasons: f.value.reasons,
     })),
     dropped: Object.entries(extraction.droppedFields).map(([key, reason]) => ({
       key,

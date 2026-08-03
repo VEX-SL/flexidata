@@ -7,6 +7,8 @@ import { getProfileManager } from "./profiles/registry";
 import { PIPELINE_VERSION, MAX_SOURCE_TEXT } from "./constants";
 import { PipelineError } from "./errors";
 import { toJobDTO } from "./dto";
+import { computeConfidence } from "./confidence";
+import { validateExtraction } from "./validator";
 import type {
   AIClient,
   ExtractionResult,
@@ -185,26 +187,38 @@ export class PipelineService {
     if (out.status === "complete" && out.job) {
       const { classification, extraction, validation, confidence } = out.job;
       const fields = serializeFields(extraction);
-      await this.supabase
+      const payload = {
+        status: "complete",
+        profile_type: classification.profileType,
+        profile_version: extraction.profileVersion,
+        provider: extraction.provider ?? null,
+        model: extraction.model ?? null,
+        processing_time_ms: processingTimeMs,
+        overall_confidence: round4(confidence.overall),
+        fields_json: fields,
+        validation_json: { ok: validation.ok, missing: validation.missing },
+        confidence_json: {
+          overall: confidence.overall,
+          signals: confidence.signals,
+          summary: confidence.summary,
+        },
+        trace_json: out.trace,
+        completed_at: new Date().toISOString(),
+      } as Record<string, unknown>;
+
+      // ocr_json needs the migration `ALTER TABLE extractions ADD COLUMN IF
+      // NOT EXISTS ocr_json JSONB;`. Until it is applied, degrade gracefully
+      // instead of failing the whole persist step.
+      const result = await this.supabase
         .from("extractions")
-        .update({
-          status: "complete",
-          profile_type: classification.profileType,
-          profile_version: extraction.profileVersion,
-          provider: extraction.provider ?? null,
-          model: extraction.model ?? null,
-          processing_time_ms: processingTimeMs,
-          overall_confidence: round4(confidence.overall),
-          fields_json: fields,
-          validation_json: { ok: validation.ok, missing: validation.missing },
-          confidence_json: {
-            overall: confidence.overall,
-            signals: confidence.signals,
-          },
-          trace_json: out.trace,
-          completed_at: new Date().toISOString(),
-        })
+        .update({ ...payload, ocr_json: ocr ?? null })
         .eq("id", jobId);
+      if (result.error) {
+        await this.supabase
+          .from("extractions")
+          .update(payload)
+          .eq("id", jobId);
+      }
 
       const finalRow = await this.getRow(userId, jobId);
       return { job: toJobDTO(finalRow), created, rerun };
@@ -288,6 +302,10 @@ export class PipelineService {
     try {
       result = exportExtraction(extraction, { format }, {
         confidence: Number(row.overall_confidence ?? 0),
+        signals:
+          row.confidence_json && typeof row.confidence_json === "object"
+            ? row.confidence_json.signals
+            : undefined,
         extractedAt: row.completed_at ?? undefined,
       });
     } catch (err) {
@@ -357,6 +375,7 @@ export class PipelineService {
         existing.source = "verified";
         existing.status = "edited";
         existing.alternatives = undefined;
+        existing.reasons = undefined;
       } else {
         byKey.set(key, {
           key,
@@ -370,43 +389,29 @@ export class PipelineService {
 
     const fields = Array.from(byKey.values());
 
-    // Recompute overall confidence (required fields weighted 2x, same as the
-    // pipeline's extraction signal) from the edited snapshot.
-    const weightOf = (f: FieldDTO) =>
-      profile.schema.fields.find((s) => s.key === f.key)?.required ? 2 : 1;
-    const totalWeight = fields.reduce((s, f) => s + weightOf(f), 0);
-    const overall =
-      fields.length && totalWeight > 0
-        ? fields.reduce((s, f) => s + f.confidence * weightOf(f), 0) /
-          totalWeight
-        : 0;
-
-    // Recompute missing required fields from the edited snapshot.
-    const missing = profile.schema.fields
-      .filter((f) => f.required)
-      .map((f) => f.key)
-      .filter((key) => {
-        const fv = byKey.get(key);
-        return (
-          !fv ||
-          fv.value === null ||
-          fv.value === undefined ||
-          fv.value === ""
-        );
-      });
-
-    const confidenceJson =
-      row.confidence_json && typeof row.confidence_json === "object"
-        ? { ...row.confidence_json, overall }
-        : { overall, signals: {} };
+    // Recompute validation + confidence from the edited snapshot using the
+    // SAME engine as the pipeline (single source of truth for confidence).
+    const extraction = rebuildExtraction(
+      { ...row, fields_json: fields },
+      profile
+    );
+    const validation = validateExtraction(extraction);
+    const confidence = computeConfidence(extraction, validation, {
+      sourceText: row.source_text ?? "",
+      ocr: row.ocr_json ?? undefined,
+    });
 
     await this.supabase
       .from("extractions")
       .update({
         fields_json: fields,
-        overall_confidence: round4(overall),
-        confidence_json: confidenceJson,
-        validation_json: { ok: missing.length === 0, missing },
+        overall_confidence: round4(confidence.overall),
+        confidence_json: {
+          overall: confidence.overall,
+          signals: confidence.signals,
+          summary: confidence.summary,
+        },
+        validation_json: { ok: validation.ok, missing: validation.missing },
       })
       .eq("id", id);
 
@@ -616,6 +621,7 @@ function rebuildExtraction(
         status: s.status as never,
         evidence: s.evidence as FieldEvidence[] | undefined,
         alternatives: s.alternatives,
+        reasons: s.reasons,
       },
     };
   });
@@ -651,6 +657,7 @@ function serializeFields(extraction: ExtractionResult): FieldDTO[] {
     source: f.value.source,
     status: f.value.status,
     alternatives: f.value.alternatives,
+    reasons: f.value.reasons,
   }));
 }
 

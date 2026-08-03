@@ -80,6 +80,16 @@ function confidenceColor(c: number): string {
   return "#EF4444";
 }
 
+const BREAKDOWN_KEY: Record<string, string> = {
+  Validation: "validation",
+  "Cross-field consistency": "consistency",
+  "OCR / text quality": "ocrQuality",
+  "Extraction confidence": "extraction",
+  "Evidence grounding": "evidence",
+  Uncertainty: "uncertainty",
+  "Missing required fields": "missing",
+};
+
 function parseDraft(def: FieldSchemaDTO | undefined, draft: string): unknown {
   const type = def?.type ?? "string";
   switch (type) {
@@ -363,6 +373,27 @@ export default function DocumentsPage() {
         }
         .fd-doc-enter { animation: fd-doc-rise .5s cubic-bezier(.16,1,.3,1) both; }
         .fd-doc-enter-d1 { animation-delay: .1s; }
+        .fd-doc-tabs { display: inline-flex; gap: .25rem; padding: .25rem; border-radius: 10px; background: var(--color-muted); }
+        .fd-doc-tab {
+          padding: .4rem .9rem; border-radius: 8px; font-size: .78rem; font-weight: 600;
+          color: var(--color-muted-foreground); border: none; background: transparent; cursor: pointer;
+        }
+        .fd-doc-tab.active { background: var(--color-card); color: var(--color-foreground); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+        .fd-doc-ocr-lines {
+          display: flex; flex-direction: column; gap: .1rem;
+          font-family: 'SF Mono', ui-monospace, Consolas, monospace; font-size: .78rem;
+          max-height: 420px; overflow: auto;
+        }
+        .fd-doc-ocr-line { display: flex; align-items: baseline; gap: .6rem; padding: .14rem .5rem; border-radius: 6px; }
+        .fd-doc-ocr-line.uncertain { background: rgba(239,68,68,.08); }
+        .fd-doc-ocr-line-no { flex-shrink: 0; width: 2.2rem; text-align: right; color: var(--color-muted-foreground); font-size: .68rem; }
+        .fd-doc-ocr-line-text { flex: 1; word-break: break-word; }
+        .fd-doc-ocr-line-conf { flex-shrink: 0; font-size: .66rem; color: var(--color-muted-foreground); }
+        .fd-doc-preview-img { max-width: 100%; border-radius: 12px; border: 1px solid var(--color-border); }
+        .fd-doc-preview-label {
+          font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+          color: var(--color-muted-foreground); margin-bottom: .5rem;
+        }
       `}</style>
 
       <div className="fd-doc-root h-full overflow-auto p-6" suppressHydrationWarning>
@@ -770,6 +801,7 @@ function ReviewWorkspace(props: ReviewProps) {
   const missing = job.validation?.missing ?? [];
   const fieldLabel = (key: string) =>
     schema?.fields.find((f) => f.key === key)?.label ?? humanize(key);
+  const [view, setView] = useState<"fields" | "preview">("fields");
 
   const groups: Array<{ label: string; fields: FieldDTO[] }> = [];
   if (schema?.groups?.length) {
@@ -818,8 +850,26 @@ function ReviewWorkspace(props: ReviewProps) {
           )}
         </div>
 
+        {/* View tabs */}
+        <div className="fd-doc-tabs mb-4">
+          <button
+            className={`fd-doc-tab ${view === "fields" ? "active" : ""}`}
+            onClick={() => setView("fields")}
+          >
+            <FileText size={13} style={{ verticalAlign: "text-bottom", marginRight: 4 }} />
+            {t("documents.reviewTitle")}
+          </button>
+          <button
+            className={`fd-doc-tab ${view === "preview" ? "active" : ""}`}
+            onClick={() => setView("preview")}
+          >
+            <ScanText size={13} style={{ verticalAlign: "text-bottom", marginRight: 4 }} />
+            {t("documents.preview.title")}
+          </button>
+        </div>
+
         {/* Validation banner */}
-        {missing.length > 0 ? (
+        {view === "fields" && (missing.length > 0 ? (
           <div className="fd-doc-banner warn mb-4">
             <AlertTriangle size={14} style={{ color: "#F59E0B", flexShrink: 0 }} />
             <span>{t("documents.missingFields", { fields: missing.map(fieldLabel).join(", ") })}</span>
@@ -829,10 +879,45 @@ function ReviewWorkspace(props: ReviewProps) {
             <CheckCircle2 size={14} style={{ color: "#22C55E", flexShrink: 0 }} />
             <span>{t("documents.allFieldsOk")}</span>
           </div>
+        ))}
+
+        {/* Confidence breakdown */}
+        {view === "fields" && !!job.confidence?.summary?.length && (
+          <div className="fd-doc-banner mb-4" style={{ display: "block" }}>
+            <p className="text-[.7rem] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
+              {t("documents.confidenceBreakdown.title")}
+            </p>
+            <div className="space-y-1">
+              {job.confidence.summary.map((s) => (
+                <div key={s.label} className="flex items-center gap-2">
+                  <span className="text-[.68rem] text-muted-foreground flex-1 truncate">
+                    {t(`documents.confidenceBreakdown.${BREAKDOWN_KEY[s.label] ?? s.label}`) || s.label}
+                  </span>
+                  <div
+                    className="w-28 h-1.5 rounded-full overflow-hidden flex-shrink-0"
+                    style={{ background: "var(--color-muted)" }}
+                  >
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.round(s.score * 100)}%`,
+                        background: confidenceColor(s.score),
+                      }}
+                    />
+                  </div>
+                  <span className="text-[.68rem] font-bold" style={{ color: confidenceColor(s.score) }}>
+                    {Math.round(s.score * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
-        {/* Field groups */}
-        {groups.length === 0 ? (
+        {/* Field groups / OCR preview */}
+        {view === "preview" ? (
+          <OcrPreview job={job} t={t} />
+        ) : groups.length === 0 ? (
           <div className="text-center py-6 text-sm text-muted-foreground">{t("common.error")}</div>
         ) : (
           <div className="space-y-5">
@@ -900,6 +985,70 @@ function ReviewWorkspace(props: ReviewProps) {
   );
 }
 
+/* ─── OCR preview ──────────────────────────────────────────────────────── */
+
+function OcrPreview({
+  job,
+  t,
+}: {
+  job: JobDTO;
+  t: (key: string) => string;
+}) {
+  const ocr = job.ocr;
+  const isImage =
+    !!job.fileUrl && /\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(job.fileUrl);
+  const lines = ocr?.lines?.length ? ocr.lines : null;
+
+  return (
+    <div className="space-y-4">
+      {isImage && (
+        <div>
+          <p className="fd-doc-preview-label">{t("documents.preview.imageTitle")}</p>
+          <img
+            src={job.fileUrl!}
+            alt={t("documents.preview.imageTitle")}
+            className="fd-doc-preview-img"
+          />
+        </div>
+      )}
+
+      {lines ? (
+        <div>
+          <p className="fd-doc-preview-label">{t("documents.preview.linesTitle")}</p>
+          <div className="fd-doc-ocr-lines">
+            {lines.map((line, i) => {
+              const conf = line.confidence;
+              const uncertain = conf !== undefined && conf < 0.6;
+              return (
+                <div
+                  key={i}
+                  className={`fd-doc-ocr-line ${uncertain ? "uncertain" : ""}`}
+                  title={uncertain ? t("documents.preview.uncertainLine") : undefined}
+                >
+                  <span className="fd-doc-ocr-line-no">{i + 1}</span>
+                  <span className="fd-doc-ocr-line-text">{line.text || " "}</span>
+                  {conf !== undefined && (
+                    <span className="fd-doc-ocr-line-conf">
+                      {Math.round(conf * 100)}% {t("documents.preview.lineConfidence")}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : job.sourceText ? (
+        <div>
+          <p className="fd-doc-preview-label">{t("documents.preview.rawTitle")}</p>
+          <pre className="fd-doc-field-pre">{job.sourceText}</pre>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">{t("documents.preview.noOcr")}</p>
+      )}
+    </div>
+  );
+}
+
 /* ─── Field row ───────────────────────────────────────────────────────── */
 
 interface FieldRowProps {
@@ -941,7 +1090,16 @@ function FieldRow({
       ? "#8B5CF6"
       : field.status === "verified"
         ? "#22C55E"
-        : "#6366F1";
+        : field.status === "flagged"
+          ? "#EF4444"
+          : field.status === "ambiguous"
+            ? "#F59E0B"
+            : "#6366F1";
+
+  const uncertaintyReasons = field.reasons ?? [];
+  const hasUncertainty = uncertaintyReasons.length > 0 ||
+    field.status === "flagged" ||
+    field.status === "ambiguous";
 
   return (
     <div className={`fd-doc-field-row ${inEdit ? "editing" : ""}`}>
@@ -989,6 +1147,32 @@ function FieldRow({
           <pre className="fd-doc-field-pre">{value}</pre>
         ) : (
           <p className="fd-doc-field-value">{value}</p>
+        )}
+
+        {!inEdit && !!field.raw && field.raw !== field.value && (
+          <p className="text-[.7rem] text-muted-foreground mt-0.5 truncate" title={String(field.raw)}>
+            raw: {String(field.raw)}
+          </p>
+        )}
+
+        {!inEdit && hasUncertainty && (
+          <div className="mt-1.5 space-y-0.5">
+            <p className="text-[.7rem] font-bold flex items-center gap-1" style={{ color: "#F59E0B" }}>
+              <AlertTriangle size={11} />
+              {t("documents.uncertainty.title")}
+            </p>
+            {uncertaintyReasons.length > 0 ? (
+              uncertaintyReasons.map((r) => (
+                <p key={r} className="text-[.7rem] m-0" style={{ color: "#D97706" }}>
+                  {t(`documents.uncertainty.${r}`) || r}
+                </p>
+              ))
+            ) : (
+              <p className="text-[.7rem] m-0" style={{ color: "#D97706" }}>
+                {t("documents.uncertainty.ocr_confidence_low")}
+              </p>
+            )}
+          </div>
         )}
       </div>
 

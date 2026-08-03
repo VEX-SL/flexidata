@@ -76,7 +76,8 @@
       "extracted": "مستخرج",
       "verified": "متحقق منه",
       "edited": "تم تعديله",
-      "flagged": "مُعلّم"
+      "flagged": "مُعلّم",
+      "ambiguous": "غامض"
     },
     "fieldSource": {
       "ai": "الذكاء الاصطناعي",
@@ -84,6 +85,34 @@
       "rule": "قاعدة",
       "user": "يدوي",
       "verified": "متحقق منه"
+    },
+    "uncertainty": {
+      "title": "لماذا هذا غير مؤكد؟",
+      "recovered_from_ocr": "تم استرجاعه مباشرة من نص OCR عبر مطابقة التسمية — غير متحقق منه بشكل مستقل.",
+      "ambiguous_candidates": "تظهر عدة قيم محتملة في المستند ولم يمكن تحديد الصحيحة.",
+      "ocr_confidence_low": "ثقة OCR في هذه القيمة منخفضة (نص ضبابي أو باهت أو أرقام مُقرؤة خطأ).",
+      "label_not_matched": "وُجدت القيمة في النص لكن لا يوجد تسمية حقل مطابقة في نفس السطر.",
+      "no_direct_evidence": "القيمة لا تظهر مباشرة في نص OCR وتم استنتاجها بدلاً من قراءتها حرفياً."
+    },
+    "confidenceBreakdown": {
+      "title": "تفصيل الثقة",
+      "validation": "التحقق",
+      "consistency": "الاتساق بين الحقول",
+      "ocrQuality": "جودة OCR / النص",
+      "extraction": "ثقة الاستخراج",
+      "evidence": "الإسناد إلى المستند",
+      "uncertainty": "عدم اليقين",
+      "missing": "الحقول المطلوبة الناقصة",
+      "overall": "الإجمالي"
+    },
+    "preview": {
+      "title": "معاينة OCR",
+      "rawTitle": "النص الخام",
+      "linesTitle": "OCR على مستوى الأسطر",
+      "imageTitle": "المستند الأصلي",
+      "noOcr": "لا تتوفر معاينة OCR لهذا المستند.",
+      "uncertainLine": "سطر غير مؤكد",
+      "lineConfidence": "ثقة السطر"
     }
   },
   "chat": {

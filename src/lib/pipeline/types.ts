@@ -100,6 +100,18 @@ export type FieldSource = "ai" | "ocr" | "rule" | "user" | "verified";
 
 export type FieldStatus = "extracted" | "verified" | "edited" | "flagged" | "ambiguous";
 
+/**
+ * Machine-readable reasons why a field's value is uncertain. Set by the
+ * grounding and recovery stages, consumed by the review UI (P4) and the agent
+ * context (P1) so uncertainty is always explained, never a bare percentage.
+ */
+export type UncertaintyReason =
+  | "recovered_from_ocr"
+  | "ambiguous_candidates"
+  | "ocr_confidence_low"
+  | "label_not_matched"
+  | "no_direct_evidence";
+
 /** Where a field's value came from in the source document. */
 export interface FieldEvidence {
   /** Exact source span (best-guess OCR line, verbatim). */
@@ -134,6 +146,11 @@ export interface FieldValue {
    * (status "ambiguous"). Each entry is the coerced candidate value.
    */
   alternatives?: unknown[];
+  /**
+   * Machine-readable reasons why this value carries uncertainty. Never empty
+   * for flagged/ambiguous fields; may also annotate low-confidence extractions.
+   */
+  reasons?: UncertaintyReason[];
   /** Free-form extra data (e.g. date/time parts, raw match). */
   meta?: Record<string, unknown>;
 }
@@ -201,8 +218,20 @@ export interface ConfidenceSignals {
   ocrQuality: number;
   extraction: number;
   missing: number;
+  /**
+   * Evidence coverage + quality: share of grounded fields carrying OCR
+   * evidence and how confident that evidence is.
+   */
+  evidence: number;
+  /**
+   * Inverse uncertainty: 1 when no field is flagged/ambiguous/recovered,
+   * falling as uncertainty appears.
+   */
+  uncertainty: number;
   /** Optional model-provided confidence (0..1). */
   modelConfidence?: number;
+  /** Optional classification confidence (0..1), when available. */
+  classification?: number;
 }
 
 export interface ConfidenceResult {
@@ -240,6 +269,8 @@ export interface ExtractionResult {
   droppedFields: Record<string, string>;
   model?: string;
   provider?: string;
+  /** Optional model-provided overall confidence (0..1). */
+  modelConfidence?: number;
 }
 
 export interface JobResult {

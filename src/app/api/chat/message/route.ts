@@ -101,12 +101,12 @@ export async function POST(request: Request) {
     content: msgValidation.value!,
   });
 
-  // Get chat history
+  // Get chat history (most recent MAX_HISTORY messages, in chronological order)
   const { data: history } = await supabase
     .from("messages")
     .select("role, content")
     .eq("chat_id", chat.id)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(MAX_HISTORY);
 
   // Build context: only for agent chats
@@ -154,13 +154,14 @@ export async function POST(request: Request) {
   let aiResponse: { content: string; model: string };
   try {
     const manager = getProviderManager();
+    const historyMessages = (history || []).slice().reverse().map((m: any) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    }));
     const result = await manager.chatCompletion({
       messages: [
         { role: "system", content: systemPrompt },
-        ...(history || []).map((m: any) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
+        ...historyMessages,
       ],
     });
     aiResponse = { content: result.content, model: result.model || "unknown" };

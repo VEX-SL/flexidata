@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS public.extractions (
   error_json         JSONB,                    -- StructuredError {stage,code,message,retryable,details}
   source_text        TEXT,                     -- truncated extracted text (review/debug)
   ocr_confidence     NUMERIC(5,4),
+  ocr_json           JSONB,                    -- OcrDocument {text, lines[], confidence} for the readable review preview
   error_message      TEXT,
   updated_at         TIMESTAMPTZ DEFAULT NOW()
 );
@@ -107,3 +108,8 @@ CREATE INDEX IF NOT EXISTS idx_extractions_created   ON public.extractions(user_
 CREATE UNIQUE INDEX IF NOT EXISTS idx_extractions_idempotency
   ON public.extractions(user_id, idempotency_key)
   WHERE idempotency_key IS NOT NULL;
+
+-- ==========================================
+-- Upgrade path for existing databases (idempotent)
+-- ==========================================
+ALTER TABLE public.extractions ADD COLUMN IF NOT EXISTS ocr_json JSONB;

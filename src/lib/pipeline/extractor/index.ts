@@ -82,6 +82,7 @@ export function candidatesFromAICall(
     droppedFields: {},
     model: aiCall.model,
     provider: aiCall.provider,
+    modelConfidence: raw.modelConfidence,
   };
 }
 

@@ -8,6 +8,7 @@ import type {
   NormalizedField,
   OcrDocument,
   OcrLine,
+  UncertaintyReason,
 } from "../types";
 import { buildOcrDocument, normalizeText, unifyDigits } from "../ocr";
 import { detectLabelGroup, labelGroupForField } from "./label-lexicon";
@@ -30,6 +31,10 @@ import { detectLabelGroup, labelGroupForField } from "./label-lexicon";
 const MIN_CONFIDENCE = 0.3;
 const DEFAULT_FIELD_CONFIDENCE = 0.85;
 const LABEL_NEUTRAL_FACTOR = 0.8;
+/** Small penalty when a value is kept despite having no OCR evidence. */
+const NO_EVIDENCE_FACTOR = 0.9;
+/** Below this OCR factor a field is marked as low-OCR-confidence. */
+const LOW_OCR_THRESHOLD = 0.6;
 
 const CURRENCY_MARKER =
   /\b(SAR|USD|EUR|GBP|AED|EGP|JOD|KWD|QAR|BHD|OMR|CNY|INR|PKR|TRY|MAD|TND|DZD)\b|[$\u20ac\u00a3\u00a5]|ر\.?\s*س|ريال|جنيه|درهم|دينار|دولار|يورو|جنية|قروش|روبية/i;
@@ -122,9 +127,12 @@ export function groundExtraction(
     const aiConf = clampFieldConfidence(fv);
     const ocrFactor = ocrConfidenceFactor(fv.evidence, ocrDoc);
     const labelFactor = labelConfidenceFactor(field, fv.evidence ?? []);
+    const hasEvidence = (fv.evidence?.length ?? 0) > 0;
+    const reasons = uncertaintyReasons(ocrFactor, labelFactor, hasEvidence);
     map[field.key] = {
       ...fv,
-      confidence: clamp(aiConf * ocrFactor * labelFactor),
+      confidence: clamp(aiConf * ocrFactor * labelFactor * (hasEvidence ? 1 : NO_EVIDENCE_FACTOR)),
+      reasons,
     };
   }
 
@@ -300,6 +308,19 @@ function labelConfidenceFactor(field: FieldSchema, evidence: FieldEvidence[]): n
     (e) => detectLabelGroup(e.context ?? e.quote) === group
   );
   return matching ? 1 : LABEL_NEUTRAL_FACTOR;
+}
+
+/** Reasons a composed confidence is below certainty, for review + agent UX. */
+function uncertaintyReasons(
+  ocrFactor: number,
+  labelFactor: number,
+  hasEvidence: boolean
+): UncertaintyReason[] {
+  const reasons: UncertaintyReason[] = [];
+  if (!hasEvidence) reasons.push("no_direct_evidence");
+  if (ocrFactor < LOW_OCR_THRESHOLD) reasons.push("ocr_confidence_low");
+  if (labelFactor < 1) reasons.push("label_not_matched");
+  return reasons;
 }
 
 // ── Universal semantic checks ─────────────────────────────────────────────

@@ -7,5 +7,6 @@ import "./export.test.ts";
 import "./prompts.test.ts";
 import "./agent-context.test.ts";
 import "./recovery.test.ts";
+import "./confidence-ux.test.ts";
 
 await run();

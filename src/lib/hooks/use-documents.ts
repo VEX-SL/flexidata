@@ -5,9 +5,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export interface FieldDTO {
   key: string;
   value: unknown;
+  raw?: unknown;
+  evidence?: Array<{
+    quote: string;
+    lineIndex?: number;
+    role?: string;
+    confidence?: number;
+    context?: string;
+  }>;
   confidence: number;
   source: string;
   status: string;
+  alternatives?: unknown[];
+  reasons?: string[];
 }
 
 export interface JobDTO {
@@ -31,8 +41,18 @@ export interface JobDTO {
   } | null;
   fields: FieldDTO[] | null;
   validation?: { ok: boolean; missing: string[] } | null;
-  confidence?: { overall: number; signals: Record<string, number> } | null;
+  confidence?: {
+    overall: number;
+    signals: Record<string, number>;
+    summary?: Array<{ label: string; score: number; detail?: string }>;
+  } | null;
   sourceText?: string | null;
+  fileUrl?: string | null;
+  ocr?: {
+    text: string;
+    lines: Array<{ text: string; confidence?: number; words: Array<{ text: string; confidence?: number }> }>;
+    confidence?: number;
+  } | null;
   url?: string;
 }
 

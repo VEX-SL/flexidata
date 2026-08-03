@@ -6,6 +6,7 @@ import type {
   FieldValue,
   OcrDocument,
   OcrLine,
+  UncertaintyReason,
 } from "../types";
 import { buildOcrDocument, normalizeText } from "../ocr";
 import { labelGroupForField } from "./label-lexicon";
@@ -40,6 +41,8 @@ export interface RecoveryCandidate {
   evidence: FieldEvidence[];
   /** Low composed confidence (OCR quality factor × penalty). */
   confidence: number;
+  /** Why this reading is uncertain (recovered-from-OCR / low OCR quality). */
+  reasons: UncertaintyReason[];
 }
 
 export interface RecoverResult {
@@ -90,6 +93,7 @@ export function recoverMissingFields(
         source: "ocr",
         status: "flagged",
         evidence: c.evidence,
+        reasons: c.reasons,
       });
     } else {
       ambiguous.set(field.key, {
@@ -100,6 +104,7 @@ export function recoverMissingFields(
         status: "ambiguous",
         evidence: distinct.flatMap((c) => c.evidence),
         alternatives: distinct.map((c) => c.value),
+        reasons: ["ambiguous_candidates"],
         meta: {
           candidates: distinct.map((c) => ({ value: c.value, raw: c.raw })),
         },
@@ -347,6 +352,9 @@ function makeCandidate(
     raw,
     evidence,
     confidence: flagConfidence(baseConfidence),
+    reasons: baseConfidence < 0.6
+      ? ["recovered_from_ocr", "ocr_confidence_low"]
+      : ["recovered_from_ocr"],
   };
 }
 

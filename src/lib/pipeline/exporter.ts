@@ -17,10 +17,11 @@ import { isEmptyValue } from "./extractor/post-processor";
 export interface ExportMeta {
   /** Overall pipeline confidence (0..1). */
   confidence?: number;
+  /** Per-signal confidence breakdown (from the confidence engine). */
+  signals?: Record<string, number>;
   /** ISO timestamp of completion. */
   extractedAt?: string;
 }
-
 export function exportExtraction(
   extraction: ExtractionResult,
   options: ExportOptions,
@@ -45,11 +46,13 @@ export function exportExtraction(
 
 /**
  * Structured JSON export. Always self-describing and current:
- *  - `document_type`, `confidence`, `extracted_at`, `provider`, `model`
- *  - `fields`: every extracted field key → { value, confidence, edited,
- *    verified, label }. Edited/reviewed values are what the user sees; empty
- *    values (including empty arrays) are never emitted — the export can never
- *    contain a meaningless `key_numbers: []`.
+ *  - `document_type`, `confidence`, `signals`, `extracted_at`, `provider`, `model`
+ *  - `fields`: every extracted field key → { value, confidence, source, status,
+ *    edited, verified, label, raw, evidence, reasons, alternatives }. Reviewed
+ *    values are what the user sees; empty values (including empty arrays) are
+ *    never emitted — the export can never contain a meaningless `key: []`.
+ * Every field carries the same grounded evidence + uncertainty reasons the
+ * review UI shows, so the export is a faithful copy of what was extracted.
  */
 function exportJson(
   extraction: ExtractionResult,
@@ -63,15 +66,27 @@ function exportJson(
     fields[f.field.key] = {
       value: f.value.value,
       confidence: f.value.confidence,
+      source: f.value.source,
+      status: f.value.status,
       edited: f.value.status === "edited",
       verified: f.value.status === "verified",
       label: f.field.label ?? f.field.key,
+      raw: f.value.rawValue,
+      evidence: f.value.evidence?.map((e) => ({
+        quote: e.quote,
+        lineIndex: e.lineIndex,
+        role: e.role,
+        confidence: e.confidence,
+      })),
+      reasons: f.value.reasons,
+      alternatives: f.value.alternatives,
     };
   }
 
   const body: Record<string, unknown> = {
     document_type: extraction.profileType,
     confidence: meta.confidence ?? null,
+    signals: meta.signals ?? undefined,
     extracted_at: meta.extractedAt ?? null,
     provider: extraction.provider ?? null,
     model: extraction.model ?? null,

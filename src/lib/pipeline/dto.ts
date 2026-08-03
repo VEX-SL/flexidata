@@ -1,4 +1,9 @@
-import type { ProfileType, StructuredError } from "./types";
+import type {
+  OcrDocument,
+  ProfileType,
+  StructuredError,
+  UncertaintyReason,
+} from "./types";
 
 /**
  * Stable DTOs — the public API contract. Frontends depend ONLY on these
@@ -24,6 +29,8 @@ export interface FieldDTO {
   status: string;
   /** Distinct grounded candidates when status is "ambiguous". */
   alternatives?: unknown[];
+  /** Why this value is uncertain (flagged/ambiguous/low confidence). */
+  reasons?: UncertaintyReason[];
 }
 
 /** HTTP status / stage error — same stable shape everywhere. */
@@ -51,11 +58,21 @@ export interface JobDTO {
   error?: ErrorDTO | null;
   fields: FieldDTO[] | null;
   validation: { ok: boolean; missing: string[] } | null;
-  confidence: { overall: number; signals: Record<string, number> } | null;
+  confidence: { overall: number; signals: Record<string, number>; summary?: ConfidenceSummaryDTO[] } | null;
   /** Truncated source text preview for the review UI. */
   sourceText: string | null;
+  /** Original file URL (for the review UI's OCR preview panel). */
+  fileUrl?: string | null;
+  /** Structured OCR input (line-level) for the readable OCR preview. */
+  ocr?: OcrDocument | null;
   /** Resource URL for polling (REST-friendly). */
   url: string;
+}
+
+export interface ConfidenceSummaryDTO {
+  label: string;
+  score: number;
+  detail?: string;
 }
 
 export interface ExtractionListDTO {
@@ -91,7 +108,9 @@ export interface ExtractionRow {
   confidence_json?: {
     overall: number;
     signals: Record<string, number>;
+    summary?: ConfidenceSummaryDTO[];
   } | null;
+  ocr_json?: OcrDocument | null;
   source_text?: string | null;
   trace_json?: unknown;
 }
@@ -119,6 +138,8 @@ export function toJobDTO(row: ExtractionRow): JobDTO {
     sourceText: row.source_text
       ? row.source_text.slice(0, SOURCE_PREVIEW_CHARS)
       : null,
+    fileUrl: row.file_id ? `/api/files/${row.file_id}` : null,
+    ocr: row.ocr_json ?? null,
     url: `/api/pipeline/extractions/${row.id}`,
   };
 }

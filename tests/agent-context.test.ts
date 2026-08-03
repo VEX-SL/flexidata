@@ -25,7 +25,9 @@ function sampleOutput(): RunJobOutput {
     value: unknown,
     rawValue: unknown,
     confidence: number,
-    evidence?: FieldValue["evidence"]
+    evidence?: FieldValue["evidence"],
+    status?: FieldValue["status"],
+    reasons?: FieldValue["reasons"]
   ) => ({
     field: fieldByKey.get(key)!,
     value: {
@@ -33,8 +35,9 @@ function sampleOutput(): RunJobOutput {
       rawValue,
       confidence,
       source: "ai" as const,
-      status: "extracted" as const,
+      status: (status ?? "extracted") as FieldValue["status"],
       evidence,
+      reasons,
     } as FieldValue,
   });
 
@@ -136,12 +139,12 @@ test("buildAgentDocumentContext renders verified fields + evidence first, raw as
   ]);
 
   includes(built.context, "### Document: receipt.jpg");
-  includes(built.context, "Verified fields");
-  includes(built.context, "`receipt_number` (Receipt number) = `2013438351`");
-  includes(built.context, "OCR \"انرقم المرجقي : 2013438351\"");
+  includes(built.context, "Extracted fields");
+  includes(built.context, "**Receipt number** (`receipt_number`): `2013438351`");
+  includes(built.context, "Evidence: OCR \"انرقم المرجقي : 2013438351\"");
   includes(
     built.context,
-    "`receipt_date` (Receipt date) = `2028-07-02` (raw: `02-07-2028 18:30:12`)"
+    "**Receipt date** (`receipt_date`): `2028-07-02` (raw: `02-07-2028 18:30:12`)"
   );
   includes(built.context, "Could not be confirmed");
   includes(built.context, "`currency` — currency not stated in document");
@@ -195,4 +198,31 @@ test("renderStructuredDocument truncates long raw evidence", () => {
     !rendered.includes("UNIQUE-TAIL-MARKER"),
     "raw evidence must be truncated"
   );
+});
+
+test("renderStructuredDocument explains flagged/ambiguous fields, silent on clean ones", () => {
+  const cleanRendered = renderStructuredDocument(
+    "t",
+    toStructuredDocument(sampleOutput())!
+  );
+
+  // Clean fields: no uncertainty marker, no confidence quoted.
+  includes(cleanRendered, "**Receipt number** (`receipt_number`): `2013438351`");
+  ok(!cleanRendered.includes("UNCERTAIN"), "clean fields must not carry uncertainty");
+
+  // total_amount is a recovered (flagged) field with reasons.
+  const out = sampleOutput();
+  const extraction = out.job!.extraction;
+  extraction.fields[2].value.status = "flagged";
+  extraction.fields[2].value.source = "ocr";
+  extraction.fields[2].value.reasons = ["recovered_from_ocr", "ocr_confidence_low"];
+
+  const doc = toStructuredDocument(out)!;
+  const flagged = doc.fields.find((f) => f.key === "total_amount")!;
+  const renderedFlagged = renderStructuredDocument("t", doc);
+  includes(
+    renderedFlagged,
+    "UNCERTAIN (value was recovered directly from the OCR text by label matching, not independently verified; OCR confidence for this value is low"
+  );
+  includes(renderedFlagged, "`total_amount`");
 });

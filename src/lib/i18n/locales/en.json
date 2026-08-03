@@ -76,7 +76,8 @@
       "extracted": "Extracted",
       "verified": "Verified",
       "edited": "Edited",
-      "flagged": "Flagged"
+      "flagged": "Flagged",
+      "ambiguous": "Ambiguous"
     },
     "fieldSource": {
       "ai": "AI",
@@ -84,6 +85,34 @@
       "rule": "Rule",
       "user": "Manual",
       "verified": "Verified"
+    },
+    "uncertainty": {
+      "title": "Why is this uncertain?",
+      "recovered_from_ocr": "Recovered directly from the OCR text by label matching — not independently verified.",
+      "ambiguous_candidates": "Several distinct candidates appear in the document and the correct one could not be determined.",
+      "ocr_confidence_low": "OCR confidence for this value is low (blurry, faint, or misread characters).",
+      "label_not_matched": "Value was found in the text but no matching field label sat on the same line.",
+      "no_direct_evidence": "Value does not directly appear in the OCR text and was inferred rather than read verbatim."
+    },
+    "confidenceBreakdown": {
+      "title": "Confidence breakdown",
+      "validation": "Validation",
+      "consistency": "Cross-field consistency",
+      "ocrQuality": "OCR / text quality",
+      "extraction": "Extraction confidence",
+      "evidence": "Evidence grounding",
+      "uncertainty": "Uncertainty",
+      "missing": "Missing required fields",
+      "overall": "Overall"
+    },
+    "preview": {
+      "title": "OCR Preview",
+      "rawTitle": "Raw text",
+      "linesTitle": "Line-level OCR",
+      "imageTitle": "Original document",
+      "noOcr": "No OCR preview available for this document.",
+      "uncertainLine": "Uncertain line",
+      "lineConfidence": "line confidence"
     }
   },
   "chat": {
