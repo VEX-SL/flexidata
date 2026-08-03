@@ -53,12 +53,35 @@ export async function classifyDocument(
     console.error("[Pipeline] AI classification failed:", err);
   }
 
-  // Rule-validate the AI answer: if it strongly disagrees, trust the rules.
+  // Rule-validate the AI answer against the document text itself.
+  // An AI answer with zero alias support is treated as ungrounded: if the
+  // rules point at a different known type, the rules win (the document's own
+  // markers are observable ground truth). If the rules are silent too, keep
+  // the AI answer unless its confidence is very low.
   if (aiResult && aiResult.profileType !== "unknown") {
     const ruleScore = scoreByAliases(sourceText, aiResult.profileType);
-    if (ruleScore <= 0 && aiResult.confidence < 0.5) {
+    const bestRule = ruleClassify(sourceText, profiles);
+
+    if (ruleScore <= 0 && bestRule && bestRule.profileType !== aiResult.profileType) {
       console.warn(
-        `[Pipeline] AI classified '${aiResult.profileType}' but rules found no markers; deferring to rules`
+        `[Pipeline] AI classified '${aiResult.profileType}' but rules found no markers for it ` +
+          `('${bestRule.profileType}' matches); deferring to rules`
+      );
+      bestRule.source = "rule";
+      bestRule.confidence = Math.min(
+        1,
+        Math.max(bestRule.confidence, aiResult.confidence)
+      );
+      bestRule.reasons = [
+        `AI classified as '${aiResult.profileType}' but the document text has no markers for it; overruled by rules`,
+        ...bestRule.reasons,
+      ];
+      return bestRule;
+    }
+
+    if (ruleScore <= 0 && !bestRule && aiResult.confidence < 0.5) {
+      console.warn(
+        `[Pipeline] AI classified '${aiResult.profileType}' with low confidence and rules found no markers; deferring to rules`
       );
       aiResult = null;
     }
