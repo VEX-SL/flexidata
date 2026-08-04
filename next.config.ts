@@ -1,16 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@napi-rs/canvas", "tesseract.js"],
+  serverExternalPackages: ["@napi-rs/canvas"],
   outputFileTracingIncludes: {
-    // The tesseract.js OCR worker runs inside a worker_thread and resolves its
-    // deps (tesseract.js-core, wasm-feature-detect, …) by plain `require`.
-    // Next's nft tracing follows the worker entry file but not its require
-    // graph, so without this those packages never reach the Lambda and the
-    // worker fails silently (its `error` event is dropped), hanging uploads.
+    // OCR loads tesseract.js-core (emscripten wasm), wasm-feature-detect and
+    // bmp-js at runtime through an opaque `eval("require")`, so Next's nft
+    // tracing never follows that require graph. Without this block those
+    // packages never reach the Lambda and OCR fails on the request thread.
     "/*": [
-      "./node_modules/tesseract.js/package.json",
-      "./node_modules/tesseract.js/src/**/*",
       "./node_modules/tesseract.js-core/package.json",
       "./node_modules/tesseract.js-core/index.js",
       "./node_modules/tesseract.js-core/tesseract-core.js",
@@ -27,11 +24,6 @@ const nextConfig: NextConfig = {
       "./node_modules/tesseract.js-core/tesseract-core-relaxedsimd-lstm.wasm",
       "./node_modules/wasm-feature-detect/**/*",
       "./node_modules/bmp-js/**/*",
-      "./node_modules/idb-keyval/**/*",
-      "./node_modules/is-url/**/*",
-      "./node_modules/node-fetch/**/*",
-      "./node_modules/regenerator-runtime/**/*",
-      "./node_modules/zlibjs/**/*",
     ],
   },
 };

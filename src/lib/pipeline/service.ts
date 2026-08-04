@@ -206,18 +206,12 @@ export class PipelineService {
         completed_at: new Date().toISOString(),
       } as Record<string, unknown>;
 
-      // ocr_json needs the migration `ALTER TABLE extractions ADD COLUMN IF
-      // NOT EXISTS ocr_json JSONB;`. Until it is applied, degrade gracefully
-      // instead of failing the whole persist step.
       const result = await this.supabase
         .from("extractions")
         .update({ ...payload, ocr_json: ocr ?? null })
         .eq("id", jobId);
       if (result.error) {
-        await this.supabase
-          .from("extractions")
-          .update(payload)
-          .eq("id", jobId);
+        throw new Error(`persist failed: ${result.error.message}`);
       }
 
       const finalRow = await this.getRow(userId, jobId);

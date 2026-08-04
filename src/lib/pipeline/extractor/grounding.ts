@@ -10,7 +10,7 @@ import type {
   OcrLine,
   UncertaintyReason,
 } from "../types";
-import { buildOcrDocument, normalizeText, unifyDigits } from "../ocr";
+import { buildOcrDocument, normalizeText } from "../ocr";
 import { detectLabelGroup, labelGroupForField } from "./label-lexicon";
 
 /**
@@ -395,5 +395,3 @@ function isEmpty(v: unknown): boolean {
 function clamp(n: number): number {
   return Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0));
 }
-
-export { normalizeText, unifyDigits };

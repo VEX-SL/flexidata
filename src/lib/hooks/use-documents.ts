@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { OcrDocument } from "@/lib/pipeline/types";
 
 export interface FieldDTO {
   key: string;
@@ -48,11 +49,7 @@ export interface JobDTO {
   } | null;
   sourceText?: string | null;
   fileUrl?: string | null;
-  ocr?: {
-    text: string;
-    lines: Array<{ text: string; confidence?: number; words: Array<{ text: string; confidence?: number }> }>;
-    confidence?: number;
-  } | null;
+  ocr?: OcrDocument | null;
   url?: string;
 }
 
