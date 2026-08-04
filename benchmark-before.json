@@ -1,0 +1,2770 @@
+{
+  "meta": {
+    "generatedAt": "2026-08-04T12:49:35.652Z",
+    "gitHead": "36f26035c122c91e53cdffd54de1cb14c6398709",
+    "engine": "new (production)",
+    "preprocess": true,
+    "corpusVersion": "v2",
+    "agentEval": true,
+    "pipeline": "current production pipeline (stages: classify → extract → ground → recover → validate → confidence)",
+    "changesApplied": [
+      "A1 types (bbox/evidence/alternatives)",
+      "A2 ocr per-word bbox",
+      "A3 text-quality module (unused yet)"
+    ]
+  },
+  "corpus": [
+    {
+      "id": "en-clean",
+      "label": "English receipt (clean)",
+      "groundTruthLabels": [
+        "merchant",
+        "merchant",
+        "total 38.40",
+        "cash 50.00",
+        "change 11.60"
+      ]
+    },
+    {
+      "id": "en-lowcontrast",
+      "label": "English receipt (low contrast)",
+      "groundTruthLabels": [
+        "merchant",
+        "merchant",
+        "total 38.40",
+        "cash 50.00",
+        "change 11.60"
+      ]
+    },
+    {
+      "id": "en-rot90",
+      "label": "English receipt (90° rotated)",
+      "groundTruthLabels": [
+        "merchant",
+        "merchant",
+        "total 38.40",
+        "cash 50.00",
+        "change 11.60"
+      ]
+    },
+    {
+      "id": "en-slant2",
+      "label": "English receipt (2° slanted)",
+      "groundTruthLabels": [
+        "merchant",
+        "merchant",
+        "total 38.40",
+        "cash 50.00",
+        "change 11.60"
+      ]
+    },
+    {
+      "id": "scan-blur",
+      "label": "English receipt (blurred scan)",
+      "groundTruthLabels": [
+        "merchant",
+        "merchant",
+        "total 38.40",
+        "cash 50.00",
+        "change 11.60"
+      ]
+    },
+    {
+      "id": "invoice-clean",
+      "label": "Service invoice (clean)",
+      "groundTruthLabels": [
+        "company",
+        "invoice number",
+        "issue date",
+        "total 155.25",
+        "subtotal 150.00",
+        "VAT 5.25",
+        "bill-to KIM & SONS"
+      ]
+    },
+    {
+      "id": "contract-1pg",
+      "label": "Service agreement (1 page)",
+      "groundTruthLabels": [
+        "contract number",
+        "party A",
+        "party B",
+        "effective date",
+        "expiry",
+        "monthly fee",
+        "total value"
+      ]
+    },
+    {
+      "id": "ar-thermal",
+      "label": "Arabic thermal receipt",
+      "groundTruthLabels": [
+        "total 45.50",
+        "المبلغ",
+        "الإجمالي"
+      ]
+    },
+    {
+      "id": "real-superpay",
+      "label": "Real SuperPay receipt photo (prod)",
+      "groundTruthLabels": [
+        "amount 68.38",
+        "account 391003452",
+        "ref 2013438351",
+        "merchant SuperPay",
+        "customer Zahra Aman",
+        "date 02-07-2026"
+      ]
+    }
+  ],
+  "items": {
+    "en-clean": {
+      "ocr": {
+        "lines": 10,
+        "chars": 147,
+        "pageConf": 0.9534577678811961,
+        "meanLineConf": 0.9540199235280354,
+        "distinctConfs": 9,
+        "hits": 5,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": true
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": true
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": true
+          }
+        ],
+        "ms": 1754,
+        "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg               6.50\nMilk 1L                7.00\n\nRice 5kg             24.90\nTOTAL                 38.40\nCash                50.00\nChange               11.60\n\nThank you for shopping"
+      },
+      "pipeline": {
+        "ms": 1573,
+        "status": "complete",
+        "classification": {
+          "profileType": "receipt",
+          "confidence": 0.95,
+          "source": "ai"
+        },
+        "validation": {
+          "ok": false,
+          "missing": [
+            "receipt_number"
+          ],
+          "results": 6
+        },
+        "confidence": {
+          "overall": 0.8069088051575016,
+          "signals": {
+            "validation": 0.8,
+            "consistency": 0.8060243444972568,
+            "ocrQuality": 0.9536019103547446,
+            "extraction": 0.7880552078757704,
+            "missing": 0.8,
+            "evidence": 0.8675183953179253,
+            "uncertainty": 0.5555555555555556,
+            "classification": 0.95
+          }
+        },
+        "fields": [
+          {
+            "key": "receipt_date",
+            "value": "2025-01-15",
+            "raw": "2025-01-15 15:42",
+            "status": "extracted",
+            "confidence": 0.9644938659667969,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Date: 2025-01-15 15:42",
+                "confidence": 0.9644938659667969
+              }
+            ]
+          },
+          {
+            "key": "merchant_name",
+            "value": "AL RABIH SUPERMARKET",
+            "raw": "AL RABIH SUPERMARKET",
+            "status": "extracted",
+            "confidence": 0.7482243041992187,
+            "reasons": [
+              "label_not_matched"
+            ],
+            "evidence": [
+              {
+                "quote": "AL RABIH SUPERMARKET",
+                "confidence": 0.9352803802490234
+              }
+            ]
+          },
+          {
+            "key": "merchant_address",
+            "value": "Riyadh, KSA",
+            "raw": "Riyadh, KSA Tel: 011-555-1212",
+            "status": "extracted",
+            "confidence": 0.7714144744873046,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Riyadh, KSA Tel: 011-555-1212",
+                "confidence": 0.9642680931091308
+              }
+            ]
+          },
+          {
+            "key": "subtotal",
+            "value": 38.4,
+            "raw": null,
+            "status": "extracted",
+            "confidence": 0.9626266479492187,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "TOTAL 38.40",
+                "confidence": 0.9626266479492187
+              }
+            ]
+          },
+          {
+            "key": "discount_amount",
+            "value": 0,
+            "raw": null,
+            "status": "extracted",
+            "confidence": 0.9554463855425517,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Riyadh, KSA Tel: 011-555-1212",
+                "confidence": 0.9642680931091308
+              },
+              {
+                "quote": "Date: 2025-01-15 15:42",
+                "confidence": 0.9644938659667969
+              },
+              {
+                "quote": "Sugar 1kg 6.50",
+                "confidence": 0.9420094553629558
+              },
+              {
+                "quote": "Milk 1L 7.00",
+                "confidence": 0.9382033793131509
+              },
+              {
+                "quote": "Rice 5kg 24.90",
+                "confidence": 0.9386579895019532
+              },
+              {
+                "quote": "TOTAL 38.40",
+                "confidence": 0.9626266479492187
+              },
+              {
+                "quote": "Cash 50.00",
+                "confidence": 0.9687594604492187
+              },
+              {
+                "quote": "Change 11.60",
+                "confidence": 0.9645521926879883
+              }
+            ]
+          },
+          {
+            "key": "total_amount",
+            "value": 38.4,
+            "raw": "38.40",
+            "status": "flagged",
+            "confidence": 0.5,
+            "reasons": [
+              "recovered_from_ocr"
+            ],
+            "evidence": [
+              {
+                "quote": "TOTAL 38.40",
+                "confidence": 0.9626266479492187
+              }
+            ]
+          },
+          {
+            "key": "payment_method",
+            "value": "Cash",
+            "raw": "Cash",
+            "status": "extracted",
+            "confidence": 0.9687594604492187,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Cash 50.00",
+                "confidence": 0.9687594604492187
+              }
+            ]
+          },
+          {
+            "key": "notes",
+            "value": "Thank you for shopping",
+            "raw": "Thank you for shopping",
+            "status": "extracted",
+            "confidence": 0.6864895928744613,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          },
+          {
+            "key": "line_items",
+            "value": [
+              {
+                "description": "Sugar 1kg",
+                "quantity": 1,
+                "unit_price": 6.5,
+                "amount": 6.5
+              },
+              {
+                "description": "Milk 1L",
+                "quantity": 1,
+                "unit_price": 7,
+                "amount": 7
+              },
+              {
+                "description": "Rice 5kg",
+                "quantity": 1,
+                "unit_price": 24.9,
+                "amount": 24.9
+              }
+            ],
+            "raw": "[{\"description\":\"Sugar 1kg\",\"quantity\":1,\"unit_price\":6.5,\"amount\":6.5},{\"description\":\"Milk 1L\",\"quantity\":1,\"unit_price\":7,\"amount\":7},{\"description\":\"Rice 5kg\",\"quantity\":1,\"unit_price\":24.9,\"amount\":24.9}]",
+            "status": "extracted",
+            "confidence": 0.6864895928744613,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          }
+        ],
+        "trace": {
+          "classify": {
+            "profileType": "receipt",
+            "confidence": 0.95,
+            "source": "ai",
+            "reasons": [
+              "presence of product list with prices",
+              "total and payment information",
+              "friendly closing message"
+            ]
+          },
+          "extract": {
+            "profile": "receipt",
+            "profileVersion": 1,
+            "model": "llama-3.1-8b-instant",
+            "fields": 16,
+            "dropped": 0
+          },
+          "ground": {
+            "groundedFields": 6,
+            "totalFields": 8,
+            "evidenceCoverage": 0.75,
+            "meanEvidenceConfidence": 0.957,
+            "flagged": 0,
+            "ambiguous": 0
+          },
+          "recover": {
+            "flagged": [
+              "total_amount"
+            ],
+            "ambiguous": [],
+            "retryAttempted": false,
+            "retryProviders": []
+          },
+          "validate": {
+            "ok": false,
+            "missing": [
+              "receipt_number"
+            ]
+          },
+          "confidence": {
+            "overall": 0.8069088051575016,
+            "signals": {
+              "validation": 0.8,
+              "consistency": 0.8060243444972568,
+              "ocrQuality": 0.9536019103547446,
+              "extraction": 0.7880552078757704,
+              "missing": 0.8,
+              "evidence": 0.8675183953179253,
+              "uncertainty": 0.5555555555555556,
+              "classification": 0.95
+            }
+          }
+        },
+        "error": null
+      },
+      "score": {
+        "checks": [
+          {
+            "key": "merchant_name",
+            "label": "merchant = AL RABIH",
+            "ok": true,
+            "value": "AL RABIH SUPERMARKET",
+            "status": "extracted",
+            "confidence": 0.7482243041992187
+          },
+          {
+            "key": "total_amount",
+            "label": "total = 38.40",
+            "ok": true,
+            "value": 38.4,
+            "status": "flagged",
+            "confidence": 0.5
+          },
+          {
+            "key": "receipt_date",
+            "label": "date = 2025-01-15",
+            "ok": true,
+            "value": "2025-01-15",
+            "status": "extracted",
+            "confidence": 0.9644938659667969
+          },
+          {
+            "key": "receipt_number",
+            "label": "receipt_number present",
+            "ok": false,
+            "value": null,
+            "status": "missing",
+            "confidence": 0
+          }
+        ],
+        "total": 4,
+        "correct": 3,
+        "wrong": 0,
+        "missing": 1,
+        "recall": 0.75,
+        "precision": 1,
+        "falsePositives": 0,
+        "extraExtracted": [
+          "merchant_address",
+          "subtotal",
+          "discount_amount",
+          "payment_method",
+          "notes",
+          "line_items"
+        ]
+      },
+      "agent": {
+        "q1": {
+          "answer": "**Document type:** Receipt\n\n**Total amount:** 38.4 (uncertain due to slight discrepancy between extracted field and raw OCR text)\n\n**Receipt date:** 2025-01-15",
+          "model": "llama-3.1-8b-instant",
+          "totalFound": false,
+          "dateFound": true,
+          "typeFound": true
+        },
+        "q2": {
+          "answer": "**What the receipt looks like**\n\nThe image shows a typical supermarket receipt printed on thermal paper. At the top is the merchant name **“AL RABIH SUPERMARKET”** followed by the address line **“Riyadh, KSA Tel: 011‑555‑1212.”** Below that is the date line **“Date: 2025‑01‑15 15:42.”** The body lists three items:\n\n- **Sugar 1kg** – 6.50  \n- **Milk 1L** – 7.00  \n- **Rice 5kg** – 24.90  \n\nThen a **TOTAL** line shows **38.40**, a **Cash** payment of **50.00**, and a **Change** of **11.60**. The receipt ends with the phrase **“Thank you for shopping.”**\n\n**Confidence in the extracted values**\n\n- Overall extraction confidence: **0.81** (moderate confidence).  \n- **Receipt date** – confident (extracted from the OCR label).  \n- **Merchant name** – **uncertain** (found in the text but not aligned with a label).  \n- **Merchant address** – confident.  \n- **Subtotal** – confident (matches the OCR “TOTAL 38.40”).  \n- **Discount amount** – confident (extracted as 0).  \n- **Total amount** – **uncertain** (derived from OCR label matching, not independently verified).  \n- **Payment method** – confident (identified as Cash).  \n- **Notes** – **uncertain** (the phrase “Thank you for shopping” was inferred, not directly linked to a label).  \n- **Line items** – **uncertain** (the list of items was inferred rather than read verbatim).  \n\nFields that could not be confirmed:",
+          "model": "gpt-oss-120b",
+          "claimsImage": true,
+          "refuses": false
+        }
+      }
+    },
+    "en-lowcontrast": {
+      "ocr": {
+        "lines": 10,
+        "chars": 147,
+        "pageConf": 0.9483295835297683,
+        "meanLineConf": 0.9491099421183268,
+        "distinctConfs": 9,
+        "hits": 5,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": true
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": true
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": true
+          }
+        ],
+        "ms": 859,
+        "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\n\nSugar 1kg                     6.50\nMilk 1L                    7.00\n\nRice 5kg               24.90\nTOTAL                 38.40\nCash                    50.00\nChange                       11.60\n\nThank you for shopping"
+      },
+      "pipeline": {
+        "ms": 7518,
+        "status": "complete",
+        "classification": {
+          "profileType": "receipt",
+          "confidence": 0.95,
+          "source": "ai"
+        },
+        "validation": {
+          "ok": false,
+          "missing": [
+            "receipt_number"
+          ],
+          "results": 6
+        },
+        "confidence": {
+          "overall": 0.7894285186844464,
+          "signals": {
+            "validation": 0.8,
+            "consistency": 0.731408863067627,
+            "ocrQuality": 0.9485296754755523,
+            "extraction": 0.7702355654964628,
+            "missing": 0.8,
+            "evidence": 0.8536399518118964,
+            "uncertainty": 0.5,
+            "classification": 0.95
+          }
+        },
+        "fields": [
+          {
+            "key": "receipt_date",
+            "value": "2025-01-15",
+            "raw": "2025-01-15 15:42",
+            "status": "extracted",
+            "confidence": 0.9637230936686199,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Date: 2025-01-15 15:42",
+                "confidence": 0.9637230936686199
+              }
+            ]
+          },
+          {
+            "key": "merchant_name",
+            "value": "AL RABIH SUPERMARKET",
+            "raw": "AL RABIH SUPERMARKET",
+            "status": "extracted",
+            "confidence": 0.7394873860677084,
+            "reasons": [
+              "label_not_matched"
+            ],
+            "evidence": [
+              {
+                "quote": "AL RABIH SUPERMARKET",
+                "confidence": 0.9243592325846354
+              }
+            ]
+          },
+          {
+            "key": "merchant_address",
+            "value": "Riyadh, KSA",
+            "raw": "Riyadh, KSA Tel: 011-555-1212",
+            "status": "extracted",
+            "confidence": 0.7688148345947265,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Riyadh, KSA Tel: 011-555-1212",
+                "confidence": 0.9610185432434082
+              }
+            ]
+          },
+          {
+            "key": "subtotal",
+            "value": 38.4,
+            "raw": "38.40",
+            "status": "extracted",
+            "confidence": 0.962817726135254,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "TOTAL 38.40",
+                "confidence": 0.962817726135254
+              }
+            ]
+          },
+          {
+            "key": "total_amount",
+            "value": 38.4,
+            "raw": "38.40",
+            "status": "flagged",
+            "confidence": 0.5,
+            "reasons": [
+              "recovered_from_ocr"
+            ],
+            "evidence": [
+              {
+                "quote": "TOTAL 38.40",
+                "confidence": 0.962817726135254
+              }
+            ]
+          },
+          {
+            "key": "payment_method",
+            "value": "Cash",
+            "raw": "Cash",
+            "status": "extracted",
+            "confidence": 0.9689430999755859,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Cash 50.00",
+                "confidence": 0.9689430999755859
+              }
+            ]
+          },
+          {
+            "key": "notes",
+            "value": "Thank you for shopping",
+            "raw": "Thank you for shopping",
+            "status": "extracted",
+            "confidence": 0.6827973001414332,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          },
+          {
+            "key": "line_items",
+            "value": [
+              {
+                "description": "Sugar 1kg",
+                "quantity": 1,
+                "unit_price": 6.5,
+                "amount": 6.5
+              },
+              {
+                "description": "Milk 1L",
+                "quantity": 1,
+                "unit_price": 7,
+                "amount": 7
+              },
+              {
+                "description": "Rice 5kg",
+                "quantity": 1,
+                "unit_price": 24.9,
+                "amount": 24.9
+              }
+            ],
+            "raw": "[{\"description\":\"Sugar 1kg\",\"quantity\":1,\"unit_price\":6.5,\"amount\":6.5},{\"description\":\"Milk 1L\",\"quantity\":1,\"unit_price\":7,\"amount\":7},{\"description\":\"Rice 5kg\",\"quantity\":1,\"unit_price\":24.9,\"amount\":24.9}]",
+            "status": "extracted",
+            "confidence": 0.6827973001414332,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          }
+        ],
+        "trace": {
+          "classify": {
+            "profileType": "receipt",
+            "confidence": 0.95,
+            "source": "ai",
+            "reasons": [
+              "presence of product list with prices",
+              "clear indication of payment and change",
+              "format typical of retail receipts"
+            ]
+          },
+          "extract": {
+            "profile": "receipt",
+            "profileVersion": 1,
+            "model": "llama-3.1-8b-instant",
+            "fields": 16,
+            "dropped": 0
+          },
+          "ground": {
+            "groundedFields": 5,
+            "totalFields": 7,
+            "evidenceCoverage": 0.714,
+            "meanEvidenceConfidence": 0.956,
+            "flagged": 0,
+            "ambiguous": 0
+          },
+          "recover": {
+            "flagged": [
+              "total_amount"
+            ],
+            "ambiguous": [],
+            "retryAttempted": false,
+            "retryProviders": []
+          },
+          "validate": {
+            "ok": false,
+            "missing": [
+              "receipt_number"
+            ]
+          },
+          "confidence": {
+            "overall": 0.7894285186844464,
+            "signals": {
+              "validation": 0.8,
+              "consistency": 0.731408863067627,
+              "ocrQuality": 0.9485296754755523,
+              "extraction": 0.7702355654964628,
+              "missing": 0.8,
+              "evidence": 0.8536399518118964,
+              "uncertainty": 0.5,
+              "classification": 0.95
+            }
+          }
+        },
+        "error": null
+      },
+      "score": {
+        "checks": [
+          {
+            "key": "merchant_name",
+            "label": "merchant = AL RABIH",
+            "ok": true,
+            "value": "AL RABIH SUPERMARKET",
+            "status": "extracted",
+            "confidence": 0.7394873860677084
+          },
+          {
+            "key": "total_amount",
+            "label": "total = 38.40",
+            "ok": true,
+            "value": 38.4,
+            "status": "flagged",
+            "confidence": 0.5
+          },
+          {
+            "key": "receipt_date",
+            "label": "date = 2025-01-15",
+            "ok": true,
+            "value": "2025-01-15",
+            "status": "extracted",
+            "confidence": 0.9637230936686199
+          }
+        ],
+        "total": 3,
+        "correct": 3,
+        "wrong": 0,
+        "missing": 0,
+        "recall": 1,
+        "precision": 1,
+        "falsePositives": 0,
+        "extraExtracted": [
+          "merchant_address",
+          "subtotal",
+          "payment_method",
+          "notes",
+          "line_items"
+        ]
+      },
+      "agent": {
+        "q1": {
+          "answer": "**Document type:** Receipt  \n\n**Date:** `2025-01-15` (extracted from OCR “Date: 2025-01-15 15:42”)  \n\n**Total amount:** `38.4` — *uncertain* (extracted from OCR “TOTAL 38.40”)  ",
+          "model": "gpt-oss-120b",
+          "totalFound": true,
+          "dateFound": true,
+          "typeFound": true
+        },
+        "q2": {
+          "answer": "**What the receipt looks like**\n\nThe image is a low‑contrast, monochrome receipt. It shows a simple list of items printed in a thin, slightly faded font on a white (or very light) paper background. The layout is typical for a supermarket receipt:\n\n* The merchant name **“AL RABIH SUPERMARKET”** appears at the top, centered.\n* Directly below it is the address line **“Riyadh, KSA Tel: 011‑555‑1212”**.\n* The date line reads **“Date: 2025‑01‑15 15:42”**.\n* A short list of purchased items follows, each on its own line with the description on the left and the price on the right (e.g., “Sugar 1kg 6.50”, “Milk 1L 7.00”, “Rice 5kg 24.90”).\n* At the bottom the totals are shown: **“TOTAL 38.40”**, the payment method **“Cash 50.00”**, and the change **“11.60”**.\n* The receipt ends with the line **“Thank you for shopping”**.\n\nBecause the image is low‑contrast, some characters are faint, which can make exact reading a little tricky, but the overall structure is clear.\n\n**Confidence in the extracted values**\n\n| Field | Extracted value | Confidence note |\n|-------|----------------|-----------------|\n| **receipt date** | `2025-01-15` | High – directly read from “Date: 2025‑01‑15 15:42”. |\n| **merchant name** | `AL RABIH SUPERMARKET` | **Uncertain** – the name appears in the text but no label was on the same line. |\n| **merchant address** | `Riyadh, KSA` | High – clearly present in the address line",
+          "model": "gpt-oss-120b",
+          "claimsImage": false,
+          "refuses": false
+        }
+      }
+    },
+    "en-rot90": {
+      "ocr": {
+        "lines": 5,
+        "chars": 83,
+        "pageConf": 0.9256067371368408,
+        "meanLineConf": 0.9249034487406413,
+        "distinctConfs": 5,
+        "hits": 1,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": false
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": false
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": false
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": false
+          }
+        ],
+        "ms": 665,
+        "text": "AL RABIH SUPERMAR\nRiyadh, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg           6.50\n\nMilk 11                 7.00"
+      },
+      "pipeline": {
+        "ms": 7386,
+        "status": "complete",
+        "classification": {
+          "profileType": "receipt",
+          "confidence": 0.95,
+          "source": "ai"
+        },
+        "validation": {
+          "ok": false,
+          "missing": [
+            "receipt_number",
+            "total_amount"
+          ],
+          "results": 6
+        },
+        "confidence": {
+          "overall": 0.7917650321445768,
+          "signals": {
+            "validation": 0.6,
+            "consistency": 1,
+            "ocrQuality": 0.9254392875186982,
+            "extraction": 0.8634717419942219,
+            "missing": 0.6,
+            "evidence": 0.9684624746110704,
+            "uncertainty": 0.6666666666666667,
+            "classification": 0.95
+          }
+        },
+        "fields": [
+          {
+            "key": "receipt_date",
+            "value": "2025-01-15",
+            "raw": "2025-01-15 15:42",
+            "status": "extracted",
+            "confidence": 0.9545314788818359,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Date: 2025-01-15 15:42",
+                "confidence": 0.9545314788818359
+              }
+            ]
+          },
+          {
+            "key": "merchant_name",
+            "value": "AL RABIH SUPERMAR",
+            "raw": "AL RABIH SUPERMAR",
+            "status": "extracted",
+            "confidence": 0.7360698445638022,
+            "reasons": [
+              "label_not_matched"
+            ],
+            "evidence": [
+              {
+                "quote": "AL RABIH SUPERMAR",
+                "confidence": 0.9200873057047527
+              }
+            ]
+          },
+          {
+            "key": "merchant_address",
+            "value": "Riyadh, KSA Tel: 011-555-1212",
+            "raw": "Riyadh, KSA Tel: 011-555-1212",
+            "status": "extracted",
+            "confidence": 0.936156063079834,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Riyadh, KSA Tel: 011-555-1212",
+                "confidence": 0.936156063079834
+              }
+            ]
+          }
+        ],
+        "trace": {
+          "classify": {
+            "profileType": "receipt",
+            "confidence": 0.95,
+            "source": "ai",
+            "reasons": [
+              "contains date and time",
+              "lists items with prices",
+              "has a store name and contact information"
+            ]
+          },
+          "extract": {
+            "profile": "receipt",
+            "profileVersion": 1,
+            "model": "llama-3.1-8b-instant",
+            "fields": 16,
+            "dropped": 0
+          },
+          "ground": {
+            "groundedFields": 3,
+            "totalFields": 3,
+            "evidenceCoverage": 1,
+            "meanEvidenceConfidence": 0.937,
+            "flagged": 0,
+            "ambiguous": 0
+          },
+          "recover": {
+            "flagged": [],
+            "ambiguous": [],
+            "retryAttempted": false,
+            "retryProviders": []
+          },
+          "validate": {
+            "ok": false,
+            "missing": [
+              "receipt_number",
+              "total_amount"
+            ]
+          },
+          "confidence": {
+            "overall": 0.7917650321445768,
+            "signals": {
+              "validation": 0.6,
+              "consistency": 1,
+              "ocrQuality": 0.9254392875186982,
+              "extraction": 0.8634717419942219,
+              "missing": 0.6,
+              "evidence": 0.9684624746110704,
+              "uncertainty": 0.6666666666666667,
+              "classification": 0.95
+            }
+          }
+        },
+        "error": null
+      },
+      "score": {
+        "checks": [],
+        "total": 0,
+        "correct": 0,
+        "wrong": 0,
+        "missing": 0,
+        "falsePositives": 0,
+        "extraExtracted": [
+          "receipt_date",
+          "merchant_name",
+          "merchant_address"
+        ]
+      },
+      "agent": null
+    },
+    "en-slant2": {
+      "ocr": {
+        "lines": 5,
+        "chars": 84,
+        "pageConf": 0.8576947641372681,
+        "meanLineConf": 0.8537975285847981,
+        "distinctConfs": 5,
+        "hits": 1,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": false
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": false
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": false
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": false
+          }
+        ],
+        "ms": 648,
+        "text": "AL RABIH SUPERMARFK\nRiyadh, KSA Te. 011-555-1212\n\nDate: 2025.01.15 15:42\n\nSugar 1kg              6.50\n\nMilk 1L              7.00"
+      },
+      "pipeline": {
+        "ms": 7680,
+        "status": "complete",
+        "classification": {
+          "profileType": "receipt",
+          "confidence": 0.95,
+          "source": "ai"
+        },
+        "validation": {
+          "ok": false,
+          "missing": [
+            "receipt_number",
+            "total_amount"
+          ],
+          "results": 6
+        },
+        "confidence": {
+          "overall": 0.7195759750254193,
+          "signals": {
+            "validation": 0.6,
+            "consistency": 1,
+            "ocrQuality": 0.8567668509104897,
+            "extraction": 0.7335736516952515,
+            "missing": 0.6,
+            "evidence": 0.7882719442579482,
+            "uncertainty": 0.5,
+            "classification": 0.95
+          }
+        },
+        "fields": [
+          {
+            "key": "receipt_date",
+            "value": "2025-01-15",
+            "raw": "2025.01.15 15:42",
+            "status": "extracted",
+            "confidence": 0.9154574839274089,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Date: 2025.01.15 15:42",
+                "confidence": 0.9154574839274089
+              }
+            ]
+          },
+          {
+            "key": "merchant_name",
+            "value": "AL RABIH SUPERMARFK",
+            "raw": "AL RABIH SUPERMARFK",
+            "status": "extracted",
+            "confidence": 0.5184167073567708,
+            "reasons": [
+              "label_not_matched"
+            ],
+            "evidence": [
+              {
+                "quote": "AL RABIH SUPERMARFK",
+                "confidence": 0.6480208841959635
+              }
+            ]
+          },
+          {
+            "key": "merchant_address",
+            "value": "Riyadh, KSA",
+            "raw": "Riyadh, KSA",
+            "status": "extracted",
+            "confidence": 0.9161532974243164,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Riyadh, KSA Te. 011-555-1212",
+                "confidence": 0.9161532974243164
+              }
+            ]
+          },
+          {
+            "key": "line_items",
+            "value": [
+              {
+                "description": "Sugar",
+                "quantity": 1,
+                "unit_price": 6.5,
+                "amount": 6.5
+              },
+              {
+                "description": "Milk",
+                "quantity": 1,
+                "unit_price": 7,
+                "amount": 7
+              }
+            ],
+            "raw": "Sugar 1kg              6.50\n\nMilk 1L              7.00",
+            "status": "extracted",
+            "confidence": 0.6175402301788331,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          }
+        ],
+        "trace": {
+          "classify": {
+            "profileType": "receipt",
+            "confidence": 0.95,
+            "source": "ai",
+            "reasons": [
+              "contains date and time",
+              "lists items with prices",
+              "has a store name and contact information"
+            ]
+          },
+          "extract": {
+            "profile": "receipt",
+            "profileVersion": 1,
+            "model": "gpt-oss-120b",
+            "fields": 16,
+            "dropped": 0
+          },
+          "ground": {
+            "groundedFields": 3,
+            "totalFields": 4,
+            "evidenceCoverage": 0.75,
+            "meanEvidenceConfidence": 0.827,
+            "flagged": 0,
+            "ambiguous": 0
+          },
+          "recover": {
+            "flagged": [],
+            "ambiguous": [],
+            "retryAttempted": false,
+            "retryProviders": []
+          },
+          "validate": {
+            "ok": false,
+            "missing": [
+              "receipt_number",
+              "total_amount"
+            ]
+          },
+          "confidence": {
+            "overall": 0.7195759750254193,
+            "signals": {
+              "validation": 0.6,
+              "consistency": 1,
+              "ocrQuality": 0.8567668509104897,
+              "extraction": 0.7335736516952515,
+              "missing": 0.6,
+              "evidence": 0.7882719442579482,
+              "uncertainty": 0.5,
+              "classification": 0.95
+            }
+          }
+        },
+        "error": null
+      },
+      "score": {
+        "checks": [],
+        "total": 0,
+        "correct": 0,
+        "wrong": 0,
+        "missing": 0,
+        "falsePositives": 0,
+        "extraExtracted": [
+          "receipt_date",
+          "merchant_name",
+          "merchant_address",
+          "line_items"
+        ]
+      },
+      "agent": null
+    },
+    "scan-blur": {
+      "ocr": {
+        "lines": 7,
+        "chars": 72,
+        "pageConf": 0.7439292072114491,
+        "meanLineConf": 0.7641062427702404,
+        "distinctConfs": 7,
+        "hits": 2,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": false
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": false
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": false
+          }
+        ],
+        "ms": 931,
+        "text": "AL RABIH SUPERMARKET\n\nSugar hg     650\nMas TL      T 00\nRice Sag     2490\nTOTAL          38 0\nCash        $0 00\nChange        \"ne"
+      },
+      "pipeline": {
+        "ms": 7990,
+        "status": "complete",
+        "classification": {
+          "profileType": "receipt",
+          "confidence": 0.95,
+          "source": "ai"
+        },
+        "validation": {
+          "ok": false,
+          "missing": [
+            "receipt_number",
+            "receipt_date"
+          ],
+          "results": 6
+        },
+        "confidence": {
+          "overall": 0.5921182928323292,
+          "signals": {
+            "validation": 0.6,
+            "consistency": 0.5,
+            "ocrQuality": 0.7489734661011468,
+            "extraction": 0.5900911762637184,
+            "missing": 0.6,
+            "evidence": 0.8019359334309895,
+            "uncertainty": 0,
+            "classification": 0.95
+          }
+        },
+        "fields": [
+          {
+            "key": "merchant_name",
+            "value": "AL RABIH SUPERMARKET",
+            "raw": "AL RABIH SUPERMARKET",
+            "status": "extracted",
+            "confidence": 0.7341948775227864,
+            "reasons": [
+              "label_not_matched"
+            ],
+            "evidence": [
+              {
+                "quote": "AL RABIH SUPERMARKET",
+                "confidence": 0.9364730580647787
+              }
+            ]
+          },
+          {
+            "key": "currency",
+            "value": "USD",
+            "raw": "$",
+            "status": "extracted",
+            "confidence": 0.482066126273019,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          },
+          {
+            "key": "total_amount",
+            "value": 0,
+            "raw": "0",
+            "status": "flagged",
+            "confidence": 0.5,
+            "reasons": [
+              "recovered_from_ocr"
+            ],
+            "evidence": [
+              {
+                "quote": "TOTAL 38 0",
+                "confidence": 0.9379373423258462
+              }
+            ]
+          }
+        ],
+        "trace": {
+          "classify": {
+            "profileType": "receipt",
+            "confidence": 0.95,
+            "source": "ai",
+            "reasons": [
+              "presence of itemized list of goods",
+              "total and payment information",
+              "format consistent with typical retail receipts"
+            ]
+          },
+          "extract": {
+            "profile": "receipt",
+            "profileVersion": 1,
+            "model": "gpt-oss-120b",
+            "fields": 16,
+            "dropped": 0
+          },
+          "ground": {
+            "groundedFields": 1,
+            "totalFields": 3,
+            "evidenceCoverage": 0.333,
+            "meanEvidenceConfidence": 0.936,
+            "flagged": 0,
+            "ambiguous": 0
+          },
+          "recover": {
+            "flagged": [
+              "total_amount"
+            ],
+            "ambiguous": [],
+            "retryAttempted": false,
+            "retryProviders": []
+          },
+          "validate": {
+            "ok": false,
+            "missing": [
+              "receipt_number",
+              "receipt_date"
+            ]
+          },
+          "confidence": {
+            "overall": 0.5921182928323292,
+            "signals": {
+              "validation": 0.6,
+              "consistency": 0.5,
+              "ocrQuality": 0.7489734661011468,
+              "extraction": 0.5900911762637184,
+              "missing": 0.6,
+              "evidence": 0.8019359334309895,
+              "uncertainty": 0,
+              "classification": 0.95
+            }
+          }
+        },
+        "error": null
+      },
+      "score": {
+        "checks": [
+          {
+            "key": "merchant_name",
+            "label": "merchant = AL RABIH",
+            "ok": true,
+            "value": "AL RABIH SUPERMARKET",
+            "status": "extracted",
+            "confidence": 0.7341948775227864
+          },
+          {
+            "key": "total_amount",
+            "label": "total = 38.40",
+            "ok": false,
+            "value": 0,
+            "status": "flagged",
+            "confidence": 0.5
+          },
+          {
+            "key": "receipt_date",
+            "label": "date = 2025-01-15",
+            "ok": false,
+            "value": null,
+            "status": "missing",
+            "confidence": 0
+          }
+        ],
+        "total": 3,
+        "correct": 1,
+        "wrong": 1,
+        "missing": 1,
+        "recall": 0.3333333333333333,
+        "precision": 0.5,
+        "falsePositives": 1,
+        "extraExtracted": [
+          "currency"
+        ]
+      },
+      "agent": {
+        "q1": {
+          "answer": "**Document type:** Receipt  \n\n**Total amount:** **0** (extracted field `total_amount` – marked as uncertain)  \n\n**Date:** No receipt date is present in the document. This information isn’t in the provided documents.",
+          "model": "gpt-oss-120b",
+          "totalFound": false,
+          "dateFound": false,
+          "typeFound": true
+        },
+        "q2": {
+          "answer": "**Image description:** The image appears to be a scanned receipt with a blurry quality. The text is partially distorted, and some characters are difficult to read. The receipt appears to be printed on a standard A4 paper with a white background. The text is in English, and the layout is typical of a retail receipt.\n\n**Confidence in extracted values:** I have a **low confidence** in the extracted values due to the blurry quality of the image and the distortion of the text. The extracted fields, such as `merchant_name`, `currency`, and `total_amount`, were obtained through OCR processing, but the uncertainty flag indicates that the values may not be accurate.\n\n**Specific concerns:**\n\n* The `merchant_name` value, `AL RABIH SUPERMARKET`, was found in the text, but the uncertainty flag suggests that the value may not be accurate due to the blurry quality of the image.\n* The `currency` value, `USD`, was inferred rather than read verbatim from the OCR text, which may lead to errors.\n* The `total_amount` value, `0`, was recovered directly from the OCR text, but the uncertainty flag suggests that the value may not be accurate due to the distortion of the text.\n\n**Recommendation:** To improve the accuracy of the extracted values, it is recommended to obtain a clearer image of the receipt or to manually enter the values from the receipt.",
+          "model": "llama-3.1-8b-instant",
+          "claimsImage": false,
+          "refuses": false
+        }
+      }
+    },
+    "invoice-clean": {
+      "ocr": {
+        "lines": 15,
+        "chars": 225,
+        "pageConf": 0.9510306777954105,
+        "meanLineConf": 0.9508895242479113,
+        "distinctConfs": 13,
+        "hits": 7,
+        "total": 7,
+        "detail": [
+          {
+            "key": "ACME CONSULTING",
+            "label": "company",
+            "found": true
+          },
+          {
+            "key": "INV-2026-014",
+            "label": "invoice number",
+            "found": true
+          },
+          {
+            "key": "2026-02-14",
+            "label": "issue date",
+            "found": true
+          },
+          {
+            "key": "155.25",
+            "label": "total 155.25",
+            "found": true
+          },
+          {
+            "key": "150.00",
+            "label": "subtotal 150.00",
+            "found": true
+          },
+          {
+            "key": "5.25",
+            "label": "VAT 5.25",
+            "found": true
+          },
+          {
+            "key": "KIM & SONS",
+            "label": "bill-to KIM & SONS",
+            "found": true
+          }
+        ],
+        "ms": 997,
+        "text": "ACME CONSULTING\n16 Business Park Rd, Riyadh KSA VAT 3111234567\n\nINVOICE INV-2026-014\n\nIssue date: 2026-02-14\n\nDue date: 2026-03-14\n\nBill to: KIM & SONS TRADING\n\nWeb audit retainer\nSubtotal\n\nVAT 3.5%\n\nTOTAL DUE\n\n150.00\n\n150.00\n\n5.25\n\n155.25\n\nPayment: Bank transfer SA1234567890"
+      },
+      "pipeline": {
+        "ms": 8273,
+        "status": "complete",
+        "classification": {
+          "profileType": "invoice",
+          "confidence": 1,
+          "source": "ai"
+        },
+        "validation": {
+          "ok": false,
+          "missing": [
+            "buyer_name"
+          ],
+          "results": 8
+        },
+        "confidence": {
+          "overall": 0.8301664092178824,
+          "signals": {
+            "validation": 0.8461538461538461,
+            "consistency": 0.8084089405314129,
+            "ocrQuality": 0.9509921813733648,
+            "extraction": 0.7943671613202775,
+            "missing": 0.8,
+            "evidence": 0.9206999478516755,
+            "uncertainty": 0.6,
+            "classification": 1
+          }
+        },
+        "fields": [
+          {
+            "key": "invoice_number",
+            "value": "INV-2026-014",
+            "raw": "INV-2026-014",
+            "status": "extracted",
+            "confidence": 0.6542046813964844,
+            "reasons": [
+              "label_not_matched"
+            ],
+            "evidence": [
+              {
+                "quote": "INVOICE INV-2026-014",
+                "confidence": 0.8177558517456054
+              }
+            ]
+          },
+          {
+            "key": "invoice_date",
+            "value": "2026-02-14",
+            "raw": "2026-02-14",
+            "status": "extracted",
+            "confidence": 0.9487629954020181,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Issue date: 2026-02-14",
+                "confidence": 0.9487629954020181
+              }
+            ]
+          },
+          {
+            "key": "due_date",
+            "value": "2026-03-14",
+            "raw": "2026-03-14",
+            "status": "extracted",
+            "confidence": 0.9628122965494791,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Due date: 2026-03-14",
+                "confidence": 0.9628122965494791
+              }
+            ]
+          },
+          {
+            "key": "seller_name",
+            "value": "Web audit retainer",
+            "raw": "Web audit retainer",
+            "status": "flagged",
+            "confidence": 0.5,
+            "reasons": [
+              "recovered_from_ocr"
+            ],
+            "evidence": [
+              {
+                "quote": "Web audit retainer",
+                "confidence": 0.9602677154541016
+              }
+            ]
+          },
+          {
+            "key": "seller_tax_id",
+            "value": "3111234567",
+            "raw": "3111234567",
+            "status": "extracted",
+            "confidence": 0.6847420880126956,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          },
+          {
+            "key": "seller_address",
+            "value": "16 Business Park Rd, Riyadh KSA",
+            "raw": "16 Business Park Rd, Riyadh KSA",
+            "status": "extracted",
+            "confidence": 0.9606630516052247,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "16 Business Park Rd, Riyadh KSA VAT 3111234567",
+                "confidence": 0.9606630516052247
+              }
+            ]
+          },
+          {
+            "key": "tax_rate",
+            "value": 3.5,
+            "raw": "3.5%",
+            "status": "extracted",
+            "confidence": 0.9683628463745118,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "VAT 3.5%",
+                "confidence": 0.9683628463745118
+              }
+            ]
+          },
+          {
+            "key": "total_amount",
+            "value": 155.25,
+            "raw": "155.25",
+            "status": "extracted",
+            "confidence": 0.7721218872070312,
+            "reasons": [
+              "label_not_matched"
+            ],
+            "evidence": [
+              {
+                "quote": "155.25",
+                "confidence": 0.965152359008789
+              }
+            ]
+          },
+          {
+            "key": "payment_method",
+            "value": "Bank transfer",
+            "raw": "Bank transfer",
+            "status": "extracted",
+            "confidence": 0.9444109725952148,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Payment: Bank transfer SA1234567890",
+                "confidence": 0.9444109725952148
+              }
+            ]
+          },
+          {
+            "key": "iban",
+            "value": "SA1234567890",
+            "raw": "SA1234567890",
+            "status": "extracted",
+            "confidence": 0.8499698753356933,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Payment: Bank transfer SA1234567890",
+                "confidence": 0.9444109725952148
+              }
+            ]
+          }
+        ],
+        "trace": {
+          "classify": {
+            "profileType": "invoice",
+            "confidence": 1,
+            "source": "ai",
+            "reasons": [
+              "contains 'INVOICE INV-' in the title",
+              "lists 'Bill to:' and 'Subtotal' indicating a commercial transaction",
+              "includes 'VAT' and 'TOTAL DUE' which are common in invoices",
+              "has a payment method specified"
+            ]
+          },
+          "extract": {
+            "profile": "invoice",
+            "profileVersion": 1,
+            "model": "gpt-oss-120b",
+            "fields": 23,
+            "dropped": 0
+          },
+          "ground": {
+            "groundedFields": 8,
+            "totalFields": 10,
+            "evidenceCoverage": 0.8,
+            "meanEvidenceConfidence": 0.939,
+            "flagged": 0,
+            "ambiguous": 0
+          },
+          "recover": {
+            "flagged": [
+              "seller_name"
+            ],
+            "ambiguous": [],
+            "retryAttempted": false,
+            "retryProviders": []
+          },
+          "validate": {
+            "ok": false,
+            "missing": [
+              "buyer_name"
+            ]
+          },
+          "confidence": {
+            "overall": 0.8301664092178824,
+            "signals": {
+              "validation": 0.8461538461538461,
+              "consistency": 0.8084089405314129,
+              "ocrQuality": 0.9509921813733648,
+              "extraction": 0.7943671613202775,
+              "missing": 0.8,
+              "evidence": 0.9206999478516755,
+              "uncertainty": 0.6,
+              "classification": 1
+            }
+          }
+        },
+        "error": null
+      },
+      "score": {
+        "checks": [
+          {
+            "key": "invoice_number",
+            "label": "invoice no = INV-2026-014",
+            "ok": true,
+            "value": "INV-2026-014",
+            "status": "extracted",
+            "confidence": 0.6542046813964844
+          },
+          {
+            "key": "invoice_date",
+            "label": "issue date = 2026-02-14",
+            "ok": true,
+            "value": "2026-02-14",
+            "status": "extracted",
+            "confidence": 0.9487629954020181
+          },
+          {
+            "key": "due_date",
+            "label": "due date = 2026-03-14",
+            "ok": true,
+            "value": "2026-03-14",
+            "status": "extracted",
+            "confidence": 0.9628122965494791
+          },
+          {
+            "key": "seller_name",
+            "label": "seller = ACME CONSULTING",
+            "ok": false,
+            "value": "Web audit retainer",
+            "status": "flagged",
+            "confidence": 0.5
+          },
+          {
+            "key": "buyer_name",
+            "label": "buyer = KIM & SONS",
+            "ok": false,
+            "value": null,
+            "status": "missing",
+            "confidence": 0
+          },
+          {
+            "key": "subtotal",
+            "label": "subtotal = 150.00",
+            "ok": false,
+            "value": null,
+            "status": "missing",
+            "confidence": 0
+          },
+          {
+            "key": "tax_amount",
+            "label": "VAT = 5.25",
+            "ok": false,
+            "value": null,
+            "status": "missing",
+            "confidence": 0
+          },
+          {
+            "key": "total_amount",
+            "label": "total = 155.25",
+            "ok": true,
+            "value": 155.25,
+            "status": "extracted",
+            "confidence": 0.7721218872070312
+          },
+          {
+            "key": "currency",
+            "label": "currency = SAR",
+            "ok": false,
+            "value": null,
+            "status": "missing",
+            "confidence": 0
+          }
+        ],
+        "total": 9,
+        "correct": 4,
+        "wrong": 1,
+        "missing": 4,
+        "recall": 0.4444444444444444,
+        "precision": 0.8,
+        "falsePositives": 1,
+        "extraExtracted": [
+          "seller_tax_id",
+          "seller_address",
+          "tax_rate",
+          "payment_method",
+          "iban"
+        ]
+      },
+      "agent": {
+        "q1": {
+          "answer": "**Document type:** Invoice  \n\n**Total amount:** **155.25**  \n\n**Invoice date:** **2026‑02‑14**   (the date the invoice was issued)  ",
+          "model": "gpt-oss-120b",
+          "totalFound": true,
+          "dateFound": false,
+          "typeFound": true
+        },
+        "q2": {
+          "answer": "**What the document looks like**\n\nThe image is a single‑page invoice with a clean, left‑aligned layout:\n\n- **Header** – “ACME CONSULTING” and the seller’s address “16 Business Park Rd, Riyadh KSA” followed by “VAT 3111234567”.\n- **Invoice identifier** – the line “INVOICE INV‑2026‑014”.\n- **Dates** – “Issue date: 2026‑02‑14” and “Due date: 2026‑03‑14”.\n- **Bill‑to section** – “Bill to: KIM & SONS TRADING”.\n- **Description line** – “Web audit retainer”.\n- **Amounts** – a table‑like block showing:\n  - Subtotal 150.00\n  - VAT 3.5 % (5.25)\n  - **TOTAL DUE 155.25**\n- **Payment details** – “Payment: Bank transfer SA1234567890”.\n\nThe overall visual style is simple, with plain text and minimal graphics, typical of a business invoice.\n\n**Confidence in the extracted values**\n\n| Field | Extracted value | Confidence note |\n|-------|----------------|-----------------|\n| **Invoice number** | `INV-2026-014` | *Uncertain* – found in OCR but not directly next to a label |\n| **Invoice date** | `2026-02-14` | Confident –",
+          "model": "gpt-oss-120b",
+          "claimsImage": false,
+          "refuses": false
+        }
+      }
+    },
+    "contract-1pg": {
+      "ocr": {
+        "lines": 9,
+        "chars": 235,
+        "pageConf": 0.9557647760902962,
+        "meanLineConf": 0.9569375999591969,
+        "distinctConfs": 8,
+        "hits": 7,
+        "total": 7,
+        "detail": [
+          {
+            "key": "CT-2025-881",
+            "label": "contract number",
+            "found": true
+          },
+          {
+            "key": "NOVATEL GLOBAL",
+            "label": "party A",
+            "found": true
+          },
+          {
+            "key": "KIM & SONS",
+            "label": "party B",
+            "found": true
+          },
+          {
+            "key": "2025-03-01",
+            "label": "effective date",
+            "found": true
+          },
+          {
+            "key": "2026-03-01",
+            "label": "expiry",
+            "found": true
+          },
+          {
+            "key": "1,200",
+            "label": "monthly fee",
+            "found": true
+          },
+          {
+            "key": "14,400",
+            "label": "total value",
+            "found": true
+          }
+        ],
+        "ms": 1133,
+        "text": "SERVICE AGREEMENT\n\nAgreement No: CT-2025-881\n\nBetween NOVATEL GLOBAL and KIM & SONS TRADING\nEffective date: 2025-03-01\n\nTerm: 12 months Expiry: 2026-03-01\n\nMonthly fee: SAR 1,200\n\nTotal contract value: SAR 14,400\n\nPayable in advance to NOVATEL GLOBAL\n\nSigned in Riyadh on 2025-02-20"
+      },
+      "pipeline": {
+        "ms": 1271,
+        "status": "complete",
+        "classification": {
+          "profileType": "contract",
+          "confidence": 0.95,
+          "source": "ai"
+        },
+        "validation": {
+          "ok": true,
+          "missing": [],
+          "results": 5
+        },
+        "confidence": {
+          "overall": 0.9126806309148634,
+          "signals": {
+            "validation": 1,
+            "consistency": 0.864918392944336,
+            "ocrQuality": 0.9559758843866983,
+            "extraction": 0.8499562286827845,
+            "missing": 1,
+            "evidence": 0.9227100124359131,
+            "uncertainty": 0.6666666666666667,
+            "classification": 0.95
+          }
+        },
+        "fields": [
+          {
+            "key": "contract_title",
+            "value": "SERVICE AGREEMENT",
+            "raw": "SERVICE AGREEMENT",
+            "status": "extracted",
+            "confidence": 0.9646897506713867,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "SERVICE AGREEMENT",
+                "confidence": 0.9646897506713867
+              }
+            ]
+          },
+          {
+            "key": "contract_date",
+            "value": "2025-03-01",
+            "raw": "2025-03-01",
+            "status": "flagged",
+            "confidence": 0.5,
+            "reasons": [
+              "recovered_from_ocr"
+            ],
+            "evidence": [
+              {
+                "quote": "Effective date: 2025-03-01",
+                "confidence": 0.9653398895263673
+              }
+            ]
+          },
+          {
+            "key": "effective_date",
+            "value": "2025-03-01",
+            "raw": "2025-03-01",
+            "status": "extracted",
+            "confidence": 0.9653398895263673,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Effective date: 2025-03-01",
+                "confidence": 0.9653398895263673
+              }
+            ]
+          },
+          {
+            "key": "expiry_date",
+            "value": "2026-03-01",
+            "raw": "2026-03-01",
+            "status": "extracted",
+            "confidence": 0.7660326171875002,
+            "reasons": [
+              "label_not_matched"
+            ],
+            "evidence": [
+              {
+                "quote": "Term: 12 months Expiry: 2026-03-01",
+                "confidence": 0.9575407714843751
+              }
+            ]
+          },
+          {
+            "key": "party_a_name",
+            "value": "NOVATEL GLOBAL",
+            "raw": "NOVATEL GLOBAL",
+            "status": "extracted",
+            "confidence": 0.9480164384841918,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Between NOVATEL GLOBAL and KIM & SONS TRADING",
+                "confidence": 0.9446584033966063
+              },
+              {
+                "quote": "Payable in advance to NOVATEL GLOBAL",
+                "confidence": 0.9513744735717774
+              }
+            ]
+          },
+          {
+            "key": "party_b_name",
+            "value": "KIM & SONS TRADING",
+            "raw": "KIM & SONS TRADING",
+            "status": "extracted",
+            "confidence": 0.9446584033966063,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Between NOVATEL GLOBAL and KIM & SONS TRADING",
+                "confidence": 0.9446584033966063
+              }
+            ]
+          },
+          {
+            "key": "currency",
+            "value": "SAR",
+            "raw": "SAR",
+            "status": "extracted",
+            "confidence": 0.6881506387850134,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          },
+          {
+            "key": "contract_value",
+            "value": 14400,
+            "raw": "SAR 14,400",
+            "status": "extracted",
+            "confidence": 0.9638041687011718,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Total contract value: SAR 14,400",
+                "confidence": 0.9638041687011718
+              }
+            ]
+          },
+          {
+            "key": "payment_terms",
+            "value": "Payable in advance to NOVATEL GLOBAL",
+            "raw": "Payable in advance to NOVATEL GLOBAL",
+            "status": "extracted",
+            "confidence": 0.9513744735717774,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "Payable in advance to NOVATEL GLOBAL",
+                "confidence": 0.9513744735717774
+              }
+            ]
+          }
+        ],
+        "trace": {
+          "classify": {
+            "profileType": "contract",
+            "confidence": 0.95,
+            "source": "ai",
+            "reasons": [
+              "presence of agreement number",
+              "mention of term and expiry dates",
+              "monthly fee and total contract value specified",
+              "payable to a specific entity",
+              "signed date and location"
+            ]
+          },
+          "extract": {
+            "profile": "contract",
+            "profileVersion": 1,
+            "model": "llama-3.1-8b-instant",
+            "fields": 18,
+            "dropped": 0
+          },
+          "ground": {
+            "groundedFields": 7,
+            "totalFields": 8,
+            "evidenceCoverage": 0.875,
+            "meanEvidenceConfidence": 0.955,
+            "flagged": 0,
+            "ambiguous": 0
+          },
+          "recover": {
+            "flagged": [
+              "contract_date"
+            ],
+            "ambiguous": [],
+            "retryAttempted": false,
+            "retryProviders": []
+          },
+          "validate": {
+            "ok": true,
+            "missing": []
+          },
+          "confidence": {
+            "overall": 0.9126806309148634,
+            "signals": {
+              "validation": 1,
+              "consistency": 0.864918392944336,
+              "ocrQuality": 0.9559758843866983,
+              "extraction": 0.8499562286827845,
+              "missing": 1,
+              "evidence": 0.9227100124359131,
+              "uncertainty": 0.6666666666666667,
+              "classification": 0.95
+            }
+          }
+        },
+        "error": null
+      },
+      "score": {
+        "checks": [
+          {
+            "key": "contract_title",
+            "label": "title = SERVICE AGREEMENT",
+            "ok": true,
+            "value": "SERVICE AGREEMENT",
+            "status": "extracted",
+            "confidence": 0.9646897506713867
+          },
+          {
+            "key": "contract_date",
+            "label": "contract date (signing or effective)",
+            "ok": true,
+            "value": "2025-03-01",
+            "status": "flagged",
+            "confidence": 0.5
+          },
+          {
+            "key": "effective_date",
+            "label": "effective = 2025-03-01",
+            "ok": true,
+            "value": "2025-03-01",
+            "status": "extracted",
+            "confidence": 0.9653398895263673
+          },
+          {
+            "key": "expiry_date",
+            "label": "expiry = 2026-03-01",
+            "ok": true,
+            "value": "2026-03-01",
+            "status": "extracted",
+            "confidence": 0.7660326171875002
+          },
+          {
+            "key": "party_a_name",
+            "label": "party A = NOVATEL",
+            "ok": true,
+            "value": "NOVATEL GLOBAL",
+            "status": "extracted",
+            "confidence": 0.9480164384841918
+          },
+          {
+            "key": "party_b_name",
+            "label": "party B = KIM & SONS",
+            "ok": true,
+            "value": "KIM & SONS TRADING",
+            "status": "extracted",
+            "confidence": 0.9446584033966063
+          },
+          {
+            "key": "contract_value",
+            "label": "value = 14,400",
+            "ok": true,
+            "value": 14400,
+            "status": "extracted",
+            "confidence": 0.9638041687011718
+          },
+          {
+            "key": "currency",
+            "label": "currency = SAR",
+            "ok": true,
+            "value": "SAR",
+            "status": "extracted",
+            "confidence": 0.6881506387850134
+          }
+        ],
+        "total": 8,
+        "correct": 8,
+        "wrong": 0,
+        "missing": 0,
+        "recall": 1,
+        "precision": 1,
+        "falsePositives": 0,
+        "extraExtracted": [
+          "payment_terms"
+        ]
+      },
+      "agent": {
+        "q1": {
+          "answer": "**Document type:** Contract  \n\n**Total amount:** **SAR 14,400** (extracted as `14400`)  \n\n**Date associated with the contract:** **2025‑03‑01** (extracted as `contract date`; noted as *uncertain*).",
+          "model": "gpt-oss-120b",
+          "totalFound": true,
+          "dateFound": false,
+          "typeFound": true
+        },
+        "q2": {
+          "answer": "**What the document looks like**\n\nThe image is a single‑page contract titled **“SERVICE AGREEMENT.”**  \nIt is laid out as plain text with the following visible sections:\n\n| Section | Content (as shown in the OCR) |\n|---------|------------------------------|\n| Header | “SERVICE AGREEMENT” |\n| Agreement number | “Agreement No: CT‑2025‑881” |\n| Parties | “Between **NOVATEL GLOBAL** and **KIM & SONS TRADING**” |\n| Effective date | “Effective date: 2025‑03‑01” |\n| Term & expiry | “Term: 12 months Expiry: 2026‑03‑01” |\n| Monthly fee | “Monthly fee: SAR 1,200” |\n| Total value | “Total contract value: SAR 14,400” |\n| Payment terms | “Payable in advance to **NOVATEL GLOBAL**” |\n| Signature line | “Signed in Riyadh on 2025‑02‑20” |\n\nThe layout is simple, with each line left‑aligned and no graphics or tables.\n\n**Confidence in the extracted values**\n\n- The overall extraction confidence is **0.91** (high).  \n- Fields marked **UNCERTAIN**:\n  - **contract date** – “2025‑03‑01” (recovered from OCR but not independently verified).  \n  - **expiry date** – “2026‑03‑01” (found in the text but",
+          "model": "gpt-oss-120b",
+          "claimsImage": false,
+          "refuses": false
+        }
+      }
+    },
+    "ar-thermal": {
+      "ocr": {
+        "lines": 5,
+        "chars": 76,
+        "pageConf": 0.9033710234505791,
+        "meanLineConf": 0.9039709599812825,
+        "distinctConfs": 5,
+        "hits": 3,
+        "total": 3,
+        "detail": [
+          {
+            "key": "45.50",
+            "label": "total 45.50",
+            "found": true
+          },
+          {
+            "key": "المبلغ",
+            "label": "المبلغ",
+            "found": true
+          },
+          {
+            "key": "الإجمالي",
+            "label": "الإجمالي",
+            "found": true
+          }
+        ],
+        "ms": 558,
+        "text": "متجر الرحيمالتجاري\n تاريخ:15-01-2025\n سلعة: ‎JJ)‏5كج\n\n المبلغ: 45.50رس\n\n الإجمالي: 45.50رس"
+      },
+      "pipeline": {
+        "ms": 1381,
+        "status": "complete",
+        "classification": {
+          "profileType": "receipt",
+          "confidence": 0.95,
+          "source": "ai"
+        },
+        "validation": {
+          "ok": false,
+          "missing": [
+            "receipt_number",
+            "merchant_name"
+          ],
+          "results": 6
+        },
+        "confidence": {
+          "overall": 0.7537200386057199,
+          "signals": {
+            "validation": 0.6,
+            "consistency": 0.9319286219278973,
+            "ocrQuality": 0.9035289014849749,
+            "extraction": 0.8459114689106845,
+            "missing": 0.6,
+            "evidence": 0.7640084559122722,
+            "uncertainty": 0.6,
+            "classification": 0.95
+          }
+        },
+        "fields": [
+          {
+            "key": "receipt_date",
+            "value": "2025-01-15",
+            "raw": "تاريخ:15-01-2025",
+            "status": "extracted",
+            "confidence": 0.9123700714111328,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "تاريخ: 15-01-2025",
+                "confidence": 0.9123700714111328
+              }
+            ]
+          },
+          {
+            "key": "currency",
+            "value": "SAR",
+            "raw": "45.50رس",
+            "status": "extracted",
+            "confidence": 0.650427136884417,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          },
+          {
+            "key": "subtotal",
+            "value": 45.5,
+            "raw": "45.50رس",
+            "status": "extracted",
+            "confidence": 0.9319286219278973,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "المبلغ: 45.50 رس",
+                "confidence": 0.9265958404541016
+              },
+              {
+                "quote": "الإجمالي: 45.50 رس",
+                "confidence": 0.9372614034016928
+              }
+            ]
+          },
+          {
+            "key": "total_amount",
+            "value": 45.5,
+            "raw": "45.50رس",
+            "status": "extracted",
+            "confidence": 0.9319286219278973,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "المبلغ: 45.50 رس",
+                "confidence": 0.9265958404541016
+              },
+              {
+                "quote": "الإجمالي: 45.50 رس",
+                "confidence": 0.9372614034016928
+              }
+            ]
+          },
+          {
+            "key": "notes",
+            "value": "الإجمالي: 45.50رس",
+            "raw": "الإجمالي: 45.50رس",
+            "status": "extracted",
+            "confidence": 0.650427136884417,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          }
+        ],
+        "trace": {
+          "classify": {
+            "profileType": "receipt",
+            "confidence": 0.95,
+            "source": "ai",
+            "reasons": [
+              "date and time format",
+              "item description and quantity",
+              "total amount in local currency"
+            ]
+          },
+          "extract": {
+            "profile": "receipt",
+            "profileVersion": 1,
+            "model": "llama-3.1-8b-instant",
+            "fields": 16,
+            "dropped": 0
+          },
+          "ground": {
+            "groundedFields": 3,
+            "totalFields": 5,
+            "evidenceCoverage": 0.6,
+            "meanEvidenceConfidence": 0.928,
+            "flagged": 0,
+            "ambiguous": 0
+          },
+          "recover": {
+            "flagged": [],
+            "ambiguous": [],
+            "retryAttempted": false,
+            "retryProviders": []
+          },
+          "validate": {
+            "ok": false,
+            "missing": [
+              "receipt_number",
+              "merchant_name"
+            ]
+          },
+          "confidence": {
+            "overall": 0.7537200386057199,
+            "signals": {
+              "validation": 0.6,
+              "consistency": 0.9319286219278973,
+              "ocrQuality": 0.9035289014849749,
+              "extraction": 0.8459114689106845,
+              "missing": 0.6,
+              "evidence": 0.7640084559122722,
+              "uncertainty": 0.6,
+              "classification": 0.95
+            }
+          }
+        },
+        "error": null
+      },
+      "score": {
+        "checks": [
+          {
+            "key": "total_amount",
+            "label": "total = 45.50",
+            "ok": true,
+            "value": 45.5,
+            "status": "extracted",
+            "confidence": 0.9319286219278973
+          },
+          {
+            "key": "receipt_date",
+            "label": "date = 2025-01-15",
+            "ok": true,
+            "value": "2025-01-15",
+            "status": "extracted",
+            "confidence": 0.9123700714111328
+          },
+          {
+            "key": "merchant_name",
+            "label": "merchant non-empty",
+            "ok": false,
+            "value": null,
+            "status": "missing",
+            "confidence": 0
+          },
+          {
+            "key": "currency",
+            "label": "currency = SAR",
+            "ok": true,
+            "value": "SAR",
+            "status": "extracted",
+            "confidence": 0.650427136884417
+          }
+        ],
+        "total": 4,
+        "correct": 3,
+        "wrong": 0,
+        "missing": 1,
+        "recall": 0.75,
+        "precision": 1,
+        "falsePositives": 0,
+        "extraExtracted": [
+          "subtotal",
+          "notes"
+        ]
+      },
+      "agent": {
+        "q1": {
+          "answer": "**Document type:** Receipt  \n\n**Total amount:** **45.5**  \n\n**Date:** **2025‑01‑15** (extracted from the receipt date field).",
+          "model": "gpt-oss-120b",
+          "totalFound": false,
+          "dateFound": false,
+          "typeFound": true
+        },
+        "q2": {
+          "answer": "**Document Overview**\nThe provided document is an image of a receipt, which I can analyze and describe. The image appears to be a scanned or photographed document with a clear, but slightly blurry, text. The font used is a standard Arabic font, and the layout is typical of a receipt.\n\n**Confidence in Extracted Values**\nI have a **high confidence** in the extracted values, particularly the receipt date (`2025-01-15`), subtotal (`45.5`), and total amount (`45.5`). These values are clearly visible and well-defined in the document.\n\nHowever, I have a **low confidence** in the currency (`SAR`) due to the uncertainty mentioned in the extracted fields. The value does not directly appear in the OCR text, and the field label \"currency\" is not present on the same line as the value. This makes it more challenging to determine the correct currency with high confidence.\n\nThe notes (`الإجمالي: 45.50رس`) are also marked as uncertain, as they were inferred rather than read verbatim from the OCR text.\n\n**Document Layout and Content**\nThe receipt appears to be from a merchant named \"متجر الرحيمالتجاري\" (Al-Rahim Trading Store). The receipt date is clearly printed as \"تاريخ:15-01-2025\" (January 15, 2025). The subtotal and total amount are both listed as \"المبلغ: 45.50 رس\" (45.50 SAR). The receipt also includes a note stating \"الإجمالي: 45.50رس\" (total amount: 45.50 SAR), which is marked as uncertain due to the reasons mentioned earlier.\n\nOverall, while I have some uncertainty regarding the currency and notes, I am confident in the accuracy of the receipt date, subtotal, and total amount.",
+          "model": "llama-3.1-8b-instant",
+          "claimsImage": false,
+          "refuses": false
+        }
+      }
+    },
+    "real-superpay": {
+      "ocr": {
+        "lines": 18,
+        "chars": 307,
+        "pageConf": 0.6787958335876466,
+        "meanLineConf": 0.7067288397531659,
+        "distinctConfs": 17,
+        "hits": 6,
+        "total": 6,
+        "detail": [
+          {
+            "key": "68.38",
+            "label": "amount 68.38",
+            "found": true
+          },
+          {
+            "key": "391003452",
+            "label": "account 391003452",
+            "found": true
+          },
+          {
+            "key": "2013438351",
+            "label": "ref 2013438351",
+            "found": true
+          },
+          {
+            "key": "SuperPay",
+            "label": "merchant SuperPay",
+            "found": true
+          },
+          {
+            "key": "Zahra Aman",
+            "label": "customer Zahra Aman",
+            "found": true
+          },
+          {
+            "key": "02-07-2026",
+            "label": "date 02-07-2026",
+            "found": true
+          }
+        ],
+        "ms": 5755,
+        "text": "كن‎SuperPay‏\n‎La 15468‏\n‎Zahra Aman‏\n قوريباي\n رقم انعمليه ©8070218301132167\n تاريخ انلوقت : 02-07-202618:30:12\n رقم الحساب :391003452\n الرقم المرجقي :2013438351\n عمليةناجحة\n رقم العميل :0640833767\n معلومات إضافية :‎Mobile Number‏\n ‎Hostinger;Description‏;)0123456788(\n‎oe   a           : il‏\n‎x PURCHASE‏\n المبلغ ‎welkall‏ :68.38\n الميلغ العلى :68.38\n\n ايل ته هد ‎hi‏ د ا‎LTR‏"
+      },
+      "pipeline": {
+        "ms": 8065,
+        "status": "complete",
+        "classification": {
+          "profileType": "receipt",
+          "confidence": 0.85,
+          "source": "rule"
+        },
+        "validation": {
+          "ok": false,
+          "missing": [
+            "receipt_number"
+          ],
+          "results": 6
+        },
+        "confidence": {
+          "overall": 0.6523226467852276,
+          "signals": {
+            "validation": 0.8,
+            "consistency": 0.6535339298248292,
+            "ocrQuality": 0.6852419119335356,
+            "extraction": 0.4752489296875,
+            "missing": 0.8,
+            "evidence": 0.7920371703647431,
+            "uncertainty": 0.33333333333333337,
+            "classification": 0.85
+          }
+        },
+        "fields": [
+          {
+            "key": "receipt_number",
+            "value": null,
+            "raw": null,
+            "status": "ambiguous",
+            "confidence": 0,
+            "reasons": [
+              "ambiguous_candidates"
+            ],
+            "evidence": [
+              {
+                "quote": "الرقم المرجقي : 2013438351",
+                "confidence": 0.8259772205352783
+              },
+              {
+                "quote": "‎Hostinger;Description‏ ;)0123456788(",
+                "confidence": 0.7918889617919922
+              }
+            ]
+          },
+          {
+            "key": "receipt_date",
+            "value": "2026-07-02",
+            "raw": "02-07-2026",
+            "status": "extracted",
+            "confidence": 0.7871905609130858,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "تاريخ انلوقت : 02-07-2026 18:30:12",
+                "confidence": 0.8286216430664062
+              }
+            ]
+          },
+          {
+            "key": "merchant_name",
+            "value": "SuperPay",
+            "raw": "SuperPay",
+            "status": "extracted",
+            "confidence": 0.3692119262695313,
+            "reasons": [
+              "ocr_confidence_low",
+              "label_not_matched"
+            ],
+            "evidence": [
+              {
+                "quote": "كن ‎SuperPay‏",
+                "confidence": 0.5127943420410157
+              }
+            ]
+          },
+          {
+            "key": "customer_name",
+            "value": "Zahra Aman",
+            "raw": "Zahra Aman",
+            "status": "extracted",
+            "confidence": 0.6927567626953125,
+            "reasons": [
+              "label_not_matched"
+            ],
+            "evidence": [
+              {
+                "quote": "‎Zahra Aman‏",
+                "confidence": 0.9621621704101562
+              }
+            ]
+          },
+          {
+            "key": "total_amount",
+            "value": 68.38,
+            "raw": "68.38",
+            "status": "extracted",
+            "confidence": 0.6535339298248292,
+            "reasons": [],
+            "evidence": [
+              {
+                "quote": "المبلغ ‎welkall‏ : 68.38",
+                "confidence": 0.6269368362426758
+              },
+              {
+                "quote": "الميلغ العلى : 68.38",
+                "confidence": 0.7068058776855469
+              }
+            ]
+          },
+          {
+            "key": "notes",
+            "value": "Mobile Number",
+            "raw": "Mobile Number",
+            "status": "extracted",
+            "confidence": 0.4398597001647951,
+            "reasons": [
+              "no_direct_evidence",
+              "label_not_matched"
+            ]
+          }
+        ],
+        "trace": {
+          "classify": {
+            "profileType": "receipt",
+            "confidence": 0.85,
+            "source": "rule",
+            "reasons": [
+              "AI classified as 'invoice' but the document text has no markers for it; overruled by rules",
+              "Rule-based match with 3 alias hit(s)"
+            ]
+          },
+          "extract": {
+            "profile": "receipt",
+            "profileVersion": 1,
+            "model": "gpt-oss-120b",
+            "fields": 16,
+            "dropped": 0
+          },
+          "ground": {
+            "groundedFields": 4,
+            "totalFields": 5,
+            "evidenceCoverage": 0.8,
+            "meanEvidenceConfidence": 0.727,
+            "flagged": 0,
+            "ambiguous": 0
+          },
+          "recover": {
+            "flagged": [],
+            "ambiguous": [
+              "receipt_number"
+            ],
+            "retryAttempted": false,
+            "retryProviders": []
+          },
+          "validate": {
+            "ok": false,
+            "missing": [
+              "receipt_number"
+            ]
+          },
+          "confidence": {
+            "overall": 0.6523226467852276,
+            "signals": {
+              "validation": 0.8,
+              "consistency": 0.6535339298248292,
+              "ocrQuality": 0.6852419119335356,
+              "extraction": 0.4752489296875,
+              "missing": 0.8,
+              "evidence": 0.7920371703647431,
+              "uncertainty": 0.33333333333333337,
+              "classification": 0.85
+            }
+          }
+        },
+        "error": null
+      },
+      "score": {
+        "checks": [
+          {
+            "key": "total_amount",
+            "label": "total = 68.38",
+            "ok": true,
+            "value": 68.38,
+            "status": "extracted",
+            "confidence": 0.6535339298248292
+          },
+          {
+            "key": "receipt_date",
+            "label": "date = 2026-07-02",
+            "ok": true,
+            "value": "2026-07-02",
+            "status": "extracted",
+            "confidence": 0.7871905609130858
+          },
+          {
+            "key": "pos_number",
+            "label": "account = 391003452",
+            "ok": false,
+            "value": null,
+            "status": "missing",
+            "confidence": 0
+          },
+          {
+            "key": "customer_name",
+            "label": "customer = Zahra Aman",
+            "ok": true,
+            "value": "Zahra Aman",
+            "status": "extracted",
+            "confidence": 0.6927567626953125
+          },
+          {
+            "key": "receipt_number",
+            "label": "ref = 2013438351",
+            "ok": false,
+            "value": null,
+            "status": "ambiguous",
+            "confidence": 0
+          },
+          {
+            "key": "merchant_name",
+            "label": "merchant = SuperPay",
+            "ok": true,
+            "value": "SuperPay",
+            "status": "extracted",
+            "confidence": 0.3692119262695313
+          }
+        ],
+        "total": 6,
+        "correct": 4,
+        "wrong": 1,
+        "missing": 1,
+        "recall": 0.6666666666666666,
+        "precision": 0.8,
+        "falsePositives": 1,
+        "extraExtracted": [
+          "notes"
+        ]
+      },
+      "agent": {
+        "q1": {
+          "answer": "**Document type:** Receipt  \n\n**Total amount:** **68.38**  \n\n**Date:** **2026‑07‑02** (shown as 02‑07‑2026 in the receipt)",
+          "model": "gpt-oss-120b",
+          "totalFound": true,
+          "dateFound": false,
+          "typeFound": true
+        },
+        "q2": {
+          "answer": "**Document Overview:**\nThe provided image is a receipt, specifically a SuperPay receipt, which appears to be a digital or printed document. The overall extraction confidence is 0.65, indicating a moderate level of confidence in the extracted values.\n\n**Visual Description:**\nThe receipt has a white background with a faint grid pattern. The text is in a mix of Arabic and English, with some characters appearing blurry or faint. The receipt number, date, and merchant name are located at the top, while the customer name, total amount, and notes are listed below. The receipt also includes a unique transaction ID and a mobile number.\n\n**Confidence in Extracted Values:**\nBased on the image, I have the following confidence levels in the extracted values:\n\n- **receipt number**: Low confidence (0.2) due to the blurry and faint characters in the OCR text.\n- **receipt date**: Medium confidence (0.5) as the date is clearly visible, but the format is not standard (02-07-2026 instead of 2026-07-02).\n- **merchant name**: Low confidence (0.3) due to the blurry and faint characters in the OCR text.\n- **customer name**: Low confidence (0.2) as the value was found in the text but no matching field label sat on the same line.\n- **total amount**: Medium confidence (0.5) as the amount is clearly visible, but the formatting is not standard (68.38 instead of 68.38 USD).\n- **notes**: Low confidence (0.2) as the value does not directly appear in the OCR text and was inferred rather than read verbatim.\n\n**Uncertainty:**\nThe extracted values are marked as uncertain due to the low confidence levels, blurry characters, and faint text in the OCR text.",
+          "model": "llama-3.1-8b-instant",
+          "claimsImage": false,
+          "refuses": false
+        }
+      }
+    }
+  },
+  "aggregates": {
+    "ocr": {
+      "gtAccuracy": 0.7708333333333334,
+      "gtHits": 37,
+      "gtTotal": 48,
+      "meanPageConf": 0.8797755967578283,
+      "meanLineConf": 0.8849404455203997,
+      "totalMs": 13300,
+      "meanMs": 1477.7777777777778
+    },
+    "extraction": {
+      "accuracy": 0.7027027027027027,
+      "recall": 0.7027027027027027,
+      "precision": 0.896551724137931,
+      "correct": 26,
+      "wrong": 3,
+      "missing": 8,
+      "falsePositives": 3,
+      "checked": 37,
+      "extraExtracted": 28,
+      "totalMs": 51137,
+      "meanMs": 5681.888888888889
+    },
+    "validation": {
+      "validItems": 1,
+      "totalItems": 9,
+      "requiredFieldRecall": 0.1111111111111111,
+      "missingByField": {
+        "receipt_number": 7,
+        "total_amount": 2,
+        "receipt_date": 1,
+        "buyer_name": 1,
+        "merchant_name": 1
+      }
+    },
+    "calibration": {
+      "meanConfCorrect": 0.7779283194099457,
+      "meanConfWrong": 0.3333333333333333,
+      "correctCount": 26,
+      "wrongCount": 3,
+      "gap": 0.44459498607661235
+    },
+    "runtime": {
+      "meanOcrMs": 1477.7777777777778,
+      "meanPipelineMs": 5681.888888888889,
+      "totalMs": 64437
+    },
+    "agent": {
+      "answered": 7,
+      "totalFound": 4,
+      "dateFound": 2,
+      "typeFound": 7,
+      "claimsImage": 1,
+      "refuses": 0,
+      "models": [
+        "llama-3.1-8b-instant",
+        "gpt-oss-120b"
+      ]
+    }
+  }
+}
