@@ -112,7 +112,11 @@
       "imageTitle": "Original document",
       "noOcr": "No OCR preview available for this document.",
       "uncertainLine": "Uncertain line",
-      "lineConfidence": "line confidence"
+      "lineConfidence": "line confidence",
+      "wordConfidence": "word confidence",
+      "evidenceLine": "Line cited as evidence for an extracted field",
+      "evidenceLegend": "Evidence for an extracted field",
+      "uncertainLegend": "Uncertain OCR (confidence < 60%)"
     }
   },
   "chat": {

@@ -49,6 +49,13 @@ export function recoverStage(opts: { ai?: AIClient } = {}): PipelineStage {
       );
       const eligible = retryEligibleRequiredFields(profile, extraction, recovered);
 
+      ctx.recovery = {
+        flagged: [...recovered.flagged.keys()],
+        ambiguous: [...recovered.ambiguous.keys()],
+        retryAttempted: false,
+        retryProviders: [],
+      };
+
       ctx.extraction = applyRecovery(profile, extraction, recovered);
 
       if (eligible.length > 0 && ai?.retryProviders) {
@@ -57,6 +64,8 @@ export function recoverStage(opts: { ai?: AIClient } = {}): PipelineStage {
             ? [extraction.provider]
             : [];
         if (skipProviders.length > 0) {
+          ctx.recovery.retryAttempted = true;
+          ctx.recovery.retryProviders = skipProviders;
           try {
             const prompt = buildExtractionPrompt(profile, ctx.sourceText);
             const aiCall = await extractWithAIRetry({ prompt }, ai, skipProviders);

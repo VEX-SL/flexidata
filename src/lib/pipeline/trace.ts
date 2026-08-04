@@ -75,6 +75,35 @@ export function stageSummary(ctx: PipelineState, stageId: string): unknown {
       return ctx.validation
         ? { ok: ctx.validation.ok, missing: ctx.validation.missing }
         : undefined;
+    case "ground": {
+      if (!ctx.extraction) return undefined;
+      const fields = Object.values(ctx.extraction.fieldsMap).filter(
+        (fv) => fv && (fv.value !== null && fv.value !== undefined && fv.value !== "")
+      );
+      const grounded = fields.filter((fv) => (fv.evidence?.length ?? 0) > 0);
+      const evConfs = grounded.flatMap((fv) =>
+        (fv.evidence ?? []).map((e) => e.confidence ?? 0).filter((c) => c > 0)
+      );
+      return {
+        groundedFields: grounded.length,
+        totalFields: fields.length,
+        evidenceCoverage: fields.length ? +(grounded.length / fields.length).toFixed(3) : 0,
+        meanEvidenceConfidence: evConfs.length
+          ? +(evConfs.reduce((a, b) => a + b, 0) / evConfs.length).toFixed(3)
+          : undefined,
+        flagged: fields.filter((fv) => fv.status === "flagged").length,
+        ambiguous: fields.filter((fv) => fv.status === "ambiguous").length,
+      };
+    }
+    case "recover":
+      return ctx.recovery
+        ? {
+            flagged: ctx.recovery.flagged,
+            ambiguous: ctx.recovery.ambiguous,
+            retryAttempted: ctx.recovery.retryAttempted,
+            retryProviders: ctx.recovery.retryProviders,
+          }
+        : undefined;
     case "confidence":
       return ctx.confidence
         ? { overall: ctx.confidence.overall, signals: ctx.confidence.signals }

@@ -334,6 +334,16 @@ export interface PipelineState {
   extraction?: ExtractionResult;
   validation?: ValidationResult;
   confidence?: ConfidenceResult;
+  /** Recovery-stage outcome (observability: what was flagged/ambiguous + retries). */
+  recovery?: RecoveryStageStats;
+}
+
+/** JSON-safe summary of the recovery stage for trace/analytics. */
+export interface RecoveryStageStats {
+  flagged: string[];
+  ambiguous: string[];
+  retryAttempted: boolean;
+  retryProviders: string[];
 }
 
 /**

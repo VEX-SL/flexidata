@@ -1,0 +1,793 @@
+{
+  "corpusMeta": [
+    {
+      "id": "en-clean",
+      "label": "English receipt (clean)",
+      "groundTruth": [
+        "AL RABIH",
+        "SUPERMARKET",
+        "38.40",
+        "50.00",
+        "11.60"
+      ],
+      "groundTruthLabels": [
+        "merchant",
+        "merchant",
+        "total 38.40",
+        "cash 50.00",
+        "change 11.60"
+      ]
+    },
+    {
+      "id": "en-lowcontrast",
+      "label": "English receipt (low contrast)",
+      "groundTruth": [
+        "AL RABIH",
+        "SUPERMARKET",
+        "38.40",
+        "50.00",
+        "11.60"
+      ],
+      "groundTruthLabels": [
+        "merchant",
+        "merchant",
+        "total 38.40",
+        "cash 50.00",
+        "change 11.60"
+      ]
+    },
+    {
+      "id": "en-rot90",
+      "label": "English receipt (90° rotated)",
+      "groundTruth": [
+        "AL RABIH",
+        "SUPERMARKET",
+        "38.40",
+        "50.00",
+        "11.60"
+      ],
+      "groundTruthLabels": [
+        "merchant",
+        "merchant",
+        "total 38.40",
+        "cash 50.00",
+        "change 11.60"
+      ]
+    },
+    {
+      "id": "en-slant2",
+      "label": "English receipt (2° slanted)",
+      "groundTruth": [
+        "AL RABIH",
+        "SUPERMARKET",
+        "38.40",
+        "50.00",
+        "11.60"
+      ],
+      "groundTruthLabels": [
+        "merchant",
+        "merchant",
+        "total 38.40",
+        "cash 50.00",
+        "change 11.60"
+      ]
+    },
+    {
+      "id": "ar-thermal",
+      "label": "Arabic thermal receipt",
+      "groundTruth": [
+        "45.50",
+        "المبلغ",
+        "الإجمالي"
+      ],
+      "groundTruthLabels": [
+        "total 45.50",
+        "المبلغ",
+        "الإجمالي"
+      ]
+    },
+    {
+      "id": "real-superpay",
+      "label": "Real SuperPay receipt photo (prod)",
+      "groundTruth": [
+        "68.38",
+        "391003452",
+        "2013438351",
+        "SuperPay",
+        "Zahra Aman",
+        "02-07-2026"
+      ],
+      "groundTruthLabels": [
+        "amount 68.38",
+        "account 391003452",
+        "ref 2013438351",
+        "merchant SuperPay",
+        "customer Zahra Aman",
+        "date 02-07-2026"
+      ]
+    }
+  ],
+  "results": {
+    "en-clean": {
+      "old": {
+        "lines": 18,
+        "chars": 147,
+        "pageConf": 0.9,
+        "meanLineConf": 0.9000000000000001,
+        "distinctConfs": 1,
+        "hits": 5,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": true
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": true
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": true
+          }
+        ],
+        "ms": 1002,
+        "text": "AL RABIH SUPERMARKET\nRiyadn, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg 6.50\n\nMilk 1L 7.00\n\nRice Sky 24.90\n\nTOTAL 38.40\n\nCash 50.00\n\nChange 11.60\n\nThank you for shopping"
+      },
+      "newRaw": {
+        "lines": 10,
+        "chars": 147,
+        "pageConf": 0.914463470722067,
+        "meanLineConf": 0.918665033976237,
+        "distinctConfs": 10,
+        "hits": 5,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": true
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": true
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": true
+          }
+        ],
+        "ms": 703,
+        "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg           6.50\nMilk 1L                 7.00\nRice Sky           24.90\n\nTOTAL           38.40\nCash                   50.00\nChange            11.60\n\nThank you for shopping"
+      },
+      "newPre": {
+        "lines": 10,
+        "chars": 147,
+        "pageConf": 0.9529586713067416,
+        "meanLineConf": 0.9536273097991943,
+        "distinctConfs": 10,
+        "hits": 5,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": true
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": true
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": true
+          }
+        ],
+        "ms": 993,
+        "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg               6.50\nMilk 1L                7.00\n\nRice 5kg             24.90\nTOTAL                 38.40\nCash                50.00\nChange               11.60\n\nThank you for shopping"
+      }
+    },
+    "en-lowcontrast": {
+      "old": {
+        "lines": 18,
+        "chars": 147,
+        "pageConf": 0.9,
+        "meanLineConf": 0.9000000000000001,
+        "distinctConfs": 1,
+        "hits": 5,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": true
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": true
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": true
+          }
+        ],
+        "ms": 701,
+        "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg 6.50\n\nMilk 1L 7.00\n\nRice 5kg 24.90\n\nTOTAL 38.40\n\nCash 50.00\n\nChange 11.60\n\nThank you for shopping"
+      },
+      "newRaw": {
+        "lines": 10,
+        "chars": 147,
+        "pageConf": 0.9157309525588461,
+        "meanLineConf": 0.9205349782307943,
+        "distinctConfs": 9,
+        "hits": 5,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": true
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": true
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": true
+          }
+        ],
+        "ms": 646,
+        "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg           6.50\nMilk 1L            7.00\nRice 5kg           24.90\n\nTOTAL                           38.40\nCash                   50.00\nChange                     11.60\n\nThank you for shopping"
+      },
+      "newPre": {
+        "lines": 10,
+        "chars": 147,
+        "pageConf": 0.949486486500707,
+        "meanLineConf": 0.950104985555013,
+        "distinctConfs": 9,
+        "hits": 5,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": true
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": true
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": true
+          }
+        ],
+        "ms": 874,
+        "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\n\nSugar 1kg                     6.50\nMilk 1L                    7.00\n\nRice 5kg               24.90\nTOTAL                 38.40\nCash                    50.00\nChange                       11.60\n\nThank you for shopping"
+      }
+    },
+    "en-rot90": {
+      "old": {
+        "lines": 17,
+        "chars": 41,
+        "pageConf": 0.58,
+        "meanLineConf": 0.58,
+        "distinctConfs": 1,
+        "hits": 0,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": false
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": false
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": false
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": false
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": false
+          }
+        ],
+        "ms": 932,
+        "text": "E2182 >\nfF: 8:8\neliza\ni» 2 I\n\n© 2 # 0 ا\n\n~ 8 a ©\ng 2 im\n3 8\n= A\n\n=\n\n>\n\n2"
+      },
+      "newRaw": {
+        "lines": 5,
+        "chars": 83,
+        "pageConf": 0.92490665435791,
+        "meanLineConf": 0.9242665354410807,
+        "distinctConfs": 5,
+        "hits": 1,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": false
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": false
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": false
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": false
+          }
+        ],
+        "ms": 292,
+        "text": "AL RABIH SUPERMAR\nRiyadh, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg           6.50\n\nMilk 11                 7.00"
+      },
+      "newPre": {
+        "lines": 5,
+        "chars": 83,
+        "pageConf": 0.92490665435791,
+        "meanLineConf": 0.9242665354410807,
+        "distinctConfs": 5,
+        "hits": 1,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": false
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": false
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": false
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": false
+          }
+        ],
+        "ms": 750,
+        "text": "AL RABIH SUPERMAR\nRiyadh, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg           6.50\n\nMilk 11                 7.00"
+      }
+    },
+    "en-slant2": {
+      "old": {
+        "lines": 8,
+        "chars": 84,
+        "pageConf": 0.85,
+        "meanLineConf": 0.8499999999999999,
+        "distinctConfs": 1,
+        "hits": 1,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": false
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": false
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": false
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": false
+          }
+        ],
+        "ms": 466,
+        "text": "AL RABIH SUPERMARF\nRiyadh, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg 6.50\n\nMilk 11 7.00"
+      },
+      "newRaw": {
+        "lines": 5,
+        "chars": 84,
+        "pageConf": 0.8790487194061277,
+        "meanLineConf": 0.8752716636657715,
+        "distinctConfs": 5,
+        "hits": 1,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": false
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": false
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": false
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": false
+          }
+        ],
+        "ms": 485,
+        "text": "AL RABIH SUPERMARF\nRiyadh, KSA Tel: 011-555-1212\n\nDate: 2025-01-15 15:42\n\nSugar 1kg           6.50\n\nMilk 11            7.00"
+      },
+      "newPre": {
+        "lines": 5,
+        "chars": 84,
+        "pageConf": 0.8571174621582031,
+        "meanLineConf": 0.8537650922139486,
+        "distinctConfs": 5,
+        "hits": 1,
+        "total": 5,
+        "detail": [
+          {
+            "key": "AL RABIH",
+            "label": "merchant",
+            "found": true
+          },
+          {
+            "key": "SUPERMARKET",
+            "label": "merchant",
+            "found": false
+          },
+          {
+            "key": "38.40",
+            "label": "total 38.40",
+            "found": false
+          },
+          {
+            "key": "50.00",
+            "label": "cash 50.00",
+            "found": false
+          },
+          {
+            "key": "11.60",
+            "label": "change 11.60",
+            "found": false
+          }
+        ],
+        "ms": 655,
+        "text": "AL RABIH SUPERMARFK\nRiyadh, KSA Te. 011-555-1212\n\nDate: 2025.01.15 15:42\n\nSugar 1kg              6.50\n\nMilk 1L              7.00"
+      }
+    },
+    "ar-thermal": {
+      "old": {
+        "lines": 6,
+        "chars": 74,
+        "pageConf": 0.86,
+        "meanLineConf": 0.86,
+        "distinctConfs": 1,
+        "hits": 3,
+        "total": 3,
+        "detail": [
+          {
+            "key": "45.50",
+            "label": "total 45.50",
+            "found": true
+          },
+          {
+            "key": "المبلغ",
+            "label": "المبلغ",
+            "found": true
+          },
+          {
+            "key": "الإجمالي",
+            "label": "الإجمالي",
+            "found": true
+          }
+        ],
+        "ms": 283,
+        "text": "متجر الرحيم التجاري\nتاريخ: 15-01-2025\nسلعة: أرز 5كج\n\nالمبلغ: 45.50 رس\nالإجمالي: 45.50 رس"
+      },
+      "newRaw": {
+        "lines": 5,
+        "chars": 74,
+        "pageConf": 0.8900810459681919,
+        "meanLineConf": 0.8923886591593424,
+        "distinctConfs": 5,
+        "hits": 3,
+        "total": 3,
+        "detail": [
+          {
+            "key": "45.50",
+            "label": "total 45.50",
+            "found": true
+          },
+          {
+            "key": "المبلغ",
+            "label": "المبلغ",
+            "found": true
+          },
+          {
+            "key": "الإجمالي",
+            "label": "الإجمالي",
+            "found": true
+          }
+        ],
+        "ms": 279,
+        "text": "متجر الرحيمالتجاري\n تاريخ:15-01-2025\n سلعة: أرز5كج\n\n المبلغ: 45.50رس\n\n الإجمالي: 45.50رس"
+      },
+      "newPre": {
+        "lines": 5,
+        "chars": 76,
+        "pageConf": 0.9035227039882113,
+        "meanLineConf": 0.9045417861938476,
+        "distinctConfs": 5,
+        "hits": 3,
+        "total": 3,
+        "detail": [
+          {
+            "key": "45.50",
+            "label": "total 45.50",
+            "found": true
+          },
+          {
+            "key": "المبلغ",
+            "label": "المبلغ",
+            "found": true
+          },
+          {
+            "key": "الإجمالي",
+            "label": "الإجمالي",
+            "found": true
+          }
+        ],
+        "ms": 501,
+        "text": "متجر الرحيمالتجاري\n تاريخ:15-01-2025\n سلعة: ‎JJ)‏5كج\n\n المبلغ: 45.50رس\n\n الإجمالي: 45.50رس"
+      }
+    },
+    "real-superpay": {
+      "old": {
+        "lines": 18,
+        "chars": 348,
+        "pageConf": 0.64,
+        "meanLineConf": 0.6400000000000001,
+        "distinctConfs": 1,
+        "hits": 4,
+        "total": 6,
+        "detail": [
+          {
+            "key": "68.38",
+            "label": "amount 68.38",
+            "found": true
+          },
+          {
+            "key": "391003452",
+            "label": "account 391003452",
+            "found": false
+          },
+          {
+            "key": "2013438351",
+            "label": "ref 2013438351",
+            "found": true
+          },
+          {
+            "key": "SuperPay",
+            "label": "merchant SuperPay",
+            "found": true
+          },
+          {
+            "key": "Zahra Aman",
+            "label": "customer Zahra Aman",
+            "found": true
+          },
+          {
+            "key": "02-07-2026",
+            "label": "date 02-07-2026",
+            "found": false
+          }
+        ],
+        "ms": 2292,
+        "text": "3 0 5 ل 1 3 : 0 ‎he‏\n‏له ‎SuperPay‏ 60\n‎LL 15468‏\n‎Zahra Aman =‏\n3 قوري باي\n() رقم التمليه : 6070218301132167\nتبيخ الوقت : 02-07-2028 18:30:12\n| رقم الحساب : 391803452\n‎B‏ انرقم المرجقي : 2013438351\n[ عملية ناجحة\n8[ رقم العميل : 9840833767\n§ معلومات إضافية : ‎Mobile Number‏\n‎Hostinger;Description ©‏ ;)0123456788(\n‎F-‏ 1 :\n‎X PURCHASE 8‏\n‎gla‏ المطلوب : 68.38 ;\n‎glad |‏ العلى : 68.38\n: 3 عند تقطل الشكة قد يستعرق تسعد ‎Boating‏"
+      },
+      "newRaw": {
+        "lines": 17,
+        "chars": 325,
+        "pageConf": 0.7414278405712497,
+        "meanLineConf": 0.7538570073694965,
+        "distinctConfs": 17,
+        "hits": 5,
+        "total": 6,
+        "detail": [
+          {
+            "key": "68.38",
+            "label": "amount 68.38",
+            "found": true
+          },
+          {
+            "key": "391003452",
+            "label": "account 391003452",
+            "found": true
+          },
+          {
+            "key": "2013438351",
+            "label": "ref 2013438351",
+            "found": true
+          },
+          {
+            "key": "SuperPay",
+            "label": "merchant SuperPay",
+            "found": true
+          },
+          {
+            "key": "Zahra Aman",
+            "label": "customer Zahra Aman",
+            "found": true
+          },
+          {
+            "key": "02-07-2026",
+            "label": "date 02-07-2026",
+            "found": false
+          }
+        ],
+        "ms": 2007,
+        "text": "ته‎SuperPay‏\n‎LL. 15468‏\n‎Zahra Aman‏\n قوريباي\n رقم ‎da daw‏ :8870218308113215[7\n تاريخ انلوقت : 02-07-202818:30:12\n رقم الحساب :391003452\n الرقم المرجقعي :2013438351\n عمليةناجحة\n رقم العميل :9640833767\n معلومات إضافية :‎Mobile Number‏\n ‎Hostinger;Description‏;)0123456788(\n 1:\n‎x PURCHASE‏\n ‎gla =‏ المطلوب :68.38\n ‎ala BE‏ الكلى :68.38\n\n عند تعطل ‎E500‏ تقد يستغيق تيفيذ ‎Blah‏ 24ساعة"
+      },
+      "newPre": {
+        "lines": 18,
+        "chars": 307,
+        "pageConf": 0.6787958335876466,
+        "meanLineConf": 0.7067288397531659,
+        "distinctConfs": 17,
+        "hits": 6,
+        "total": 6,
+        "detail": [
+          {
+            "key": "68.38",
+            "label": "amount 68.38",
+            "found": true
+          },
+          {
+            "key": "391003452",
+            "label": "account 391003452",
+            "found": true
+          },
+          {
+            "key": "2013438351",
+            "label": "ref 2013438351",
+            "found": true
+          },
+          {
+            "key": "SuperPay",
+            "label": "merchant SuperPay",
+            "found": true
+          },
+          {
+            "key": "Zahra Aman",
+            "label": "customer Zahra Aman",
+            "found": true
+          },
+          {
+            "key": "02-07-2026",
+            "label": "date 02-07-2026",
+            "found": true
+          }
+        ],
+        "ms": 4722,
+        "text": "كن‎SuperPay‏\n‎La 15468‏\n‎Zahra Aman‏\n قوريباي\n رقم انعمليه ©8070218301132167\n تاريخ انلوقت : 02-07-202618:30:12\n رقم الحساب :391003452\n الرقم المرجقي :2013438351\n عمليةناجحة\n رقم العميل :0640833767\n معلومات إضافية :‎Mobile Number‏\n ‎Hostinger;Description‏;)0123456788(\n‎oe   a           : il‏\n‎x PURCHASE‏\n المبلغ ‎welkall‏ :68.38\n الميلغ العلى :68.38\n\n ايل ته هد ‎hi‏ د ا‎LTR‏"
+      }
+    }
+  }
+}

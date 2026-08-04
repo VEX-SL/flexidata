@@ -170,7 +170,9 @@ export function toGray(img: RawImage): Float32Array {
   const g = new Float32Array(w * h);
   for (let i = 0; i < w * h; i++) {
     const j = i * 4;
-    g[i] = 0.299 * data[j] + 0.587 * data[j + 1] + 0.114 * data[j + 2];
+    // Rec.709 luma — matches Tesseract's leptonica conversion, so our gray
+    // pipeline does not wash out text that the engine itself would keep.
+    g[i] = 0.2125 * data[j] + 0.7154 * data[j + 1] + 0.0721 * data[j + 2];
   }
   return g;
 }
@@ -348,11 +350,51 @@ export function estimateQuarterRotation(gray: Float32Array, width: number, heigh
   const dw = Math.max(2, Math.round(width * scale));
   const dh = Math.max(2, Math.round(height * scale));
   const small = downsampleGray(gray, width, height, dw, dh);
+  const threshold = otsuThreshold(small);
+  const rowBands = inkBandCount(small, dw, dh, true, threshold, 0.35);
+  const colBands = inkBandCount(small, dw, dh, false, threshold, 0.35);
   const rowVar = rowProjectionVariance(small, dw, dh, true);
   const colVar = rowProjectionVariance(small, dw, dh, false);
-  // Text present only when the dominant axis carries clear banding.
-  if (colVar > rowVar * 1.6 && colVar > 0) return 90; // lines are vertical → rotate CW
+  // Vertical text: the column projection carries the text-line banding while
+  // the row projection is a single block. A plain variance comparison is
+  // fooled by document edges on real photos, so require decisive band counts.
+  if (colBands >= rowBands + 1 && colBands >= 2 && colVar > rowVar) return 90; // lines are vertical → rotate CW
   return 0;
+}
+
+/**
+ * Count distinct ink bands along one axis of a thresholded image. Text lines
+ * appear as separated peaks (many bands); a solid block appears as one band.
+ */
+function inkBandCount(gray: Float32Array, w: number, h: number, rows: boolean, threshold: number, frac: number): number {
+  const n = rows ? h : w;
+  const sums = new Float64Array(n);
+  if (rows) {
+    for (let y = 0; y < h; y++) {
+      let s = 0;
+      for (let x = 0; x < w; x++) if (gray[y * w + x] <= threshold) s++;
+      sums[y] = s;
+    }
+  } else {
+    for (let x = 0; x < w; x++) {
+      let s = 0;
+      for (let y = 0; y < h; y++) if (gray[y * w + x] <= threshold) s++;
+      sums[x] = s;
+    }
+  }
+  const mx = Math.max(...sums);
+  if (mx === 0) return 0;
+  const lim = mx * frac;
+  let count = 0;
+  let inBand = false;
+  for (const v of sums) {
+    if (v >= lim) {
+      if (!inBand) { count++; inBand = true; }
+    } else {
+      inBand = false;
+    }
+  }
+  return count;
 }
 
 /**
@@ -738,11 +780,8 @@ export async function preprocessImage(img: RawImage, preset: OcrPreset): Promise
   gray = contrastStretch(gray);
   gray = sharpenGray(gray, cur.width, cur.height);
 
-  if (preset === "photo") {
-    const bin = adaptiveThreshold(gray, cur.width, cur.height);
-    return binToRgba(cur.width, cur.height, bin);
-  }
-  // Scans: keep grayscale; binarize only when still low-contrast.
+  // Binarize only when the image is still low-contrast after enhancement;
+  // aggressively thresholding an already-clean photo washes out text.
   let variance = 0, mean = 0;
   for (let i = 0; i < gray.length; i++) mean += gray[i];
   mean /= gray.length;

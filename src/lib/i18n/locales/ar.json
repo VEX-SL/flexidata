@@ -112,7 +112,11 @@
       "imageTitle": "المستند الأصلي",
       "noOcr": "لا تتوفر معاينة OCR لهذا المستند.",
       "uncertainLine": "سطر غير مؤكد",
-      "lineConfidence": "ثقة السطر"
+      "lineConfidence": "ثقة السطر",
+      "wordConfidence": "ثقة الكلمة",
+      "evidenceLine": "سطر يُستشهد به كدليل على حقل مستخرج",
+      "evidenceLegend": "دليل على حقل مستخرج",
+      "uncertainLegend": "OCR غير مؤكد (ثقة أقل من 60٪)"
     }
   },
   "chat": {

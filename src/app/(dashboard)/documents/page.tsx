@@ -386,9 +386,16 @@ export default function DocumentsPage() {
         }
         .fd-doc-ocr-line { display: flex; align-items: baseline; gap: .6rem; padding: .14rem .5rem; border-radius: 6px; }
         .fd-doc-ocr-line.uncertain { background: rgba(239,68,68,.08); }
+        .fd-doc-ocr-line.evidence { background: rgba(16,185,129,.1); box-shadow: inset 2px 0 0 rgba(16,185,129,.65); }
         .fd-doc-ocr-line-no { flex-shrink: 0; width: 2.2rem; text-align: right; color: var(--color-muted-foreground); font-size: .68rem; }
         .fd-doc-ocr-line-text { flex: 1; word-break: break-word; }
+        .fd-doc-ocr-word { padding: 0 .1rem; border-radius: 3px; cursor: default; }
+        .fd-doc-ocr-word.uncertain { text-decoration: underline dotted rgba(239,68,68,.8); text-underline-offset: 2px; }
         .fd-doc-ocr-line-conf { flex-shrink: 0; font-size: .66rem; color: var(--color-muted-foreground); }
+        .fd-doc-ocr-legend { display: flex; flex-wrap: wrap; gap: .9rem; font-size: .68rem; color: var(--color-muted-foreground); margin-top: .5rem; }
+        .fd-doc-ocr-legend i { display: inline-block; width: .6rem; height: .6rem; border-radius: 3px; margin-right: .3rem; vertical-align: middle; }
+        .fd-doc-ocr-legend .lg-evidence { background: rgba(16,185,129,.35); }
+        .fd-doc-ocr-legend .lg-uncertain { background: rgba(239,68,68,.25); }
         .fd-doc-preview-img { max-width: 100%; border-radius: 12px; border: 1px solid var(--color-border); }
         .fd-doc-preview-label {
           font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
@@ -999,6 +1006,13 @@ function OcrPreview({
     !!job.fileUrl && /\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(job.fileUrl);
   const lines = ocr?.lines?.length ? ocr.lines : null;
 
+  const evidenceLines = new Set<number>();
+  for (const f of job.fields ?? []) {
+    for (const e of f.evidence ?? []) {
+      if (typeof e.lineIndex === "number") evidenceLines.add(e.lineIndex);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {isImage && (
@@ -1019,14 +1033,44 @@ function OcrPreview({
             {lines.map((line, i) => {
               const conf = line.confidence;
               const uncertain = conf !== undefined && conf < 0.6;
+              const evidenced = evidenceLines.has(i);
+              const words = line.words?.length ? line.words : null;
               return (
                 <div
                   key={i}
-                  className={`fd-doc-ocr-line ${uncertain ? "uncertain" : ""}`}
-                  title={uncertain ? t("documents.preview.uncertainLine") : undefined}
+                  className={`fd-doc-ocr-line ${uncertain ? "uncertain" : ""} ${evidenced ? "evidence" : ""}`}
+                  title={
+                    evidenced
+                      ? t("documents.preview.evidenceLine")
+                      : uncertain
+                        ? t("documents.preview.uncertainLine")
+                        : undefined
+                  }
                 >
                   <span className="fd-doc-ocr-line-no">{i + 1}</span>
-                  <span className="fd-doc-ocr-line-text">{line.text || " "}</span>
+                  <span className="fd-doc-ocr-line-text">
+                    {words ? (
+                      words.map((w, wi) => {
+                        const wUncertain = w.confidence !== undefined && w.confidence < 0.6;
+                        return (
+                          <span
+                            key={wi}
+                            className={`fd-doc-ocr-word ${wUncertain ? "uncertain" : ""}`}
+                            title={
+                              w.confidence !== undefined
+                                ? `${Math.round(w.confidence * 100)}% ${t("documents.preview.wordConfidence")}`
+                                : undefined
+                            }
+                          >
+                            {w.text}
+                            {" "}
+                          </span>
+                        );
+                      })
+                    ) : (
+                      line.text || " "
+                    )}
+                  </span>
                   {conf !== undefined && (
                     <span className="fd-doc-ocr-line-conf">
                       {Math.round(conf * 100)}% {t("documents.preview.lineConfidence")}
@@ -1035,6 +1079,16 @@ function OcrPreview({
                 </div>
               );
             })}
+            <div className="fd-doc-ocr-legend">
+              <span>
+                <i className="lg-evidence" />
+                {t("documents.preview.evidenceLegend")}
+              </span>
+              <span>
+                <i className="lg-uncertain" />
+                {t("documents.preview.uncertainLegend")}
+              </span>
+            </div>
           </div>
         </div>
       ) : job.sourceText ? (

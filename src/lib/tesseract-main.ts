@@ -239,9 +239,10 @@ export async function recognizeMainThread(
   const primary = await prepareImage(input, preset, doPreprocess);
   const doc = await attempt(primary.buf, primary.exif);
 
-  // If preprocessing hurt the image (garbage text / implausibly low
-  // confidence), retry with the untouched bytes and keep the better result.
-  if (doPreprocess && isPoorResult(doc)) {
+  // Preprocessing must never serve worse input than the untouched image:
+  // when it produced garbage or only mediocre confidence, retry with the raw
+  // bytes and keep whichever result is clearly better.
+  if (doPreprocess && (isPoorResult(doc) || isMediocreResult(doc))) {
     const raw = await prepareImage(input, preset, false);
     const rawDoc = await attempt(raw.buf, raw.exif);
     if (isBetterThan(rawDoc, doc)) return rawDoc;
@@ -429,6 +430,12 @@ function isPoorResult(doc: OcrDocument): boolean {
     .map((l) => l.confidence)
     .filter((c): c is number => typeof c === "number");
   return confs.length > 0 && mean(confs) < 0.45;
+}
+
+/** Decent-but-not-great preprocessing: still worth a raw comparison pass. */
+function isMediocreResult(doc: OcrDocument): boolean {
+  const c = meanConf(doc);
+  return c !== undefined && c < 0.75;
 }
 
 /** Prefer the raw result when it clearly recovers more/better text. */
