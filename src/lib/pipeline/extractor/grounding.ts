@@ -1,6 +1,7 @@
 import type {
   ExtractionProfile,
   ExtractionResult,
+  FieldAlternative,
   FieldEvidence,
   FieldSchema,
   FieldValue,
@@ -12,6 +13,8 @@ import type {
 } from "../types";
 import { buildOcrDocument, normalizeText } from "../ocr";
 import { detectLabelGroup, labelGroupForField } from "./label-lexicon";
+import { isNoiseFragment } from "../text-quality";
+import { spanBox } from "../geometry";
 
 /**
  * Grounding stage — turns AI *candidates* into committed *fields*.
@@ -90,16 +93,30 @@ export function groundExtraction(
       continue;
     }
     if (field.key === "notes") {
-      if (isOcrGarbage(String(fv.value))) {
+      if (isNoiseFragment(String(fv.value))) {
         drops[field.key] = "OCR artifacts / non-clean text";
         delete map[field.key];
       }
       continue;
     }
+    if (field.type === "text" && isNoiseFragment(String(fv.value))) {
+      drops[field.key] = "OCR artifacts / non-clean text";
+      delete map[field.key];
+      continue;
+    }
 
-    // Anchor the value to the source document.
+    // Anchor the value to the source document. Dates are commonly printed in
+    // more than one format (ISO header, dd-mm-yyyy footer); union both so
+    // differing readings surface as honest alternatives. Other types only
+    // fall back to derived variants (e.g. amounts with thousands separators)
+    // when no verbatim match exists.
     let evidence = findEvidence(ocrDoc, field, fv);
-    if (evidence.length === 0) {
+    if (field.type === "date") {
+      evidence = dedupeEvidence([
+        ...evidence,
+        ...findDerivedEvidence(ocrDoc, field, fv.value),
+      ]);
+    } else if (evidence.length === 0) {
       evidence = findDerivedEvidence(ocrDoc, field, fv.value);
     }
     if (evidence.length === 0) {
@@ -117,7 +134,15 @@ export function groundExtraction(
       continue;
     }
 
-    map[field.key] = { ...fv, evidence };
+    // Choose the strongest span as primary; record differing spans as
+    // alternatives so downstream stages can flag near-duplicates honestly.
+    const chosen = choosePrimaryEvidence(field, fv, evidence);
+    map[field.key] = {
+      ...fv,
+      evidence: [chosen.primary, ...chosen.others],
+      alternatives: chosen.alternatives.length > 0 ? chosen.alternatives : fv.alternatives,
+      chosenReason: chosen.chosenReason ?? fv.chosenReason,
+    };
   }
 
   // ── Pass 2: composed confidence ─────────────────────────────────────
@@ -182,7 +207,7 @@ function findEvidence(
     for (let i = 0; i < ocrDoc.lines.length; i++) {
       const line = ocrDoc.lines[i];
       if (normalizeText(line.text).includes(norm)) {
-        out.push(makeEvidence(line, i, "value-match"));
+        out.push(makeEvidence(line, i, "value-match", norm));
       }
     }
   }
@@ -218,7 +243,7 @@ function findDerivedEvidence(
     for (let i = 0; i < ocrDoc.lines.length; i++) {
       const line = ocrDoc.lines[i];
       if (normalizeText(line.text).includes(variant)) {
-        out.push(makeEvidence(line, i, "derived"));
+        out.push(makeEvidence(line, i, "derived", variant));
       }
     }
   }
@@ -236,26 +261,132 @@ function derivedVariants(field: FieldSchema, value: unknown): string[] {
   return [];
 }
 
-function makeEvidence(line: OcrLine, lineIndex: number, role: FieldEvidence["role"]): FieldEvidence {
+/**
+ * Build evidence for a matching line. When the line carries per-word boxes,
+ * the exact word span is located so downstream consumers get wordIndices and a
+ * bounding box; otherwise the whole line is used (text-only fallback).
+ */
+function makeEvidence(line: OcrLine, lineIndex: number, role: FieldEvidence["role"], normNeedle?: string): FieldEvidence {
+  const span = findWordSpan(line, normNeedle);
+  if (span) {
+    const { start, end } = span;
+    const wordConfs = line.words
+      .slice(start, end + 1)
+      .map((w) => w.confidence)
+      .filter((c): c is number => typeof c === "number");
+    return {
+      quote: line.words.slice(start, end + 1).map((w) => w.text).join(" "),
+      lineIndex,
+      wordIndices: range(start, end + 1),
+      bbox: spanBox(line, start, end),
+      role,
+      source: "ocr",
+      confidence: wordConfs.length > 0 ? mean(wordConfs) : meanWordConfidence(line),
+      context: line.text,
+    };
+  }
   return {
     quote: line.text,
     lineIndex,
     role,
-    context: line.text,
+    source: "ocr",
     confidence: meanWordConfidence(line),
+    context: line.text,
   };
+}
+
+/** Minimal contiguous word span whose joined text contains the needle. */
+function findWordSpan(
+  line: OcrLine,
+  normNeedle?: string
+): { start: number; end: number } | null {
+  const words = line.words;
+  if (words.length === 0 || !normNeedle) return null;
+  const normWords = words.map((w) => normalizeText(w.text));
+  let best: { start: number; end: number } | null = null;
+  for (let start = 0; start < normWords.length; start++) {
+    let acc = normWords[start];
+    if (acc && acc.includes(normNeedle)) {
+      if (!best || start + 1 - start < best.end - best.start + 1) best = { start, end: start };
+      continue;
+    }
+    for (let end = start + 1; end < normWords.length; end++) {
+      acc = `${acc} ${normWords[end]}`;
+      if (acc.includes(normNeedle)) {
+        if (!best || end - start < best.end - best.start) best = { start, end };
+        break;
+      }
+      if (acc.length > normNeedle.length * 2) break;
+    }
+  }
+  return best;
 }
 
 function dedupeEvidence(list: FieldEvidence[]): FieldEvidence[] {
   const seen = new Set<string>();
   const out: FieldEvidence[] = [];
   for (const e of list) {
-    const key = `${e.lineIndex ?? "?"}:${e.role}`;
+    const key = `${e.lineIndex ?? "?"}:${e.role}:${e.wordIndices?.[0] ?? "line"}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);
   }
   return out;
+}
+
+/**
+ * Pick the strongest span as the primary evidence and expose the others:
+ * differing readings become `alternatives` (ocr_near_duplicate), identical
+ * ones are kept as supporting evidence. Never invents a value — everything
+ * comes from real OCR spans.
+ */
+function choosePrimaryEvidence(
+  field: FieldSchema,
+  fv: FieldValue,
+  evidence: FieldEvidence[]
+): {
+  primary: FieldEvidence;
+  others: FieldEvidence[];
+  alternatives: FieldAlternative[];
+  chosenReason?: string;
+} {
+  const group = labelGroupForField(field);
+  const scored = [...evidence].map((e) => ({
+    e,
+    score:
+      (group && detectLabelGroup(e.context ?? e.quote) === group ? 1 : 0) * 10 +
+      (typeof e.confidence === "number" ? e.confidence : 0),
+  }));
+  scored.sort((a, b) => b.score - a.score);
+  const primary = scored[0].e;
+  const others = scored.slice(1).map((s) => s.e);
+
+  const primaryNorm = normalizeText(primary.quote ?? primary.context ?? "");
+  const seenReadings = new Set<string>();
+  const alternatives: FieldAlternative[] = [];
+  for (const e of others) {
+    const reading = normalizeText(e.quote ?? e.context ?? "");
+    if (!reading || reading === primaryNorm || seenReadings.has(reading)) continue;
+    seenReadings.add(reading);
+    alternatives.push({
+      value: reading,
+      raw: reading,
+      reason: "ocr_near_duplicate",
+      confidence: e.confidence,
+    });
+  }
+
+  let chosenReason: string | undefined;
+  const labelMatched = group && detectLabelGroup(primary.context ?? primary.quote) === group;
+  if (alternatives.length > 0) {
+    chosenReason = labelMatched
+      ? "chosen the highest-confidence span on a matching field label; other readings in the document were not used"
+      : "chosen the highest-confidence OCR span; the document also contains differing readings";
+  } else if (others.length > 0) {
+    chosenReason = `the same reading appears on ${evidence.length} lines`;
+  }
+
+  return { primary, others, alternatives, chosenReason };
 }
 
 // ── Label verification (never relabel) ─────────────────────────────────────
@@ -345,16 +476,6 @@ function looksLikeItemizedList(
   return !isGeneric && !sumsToTotal && grounded;
 }
 
-function isOcrGarbage(value: string): boolean {
-  const lower = value.toLowerCase();
-  if (/\bdescription\b/.test(lower)) return true;
-  if (value.includes("©") || value.includes("§")) return true;
-  if (/[0-9]{8,}/.test(value)) return true;
-  if (value.split(/\r?\n/).length > 6) return true;
-  if (/[;|؛]/.test(value) && /[()]/.test(value)) return true;
-  return false;
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 /** e.g. "2028-07-02" → ["02-07-2028", "2-7-2028", "02/07/2028", "02.07.2028"]. */
@@ -381,6 +502,12 @@ function meanWordConfidence(line: OcrLine): number | undefined {
 
 function mean(xs: number[]): number {
   return xs.reduce((s, n) => s + n, 0) / xs.length;
+}
+
+function range(start: number, end: number): number[] {
+  const out: number[] = [];
+  for (let i = start; i < end; i++) out.push(i);
+  return out;
 }
 
 function isEmpty(v: unknown): boolean {

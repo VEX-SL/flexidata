@@ -110,7 +110,18 @@ export type UncertaintyReason =
   | "ambiguous_candidates"
   | "ocr_confidence_low"
   | "label_not_matched"
-  | "no_direct_evidence";
+  | "no_direct_evidence"
+  | "ocr_near_duplicate"
+  | "inferred_by_position"
+  | "entity_cleaned";
+
+/** Axis-aligned box in the processed-image coordinate space (pixels). */
+export interface BBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 /** Where a field's value came from in the source document. */
 export interface FieldEvidence {
@@ -118,12 +129,29 @@ export interface FieldEvidence {
   quote: string;
   /** Index into the OcrDocument lines (when structured OCR is available). */
   lineIndex?: number;
+  /** Indices (into that line's `words`) that make up the quoted span. */
+  wordIndices?: number[];
+  /** Union bounding box of the quoted span's words (processed-image space). */
+  bbox?: BBox;
   /** How the evidence was established. */
   role: "value-match" | "label-match" | "derived" | "semantic";
+  /** Where the evidence came from (mirrors the reading pipeline). */
+  source?: "ocr" | "text" | "ai" | "derived";
   /** Mean OCR word confidence over the quoted span (0..1), when known. */
   confidence?: number;
   /** The full OCR line for human review. */
   context?: string;
+}
+
+/** A plausible-but-not-chosen reading, exposed for human review. */
+export interface FieldAlternative {
+  value: unknown;
+  /** Verbatim source reading of the alternative. */
+  raw?: unknown;
+  /** Why this reading was plausible (OCR near-duplicate, model candidate). */
+  reason: string;
+  /** OCR word confidence of the alternative span (0..1), when known. */
+  confidence?: number;
 }
 
 export interface FieldValue {
@@ -146,12 +174,14 @@ export interface FieldValue {
    * (status "ambiguous"). Each entry is the coerced candidate value.
    */
   alternatives?: unknown[];
+  /** Why the chosen value won over `alternatives` (human-reviewable). */
+  chosenReason?: string;
   /**
    * Machine-readable reasons why this value carries uncertainty. Never empty
    * for flagged/ambiguous fields; may also annotate low-confidence extractions.
    */
   reasons?: UncertaintyReason[];
-  /** Free-form extra data (e.g. date/time parts, raw match). */
+  /** Free-form extra data (e.g. date/time parts, raw match, alternative details). */
   meta?: Record<string, unknown>;
 }
 
@@ -163,6 +193,8 @@ export interface OcrWord {
   text: string;
   /** Tesseract word confidence (0..1). Undefined when unavailable. */
   confidence?: number;
+  /** Word box in the processed-image coordinate space, when available. */
+  bbox?: BBox;
 }
 
 export interface OcrLine {
@@ -170,6 +202,8 @@ export interface OcrLine {
   /** Mean word confidence for the line. Undefined when unavailable. */
   confidence?: number;
   words: OcrWord[];
+  /** Union box of the line's words (processed-image space), when available. */
+  bbox?: BBox;
 }
 
 /**

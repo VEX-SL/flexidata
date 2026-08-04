@@ -17,6 +17,12 @@ export const UNCERTAINTY_REASONS: Record<UncertaintyReason, string> = {
     "value was found in the text but no matching field label sat on the same line",
   no_direct_evidence:
     "value does not directly appear in the OCR text and was inferred rather than read verbatim",
+  ocr_near_duplicate:
+    "the OCR text contains near-identical candidate values and the correct one could not be resolved",
+  inferred_by_position:
+    "value was chosen by its position and size in the document, not by a matching label",
+  entity_cleaned:
+    "value was repaired by a generic entity cleaner (e.g. OCR character or spacing noise)",
 };
 
 export function uncertaintyLabel(reason: UncertaintyReason): string {

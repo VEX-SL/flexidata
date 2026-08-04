@@ -18,7 +18,8 @@
  */
 import fs from "fs";
 import path from "path";
-import type { OcrDocument, OcrLine, OcrWord } from "@/lib/pipeline/types";
+import type { OcrDocument, OcrLine, OcrWord, BBox } from "@/lib/pipeline/types";
+import { unionBoxes } from "@/lib/pipeline/geometry";
 import {
   canvasFromImage,
   isCanvasAvailable,
@@ -292,7 +293,13 @@ async function prepareImage(
 
 // ─── Document assembly with per-word confidence ────────────────────────────
 
-interface WalkedWord { text: string; confidence?: number; lineStart: boolean }
+interface WalkedWord {
+  text: string;
+  confidence?: number;
+  lineStart: boolean;
+  /** Word box in the processed-image coordinate space, when available. */
+  bbox?: BBox;
+}
 
 /**
  * Walk Tesseract's ResultIterator at RIL_WORD level. Returns null when the
@@ -326,13 +333,27 @@ function readWordConfidences(api: any): WalkedWord[] | null {
         } catch {
           confidence = undefined;
         }
+        let bbox: BBox | undefined;
+        try {
+          const r = it.getBoundingBox(3);
+          if (r && typeof r.x0 === "number") {
+            bbox = {
+              x: r.x0,
+              y: r.y0,
+              width: Math.max(0, r.x1 - r.x0),
+              height: Math.max(0, r.y1 - r.y0),
+            };
+          }
+        } catch {
+          bbox = undefined;
+        }
         let lineStart = false;
         try {
           lineStart = Boolean(it.IsAtBeginningOf(2));
         } catch {
           lineStart = false;
         }
-        out.push({ text: trimmed, confidence, lineStart });
+        out.push({ text: trimmed, confidence, lineStart, bbox });
       }
       guard++;
     } while (it.Next(3) && guard < 100_000);
@@ -353,22 +374,30 @@ function buildDocument(api: any, langs: string): OcrDocument {
 
   if (walked && walked.length > 0) {
     const lines: OcrLine[] = [];
-    let cur: OcrWord[] = [];
+    let cur: WalkedWord[] = [];
     const pushLine = () => {
       if (cur.length === 0) return;
       const confs = cur
         .map((w) => w.confidence)
         .filter((c): c is number => typeof c === "number");
+      const boxes = cur
+        .map((w) => w.bbox)
+        .filter((b): b is BBox => b !== undefined);
       lines.push({
         text: cur.map((w) => w.text).join(" "),
         confidence: confs.length > 0 ? mean(confs) : undefined,
-        words: cur,
+        words: cur.map(({ text: t, confidence: c, bbox: b }) => ({
+          text: t,
+          confidence: c,
+          bbox: b,
+        })),
+        bbox: boxes.length > 0 ? unionBoxes(boxes) : undefined,
       });
       cur = [];
     };
     for (let i = 0; i < walked.length; i++) {
       if (i > 0 && walked[i].lineStart) pushLine();
-      cur.push({ text: walked[i].text, confidence: walked[i].confidence });
+      cur.push(walked[i]);
     }
     pushLine();
 

@@ -9,5 +9,6 @@ import "./agent-context.test.ts";
 import "./recovery.test.ts";
 import "./confidence-ux.test.ts";
 import "./preprocess.test.ts";
+import "./grounding-evidence.test.ts";
 
 await run();
