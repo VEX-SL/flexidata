@@ -77,12 +77,14 @@ export function repairLineWords(
   toks = deduped;
 
   const split = splitBoundaryTokens(toks);
-  if (split !== toks) {
+  const splitText = split.map((t) => t.text).join(" ");
+  const toksText = toks.map((t) => t.text).join(" ");
+  if (splitText !== toksText) {
     changes.push({
       kind: "insert-boundary-spaces",
       detail: "spacing inserted at Arabic/Latin/digit boundaries",
-      originalText: toks.map((t) => t.text).join(" "),
-      repairedText: split.map((t) => t.text).join(" "),
+      originalText: toksText,
+      repairedText: splitText,
     });
   }
   toks = split;

@@ -183,12 +183,13 @@ export class PipelineService {
     const out = await runPipeline(input, { ai: this.ai });
     const processingTimeMs = Date.now() - startedAt;
 
-    // ── Persist result + immutable metadata (write-once) ─────────────
+    // ── Persist result (source_text is refresh-on-completion, never stale) ──
     if (out.status === "complete" && out.job) {
       const { classification, extraction, validation, confidence } = out.job;
       const fields = serializeFields(extraction);
       const payload = {
         status: "complete",
+        source_text: sourceText.slice(0, 200_000),
         profile_type: classification.profileType,
         profile_version: extraction.profileVersion,
         provider: extraction.provider ?? null,

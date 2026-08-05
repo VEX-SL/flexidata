@@ -211,6 +211,25 @@ test("postProcessOcr repairs the real SuperPay OCR without losing text", () => {
   equal(chars(doc.text), chars(before.text), "no character may be added or removed");
 });
 
+test("repair reports a change only when the line actually changed", () => {
+  // A clean LTR line the repair layer must not touch produces zero change
+  // events (regression: splitBoundaryTokens always returned a fresh array, so
+  // a no-op "insert-boundary-spaces" event was recorded for every line).
+  const { report } = postProcessOcr(
+    docFrom("Payment: Bank transfer SA1234567890\nRiyadh KSA")
+  );
+  equal(report.changes.length, 0, "no spurious change events");
+  equal(report.linesChanged, 0, "no line is marked changed");
+
+  // A line the repair layer actually alters still reports exactly one change.
+  const { report: r2 } = postProcessOcr(docFrom("SuperPay60"));
+  equal(r2.linesChanged, 1, "glued token line is changed");
+  ok(
+    r2.changes.some((c) => c.kind === "insert-boundary-spaces"),
+    "the boundary change is reported once"
+  );
+});
+
 test("postProcessOcr flags garbage lines via per-line quality", () => {
   const { doc } = postProcessOcr(docFrom(SUPERYPAY_RECEIPT_OCR));
   const garbage = doc.lines.find(
