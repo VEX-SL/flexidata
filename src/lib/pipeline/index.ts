@@ -23,6 +23,9 @@ export {
   defaultPipelineStages,
   classifyStage,
   extractStage,
+  groundStage,
+  cleanStage,
+  recoverStage,
   validateStage,
   confidenceStage,
 } from "./stages";
@@ -36,3 +39,4 @@ export { buildExtractionPrompt, truncateMiddle } from "./extractor/prompt-builde
 export { extractJSON, stripCodeFences } from "./extractor/json-repair";
 export { normalizeFields, coerce } from "./extractor/normalizer";
 export { postProcessFields } from "./extractor/post-processor";
+export { cleanExtraction } from "./entity-cleaner";

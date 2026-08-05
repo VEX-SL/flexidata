@@ -197,6 +197,28 @@ export interface OcrWord {
   bbox?: BBox;
 }
 
+/**
+ * Per-line OCR quality metrics (Arabic-first scoring). Computed for every
+ * line so garbage lines are identifiable before extraction, without depending
+ * on any document/vendor-specific rules.
+ */
+export interface OcrLineQuality {
+  /** 0..1 share of letters that are Arabic. 0 when the line has no letters. */
+  arabicRatio: number;
+  /** 0..1 share of letters that are Latin. 0 when the line has no letters. */
+  latinRatio: number;
+  /** 0..1 share of printable characters (letters, digits, punctuation, space). */
+  printableRatio: number;
+  /** 0..1 coverage of the dominant script among letters. */
+  scriptConsistency: number;
+  /** Mean OCR word confidence (0..1) when the line carries word boxes. */
+  ocrConfidence?: number;
+  /** 0 clean … 1 garbage. */
+  noiseScore: number;
+  /** Human-readable reasons that justify the score / flagged state. */
+  reasons: string[];
+}
+
 export interface OcrLine {
   text: string;
   /** Mean word confidence for the line. Undefined when unavailable. */
@@ -204,6 +226,16 @@ export interface OcrLine {
   words: OcrWord[];
   /** Union box of the line's words (processed-image space), when available. */
   bbox?: BBox;
+  /** Verbatim line text before Arabic OCR repair (when the line changed). */
+  originalText?: string;
+  /** True when the Arabic OCR repair layer altered this line. */
+  repaired?: boolean;
+  /** Index of the source line this output line came from (0-based). Repair may
+   *  split one source line into several, all sharing the same index; used to
+   *  reconstruct the raw stream faithfully for before/after tooling. */
+  sourceLine?: number;
+  /** Per-line quality metrics (Arabic-first). */
+  quality?: OcrLineQuality;
 }
 
 /**
@@ -370,6 +402,8 @@ export interface PipelineState {
   confidence?: ConfidenceResult;
   /** Recovery-stage outcome (observability: what was flagged/ambiguous + retries). */
   recovery?: RecoveryStageStats;
+  /** Entity-cleaning outcome (observability: what was cleaned and why). */
+  cleaning?: CleaningStageStats;
 }
 
 /** JSON-safe summary of the recovery stage for trace/analytics. */
@@ -378,6 +412,16 @@ export interface RecoveryStageStats {
   ambiguous: string[];
   retryAttempted: boolean;
   retryProviders: string[];
+}
+
+/** JSON-safe summary of the entity-cleaning stage for trace/analytics. */
+export interface CleaningStageStats {
+  /** Field keys whose committed value was cleaned. */
+  cleaned: string[];
+  /** Fields examined but left untouched (no provable improvement). */
+  unchanged: number;
+  /** Field keys removed as OCR artifacts / ungrounded free text. */
+  dropped: string[];
 }
 
 /**

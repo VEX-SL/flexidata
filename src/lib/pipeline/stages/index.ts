@@ -2,6 +2,7 @@ import type { AIClient, PipelineStage } from "../types";
 import { classifyStage } from "./classify";
 import { extractStage } from "./extract";
 import { groundStage } from "./ground";
+import { cleanStage } from "./clean";
 import { recoverStage } from "./recover";
 import { validateStage } from "./validate";
 import { confidenceStage } from "./confidence";
@@ -18,6 +19,7 @@ export function defaultPipelineStages(
     classifyStage(opts),
     extractStage(opts),
     groundStage(),
+    cleanStage(),
     recoverStage(opts),
     validateStage(),
     confidenceStage(),
@@ -28,6 +30,7 @@ export {
   classifyStage,
   extractStage,
   groundStage,
+  cleanStage,
   recoverStage,
   validateStage,
   confidenceStage,

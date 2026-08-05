@@ -25,15 +25,22 @@ function splitWords(lineText: string): OcrWord[] {
 
 /**
  * Normalize a string for grounded matching: drop bidi control characters,
- * collapse whitespace, lowercase, and unify digit families (Latin + Arabic +
- * Arabic-Indic) so "2013438351" and its variants compare equal.
+ * collapse whitespace, lowercase, unify digit families (Latin + Arabic +
+ * Arabic-Indic) so "2013438351" and its variants compare equal, and
+ * canonicalize Arabic variants (alef/yeh/ta-marbuta, kashida) the same way the
+ * Arabic OCR layer normalizes the surface — so a value that differs only by an
+ * alef variant or a ta-marbuta still grounds against the repaired document.
  */
 export function normalizeText(s: string): string {
   return unifyDigits(s)
     .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "")
     .replace(/\s+/g, " ")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[\u0622\u0623\u0625\u0671\u0673\u0675]/g, "\u0627")
+    .replace(/[\u0649\u06cc\u06cd\u06d0\u06d1\u0678]/g, "\u064a")
+    .replace(/\u0629/g, "\u0647")
+    .replace(/\u0640/g, "");
 }
 
 /** Map Arabic-Indic (٠١٢٣٤٥٦٧٨٩) and Arabic (۰۱۲۳۴۵۶۷۸۹) digits to Latin. */

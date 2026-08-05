@@ -95,6 +95,14 @@ export function stageSummary(ctx: PipelineState, stageId: string): unknown {
         ambiguous: fields.filter((fv) => fv.status === "ambiguous").length,
       };
     }
+    case "clean":
+      return ctx.cleaning
+        ? {
+            cleaned: ctx.cleaning.cleaned,
+            unchanged: ctx.cleaning.unchanged,
+            dropped: ctx.cleaning.dropped,
+          }
+        : undefined;
     case "recover":
       return ctx.recovery
         ? {

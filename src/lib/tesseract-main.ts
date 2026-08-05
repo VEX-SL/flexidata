@@ -15,11 +15,15 @@
  *    (RIL_WORD level), instead of stamping one page-mean value on every line.
  *    The old AllWordConfidences binding marshals an empty vector, and
  *    MeanTextConf returns 0 for perfectly readable images — both unusable.
+ *  - Arabic-first OCR post-processing (normalization, generic repair, RTL line
+ *    reconstruction) applied to every recognized document before the pipeline
+ *    consumes it — see @/lib/ocr/arabic.
  */
 import fs from "fs";
 import path from "path";
 import type { OcrDocument, OcrLine, OcrWord, BBox } from "@/lib/pipeline/types";
 import { unionBoxes } from "@/lib/pipeline/geometry";
+import { postProcessOcr } from "@/lib/ocr/arabic";
 import {
   canvasFromImage,
   isCanvasAvailable,
@@ -234,7 +238,10 @@ export async function recognizeMainThread(
   const attempt = async (buf: Buffer, exif: number): Promise<OcrDocument> => {
     setImage(mod, api, buf, exif);
     api.Recognize(null);
-    return buildDocument(api, langs);
+    // The Arabic-first OCR layer (normalization + generic repair + RTL line
+    // reconstruction) runs on every recognized document before it reaches the
+    // pipeline. It never inflates confidence and never invents text.
+    return postProcessOcr(buildDocument(api, langs)).doc;
   };
 
   const primary = await prepareImage(input, preset, doPreprocess);

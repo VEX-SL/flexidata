@@ -49,6 +49,15 @@ const GENERIC_ITEM_DESC =
   /purchase|المطلوب|total|payment|amount|مطلوب|الدفع|سداد/i;
 
 /**
+ * Generic footer/header markers that are never item descriptions ("TOTAL",
+ * "AMOUNT", "المطلوب", ...). Shared with the entity cleaner so both stages
+ * apply the same universal, document-type-agnostic non-item test.
+ */
+export function isGenericItemDescription(desc: string): boolean {
+  return desc.length > 0 && GENERIC_ITEM_DESC.test(desc);
+}
+
+/**
  * Ground an extraction: attach verified evidence, drop ungrounded or
  * relabeled values, and compose real per-field confidence.
  */

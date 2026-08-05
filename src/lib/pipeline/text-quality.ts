@@ -1,4 +1,4 @@
-import type { OcrLine } from "./types";
+import type { OcrLine, OcrLineQuality } from "./types";
 
 /**
  * Generic text-quality assessment — decides whether an OCR fragment is real
@@ -49,9 +49,13 @@ export const NOISE_THRESHOLD = 0.55;
  *  - a token longer than 24 chars that mixes letters and digits is a classic
  *    OCR line-merge artifact ("Hostinger;Description…)0123456788(");
  *  - a fragment that is more than half symbols is not field content;
- *  - a standalone symbol-only token ("©", ";)", "§") never occurs in real
- *    notes and marks an OCR/encoding artifact.
+ *  - a standalone symbol-only token that is not common punctuation ("©", "§",
+ *    "¥") never occurs in real notes and marks an OCR/encoding artifact.
+ *    Ordinary punctuation alone (":", ";", "-") is legitimate OCR output and
+ *    must never flag a line.
  */
+const COMMON_PUNCTUATION = /^[.,:;!?'"()\[\]{}<>/\\|_\-–—+*=%@#&^~`]+$/u;
+
 function structuralGarbage(text: string): string | null {
   const tokens = text
     .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "")
@@ -62,7 +66,9 @@ function structuralGarbage(text: string): string | null {
       return `oversized letter+digit token (${t.length} chars)`;
     }
     if (countWhere(t, isLetter) === 0 && !/[0-9]/.test(t)) {
-      return `standalone symbol token (${JSON.stringify(t)})`;
+      if (!COMMON_PUNCTUATION.test(t)) {
+        return `standalone symbol token (${JSON.stringify(t)})`;
+      }
     }
   }
   if (text.length >= 4) {
@@ -82,6 +88,27 @@ export function isNoiseFragment(
 ): boolean {
   const q = assessTextQuality(text, opts);
   return q.noiseScore > NOISE_THRESHOLD;
+}
+
+/**
+ * Per-line OCR quality: Arabic ratio, Latin ratio, printable ratio, script
+ * consistency, OCR confidence and a combined noise score. A garbage line
+ * (bidi-smashed header, line-merge artifact) is identifiable here, before any
+ * extraction runs.
+ */
+export function assessOcrLineQuality(line: OcrLine): OcrLineQuality {
+  const q = assessTextQuality(line.text, {
+    ocrConfidence: lineOcrConfidence(line),
+  });
+  return {
+    arabicRatio: arabicRatioOf(line.text),
+    latinRatio: latinRatioOf(line.text),
+    printableRatio: q.printableRatio,
+    scriptConsistency: q.scriptConsistency,
+    ocrConfidence: q.ocrConfidence,
+    noiseScore: q.noiseScore,
+    reasons: q.reasons,
+  };
 }
 
 export function assessTextQuality(
@@ -132,6 +159,28 @@ const LETTER = /\p{L}/u;
 
 function isLetter(ch: string): boolean {
   return LETTER.test(ch);
+}
+
+/** 0..1 share of letters that belong to the Arabic writing system. */
+export function arabicRatioOf(text: string): number {
+  return letterScriptRatio(text, "arabic");
+}
+
+/** 0..1 share of letters that belong to the Latin writing system. */
+export function latinRatioOf(text: string): number {
+  return letterScriptRatio(text, "latin");
+}
+
+function letterScriptRatio(text: string, wanted: string): number {
+  let total = 0;
+  let match = 0;
+  for (const ch of text) {
+    const script = scriptOf(ch);
+    if (!script) continue;
+    total += 1;
+    if (script === wanted) match += 1;
+  }
+  return total === 0 ? 0 : match / total;
 }
 
 function printableRatioOf(text: string): number {

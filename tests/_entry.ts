@@ -10,5 +10,8 @@ import "./recovery.test.ts";
 import "./confidence-ux.test.ts";
 import "./preprocess.test.ts";
 import "./grounding-evidence.test.ts";
+import "./entity-cleaner.test.ts";
+import "./arabic-ocr.test.ts";
+import "./arabic-corpus.test.ts";
 
 await run();
