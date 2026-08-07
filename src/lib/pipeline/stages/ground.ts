@@ -1,11 +1,16 @@
 import type { PipelineStage } from "../types";
 import { groundExtraction } from "../extractor/grounding";
+import {
+  createLayoutEvidenceProvider,
+  layoutReaderFor,
+} from "@/lib/extraction/layout-aware-evidence";
 
 /**
  * Stage: ground. The strict-grounding gate between extraction and validation.
  * Attaches verified source evidence to every field, drops values that are not
  * anchored in the document (never invent, never relabel), and composes real
- * per-field confidence (OCR × extraction × validation).
+ * per-field confidence (OCR × extraction × validation). Evidence comes from the
+ * layout-aware ladder when layout is available; the OCR-only search otherwise.
  */
 export function groundStage(): PipelineStage {
   return {
@@ -18,7 +23,10 @@ export function groundStage(): PipelineStage {
         ctx.profile,
         ctx.extraction,
         ctx.sourceText,
-        ctx.ocr
+        ctx.ocr,
+        ctx.ocr === undefined
+          ? undefined
+          : createLayoutEvidenceProvider(layoutReaderFor(ctx.ocr))
       );
     },
   };

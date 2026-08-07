@@ -48,5 +48,6 @@ import "./layout-query.test.ts";
 import "./layout-evidence.test.ts";
 import "./layout-selection.test.ts";
 import "./layout-extractor-adapter.test.ts";
+import "./layout-aware-extraction.test.ts";
 
 await run();

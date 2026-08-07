@@ -60,12 +60,17 @@ export function isGenericItemDescription(desc: string): boolean {
 /**
  * Ground an extraction: attach verified evidence, drop ungrounded or
  * relabeled values, and compose real per-field confidence.
+ *
+ * `evidenceProvider`, when supplied, replaces the raw OCR evidence scan for a
+ * field (e.g. the layout-aware path). The default stays the OCR-only search,
+ * so the public behavior is unchanged unless a provider is passed.
  */
 export function groundExtraction(
   profile: ExtractionProfile,
   extraction: ExtractionResult,
   sourceText: string,
-  ocr?: OcrDocument
+  ocr?: OcrDocument,
+  evidenceProvider?: (field: FieldSchema, fv: FieldValue) => readonly FieldEvidence[]
 ): ExtractionResult {
   const ocrDoc = ocr ?? buildOcrDocument(sourceText);
   const map: FieldsMap = { ...extraction.fieldsMap };
@@ -119,7 +124,16 @@ export function groundExtraction(
     // differing readings surface as honest alternatives. Other types only
     // fall back to derived variants (e.g. amounts with thousands separators)
     // when no verbatim match exists.
-    let evidence = findEvidence(ocrDoc, field, fv);
+    let evidence =
+      evidenceProvider !== undefined
+        ? [...evidenceProvider(field, fv)]
+        : findEvidence(ocrDoc, field, fv);
+    // Fallback: when the layout-aware path yields nothing (layout failure or
+    // an empty match) the OCR-only search runs unchanged — extraction never
+    // loses evidence because layout failed.
+    if (evidenceProvider !== undefined && evidence.length === 0) {
+      evidence = findEvidence(ocrDoc, field, fv);
+    }
     if (field.type === "date") {
       evidence = dedupeEvidence([
         ...evidence,
@@ -224,7 +238,7 @@ function findEvidence(
 }
 
 /** Verbatim (or best-guess) source strings to search for. */
-function valueNeedles(field: FieldSchema, fv: FieldValue): string[] {
+export function valueNeedles(field: FieldSchema, fv: FieldValue): string[] {
   const raw = fv.rawValue !== undefined && fv.rawValue !== null
     ? fv.rawValue
     : fv.value;
@@ -259,7 +273,7 @@ function findDerivedEvidence(
   return dedupeEvidence(out);
 }
 
-function derivedVariants(field: FieldSchema, value: unknown): string[] {
+export function derivedVariants(field: FieldSchema, value: unknown): string[] {
   if (field.type === "date") {
     return dateVariants(String(value));
   }

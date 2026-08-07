@@ -1,6 +1,7 @@
 import type { AIClient, PipelineStage } from "../types";
 import { extractDocument } from "../extractor";
 import { getProfileManager } from "../profiles/registry";
+import { layoutReaderFor } from "@/lib/extraction/layout-aware-evidence";
 
 /**
  * Stage: extract. Resolves the profile from the classification (this is the
@@ -15,8 +16,14 @@ export function extractStage(opts: { ai?: AIClient } = {}): PipelineStage {
       const type = ctx.classification?.profileType ?? "unknown";
       const profile = getProfileManager().getOrFallback(type);
       ctx.profile = profile;
+      // Layout-aware prompt text (region-grouped, reading order, nothing
+      // skipped) when layout is available; byte-identical OCR text otherwise.
+      const documentText =
+        ctx.ocr === undefined
+          ? ctx.sourceText
+          : layoutReaderFor(ctx.ocr).documentText(ctx.sourceText);
       ctx.extraction = await extractDocument(
-        { profile, sourceText: ctx.sourceText, ocr: ctx.ocr },
+        { profile, sourceText: documentText, ocr: ctx.ocr },
         opts.ai,
         { grounded: false }
       );

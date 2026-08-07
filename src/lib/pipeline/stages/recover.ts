@@ -12,6 +12,10 @@ import { buildExtractionPrompt } from "../extractor/prompt-builder";
 import { extractWithAIRetry } from "../extractor/ai-client";
 import { groundExtraction } from "../extractor/grounding";
 import { isEmptyValue } from "../extractor/post-processor";
+import {
+  createLayoutEvidenceProvider,
+  layoutReaderFor,
+} from "@/lib/extraction/layout-aware-evidence";
 
 /**
  * Stage: recover. Fills required fields that the model left null and strict
@@ -67,14 +71,21 @@ export function recoverStage(opts: { ai?: AIClient } = {}): PipelineStage {
           ctx.recovery.retryAttempted = true;
           ctx.recovery.retryProviders = skipProviders;
           try {
-            const prompt = buildExtractionPrompt(profile, ctx.sourceText);
+            const documentText =
+              ctx.ocr === undefined
+                ? ctx.sourceText
+                : layoutReaderFor(ctx.ocr).documentText(ctx.sourceText);
+            const prompt = buildExtractionPrompt(profile, documentText);
             const aiCall = await extractWithAIRetry({ prompt }, ai, skipProviders);
             const retryCandidates = candidatesFromAICall(profile, aiCall);
             const groundedRetry = groundExtraction(
               profile,
               retryCandidates,
               ctx.sourceText,
-              ocrDoc
+              ocrDoc,
+              ctx.ocr === undefined
+                ? undefined
+                : createLayoutEvidenceProvider(layoutReaderFor(ctx.ocr))
             );
             ctx.extraction = mergeRetry(
               profile,
