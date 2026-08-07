@@ -123,9 +123,10 @@ test("identical duplicate spans are collapsed with an explanatory chosenReason",
   );
   const total = out.fieldsMap.total_amount;
   ok(total, "total_amount must survive grounding");
-  // Both spans read the same value; the label-matched "TOTAL" line wins.
+  // Both spans read the same value; both lines carry the total label
+  // ("AMOUNT DUE" is not a date), so the higher-confidence span wins.
   equal(total!.evidence![0].quote, "38.40");
-  equal(total!.evidence![0].confidence!, 0.6);
+  equal(total!.evidence![0].confidence!, 0.99);
   ok(!total!.alternatives || total!.alternatives.length === 0, "identical readings add no alternatives");
   ok(total!.chosenReason && /appears on 2 lines/.test(total!.chosenReason), "chosenReason must explain the identical duplicates");
 });

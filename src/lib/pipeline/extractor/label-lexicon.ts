@@ -140,13 +140,26 @@ export function labelGroupForField(field: FieldSchema): string | null {
   return defaultGroupForField(field.key);
 }
 
-/** Which category's words appear on a line (first match wins). */
+/**
+ * Which category's words appear on a line. The LONGEST matching label word or
+ * phrase wins (ties broken by group order), so "AMOUNT DUE" resolves to the
+ * "total" group instead of the "date" group's bare "due" — a short word in an
+ * earlier group must never shadow a longer, more specific phrase in a later
+ * one.
+ */
 export function detectLabelGroup(lineText: string): string | null {
   const norm = normalizeForLabel(lineText);
+  let best: { group: string; len: number } | null = null;
   for (const def of LABEL_GROUPS) {
-    if (def.words.some((w) => norm.includes(w))) return def.group;
+    for (const w of def.words) {
+      const n = normalizeForLabel(w);
+      if (!n) continue;
+      if (norm.includes(n) && n.length > (best?.len ?? 0)) {
+        best = { group: def.group, len: n.length };
+      }
+    }
   }
-  return null;
+  return best?.group ?? null;
 }
 
 function normalizeForLabel(s: string): string {

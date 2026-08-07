@@ -13,6 +13,7 @@ import type {
 } from "../types";
 import { buildOcrDocument, normalizeText } from "../ocr";
 import { detectLabelGroup, labelGroupForField } from "./label-lexicon";
+import { verifyEvidence } from "./verify-or-find";
 import { isNoiseFragment } from "../text-quality";
 import { spanBox } from "../geometry";
 
@@ -142,6 +143,13 @@ export function groundExtraction(
     } else if (evidence.length === 0) {
       evidence = findDerivedEvidence(ocrDoc, field, fv.value);
     }
+    // Verify-or-Find (M12): when no verbatim/derived evidence exists, verify
+    // the value against the document in deterministic normalization tiers
+    // (separator-free reference numbers, alternative ISO date layouts). This
+    // stays strict grounding — no fuzzy matching, nothing invented.
+    if (evidence.length === 0) {
+      evidence = verifyEvidence(ocrDoc, field, fv);
+    }
     if (evidence.length === 0) {
       drops[field.key] = "not found in source text";
       delete map[field.key];
@@ -229,7 +237,13 @@ function findEvidence(
     if (!norm) continue;
     for (let i = 0; i < ocrDoc.lines.length; i++) {
       const line = ocrDoc.lines[i];
-      if (normalizeText(line.text).includes(norm)) {
+      if (isNumericField(field)) {
+        // Numeric fields anchor on value equality, never raw substring:
+        // "$100" must not ground against a printed "$1000" (no invented
+        // amounts), while "38.4" ↔ "38.40" and "1234.5" ↔ "1,234.50" match.
+        const span = findNumericSpan(line, norm);
+        if (span) out.push(makeEvidence(line, i, "value-match", norm, span));
+      } else if (normalizeText(line.text).includes(norm)) {
         out.push(makeEvidence(line, i, "value-match", norm));
       }
     }
@@ -265,7 +279,10 @@ function findDerivedEvidence(
     if (!variant) continue;
     for (let i = 0; i < ocrDoc.lines.length; i++) {
       const line = ocrDoc.lines[i];
-      if (normalizeText(line.text).includes(variant)) {
+      if (isNumericField(field)) {
+        const span = findNumericSpan(line, variant);
+        if (span) out.push(makeEvidence(line, i, "derived", variant, span));
+      } else if (normalizeText(line.text).includes(variant)) {
         out.push(makeEvidence(line, i, "derived", variant));
       }
     }
@@ -289,8 +306,14 @@ export function derivedVariants(field: FieldSchema, value: unknown): string[] {
  * the exact word span is located so downstream consumers get wordIndices and a
  * bounding box; otherwise the whole line is used (text-only fallback).
  */
-function makeEvidence(line: OcrLine, lineIndex: number, role: FieldEvidence["role"], normNeedle?: string): FieldEvidence {
-  const span = findWordSpan(line, normNeedle);
+function makeEvidence(
+  line: OcrLine,
+  lineIndex: number,
+  role: FieldEvidence["role"],
+  normNeedle?: string,
+  explicitSpan?: { start: number; end: number }
+): FieldEvidence {
+  const span = explicitSpan ?? findWordSpan(line, normNeedle);
   if (span) {
     const { start, end } = span;
     const wordConfs = line.words
@@ -343,6 +366,61 @@ function findWordSpan(
     }
   }
   return best;
+}
+
+/** Fields whose printed form is a normalized variant of the model value. */
+function isNumericField(field: FieldSchema): boolean {
+  return field.type === "number" || field.type === "currency";
+}
+
+/**
+ * Locate the minimal contiguous word span whose text is numerically equal to
+ * the needle. Printed separators are ignored ("1,234.50" = "1234.5") and the
+ * magnitude must match exactly — a shorter reference never anchors to a longer
+ * printed number, so "$100" can never be grounded on "$1000".
+ */
+function findNumericSpan(
+  line: OcrLine,
+  normNeedle: string
+): { start: number; end: number } | null {
+  const words = line.words;
+  if (words.length === 0 || !normNeedle) return null;
+
+  const target = numericKey(normNeedle);
+  if (target === null) return null;
+  const targetMag = target.magnitude;
+
+  const normWords = words.map((w) => normalizeText(w.text));
+  let best: { start: number; end: number } | null = null;
+  for (let start = 0; start < normWords.length; start++) {
+    let acc = "";
+    for (let end = start; end < normWords.length; end++) {
+      acc = acc ? `${acc} ${normWords[end]}` : normWords[end];
+      const key = numericKey(acc);
+      if (key === null) continue;
+      if (key.magnitude === targetMag && key.value === target.value) {
+        if (!best || end - start < best.end - best.start) best = { start, end };
+        break;
+      }
+      if (key.magnitude > targetMag) break;
+    }
+  }
+  return best;
+}
+
+/**
+ * Canonical numeric key: the parsed value plus its magnitude (integer part of
+ * the absolute value), so "38.40", "38.4", "$38.40" and "1,234.50" compare by
+ * numeric value regardless of printed separators or trailing zeros, while
+ * "$100" and "$1000" stay distinct. `null` when the text is not a plain
+ * number.
+ */
+function numericKey(text: string): { magnitude: number; value: number } | null {
+  const stripped = text.replace(/[^0-9.\-]/g, "");
+  if (!stripped || stripped === "-" || stripped === "." || stripped === "-.") return null;
+  const value = Number(stripped);
+  if (!Number.isFinite(value)) return null;
+  return { magnitude: Math.floor(Math.abs(value)), value };
 }
 
 function dedupeEvidence(list: FieldEvidence[]): FieldEvidence[] {
