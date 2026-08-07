@@ -30,5 +30,18 @@ import "./layout-segmentation-validation.test.ts";
 import "./layout-hierarchy.test.ts";
 import "./layout-hierarchy-builder.test.ts";
 import "./layout-hierarchy-validation.test.ts";
+import "./layout-region-features.test.ts";
+import "./layout-region-classifier.test.ts";
+import "./layout-region-classification-validation.test.ts";
+import "./layout-reading-order.test.ts";
+import "./layout-reading-order-builder.test.ts";
+import "./layout-reading-order-validation.test.ts";
+import "./layout-confidence-propagation.test.ts";
+import "./layout-confidence-validation.test.ts";
+import "./layout-graph-validator.test.ts";
+import "./layout-graph-repair.test.ts";
+import "./layout-context.test.ts";
+import "./layout-cache.test.ts";
+import "./layout-pipeline.test.ts";
 
 await run();
