@@ -43,5 +43,10 @@ import "./layout-graph-repair.test.ts";
 import "./layout-context.test.ts";
 import "./layout-cache.test.ts";
 import "./layout-pipeline.test.ts";
+import "./layout-reader.test.ts";
+import "./layout-query.test.ts";
+import "./layout-evidence.test.ts";
+import "./layout-selection.test.ts";
+import "./layout-extractor-adapter.test.ts";
 
 await run();
