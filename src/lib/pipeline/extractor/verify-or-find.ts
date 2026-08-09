@@ -191,13 +191,18 @@ export function findFieldCandidates(
     const word = firstMatchingLabel(norm, words);
     if (!word) continue;
 
-    const hits = extractLineCandidates(field, line, i, norm, word, ocrDoc.lines);
+    const hits = extractLineCandidates(field, line, i, norm, word);
     for (const hit of hits) out.push(hit);
   }
   return out;
 }
 
-/** The label category words + the field's own label text, best-effort. */
+/**
+ * The label category words + the field's own label PHRASE (whitespace-
+ * collapsed). The label is never tokenized into single words: a generic token
+ * such as "receipt" from "Receipt number" must not anchor a match by itself —
+ * only the complete label phrase or a category lexicon anchor may.
+ */
 function labelWords(field: FieldSchema): string[] {
   const set = new Set<string>();
   const group = labelGroupForField(field);
@@ -205,10 +210,8 @@ function labelWords(field: FieldSchema): string[] {
     const def = LABEL_GROUPS.find((g) => g.group === group);
     for (const w of def?.words ?? []) set.add(normalizeText(w));
   }
-  for (const w of (field.label ?? "").split(/\s+/)) {
-    const n = normalizeText(w);
-    if (n.length >= 2) set.add(n);
-  }
+  const phrase = normalizeText(field.label ?? "");
+  if (phrase.length >= 2) set.add(phrase);
   set.delete("");
   return Array.from(set).sort((a, b) => b.length - a.length);
 }
@@ -235,8 +238,7 @@ function extractLineCandidates(
   line: OcrLine,
   lineIndex: number,
   norm: string,
-  label: string,
-  lines: OcrLine[]
+  label: string
 ): RecoveryCandidate[] {
   const base = baseConfidence(line);
   const evidence: FieldEvidence = {
@@ -259,7 +261,7 @@ function extractLineCandidates(
       return booleanCandidates(field, norm, base, evidence);
     case "string":
     case "text":
-      return textCandidates(field, line, lineIndex, norm, label, base, evidence, lines);
+      return textCandidates(field, line, lineIndex, norm, label, base, evidence);
     default:
       return [];
   }
@@ -341,19 +343,20 @@ function textCandidates(
   norm: string,
   label: string,
   base: number,
-  evidence: FieldEvidence,
-  lines: OcrLine[]
+  evidence: FieldEvidence
 ): RecoveryCandidate[] {
-  const valueText = valueAfterLabel(line.text, label);
-  const extracted =
-    valueText.length > 0 ? valueText : nextLineText(lines, lineIndex);
+  // The value must follow the label on the SAME line — a generic label token
+  // (e.g. "receipt" on a bare "RECEIPT" header) must never borrow the next OCR
+  // line as a value.
+  const extracted = valueAfterLabel(line.text, label);
   if (extracted.length === 0) return [];
+
+  if (isReferenceField(field) && !looksLikeReference(extracted)) return [];
 
   const value = coerce(field, extracted);
   if (value === null) return [];
 
-  const ev = valueText.length > 0 ? [evidence] : [evidenceForNextLine(lines, lineIndex, extracted)];
-  return [makeCandidate(extracted, value, base, ev)];
+  return [makeCandidate(extracted, value, base, [evidence])];
 }
 
 /** Strip bidi control chars and take the remainder after the label. */
@@ -368,38 +371,20 @@ function valueAfterLabel(lineText: string, label: string): string {
   return rest.length >= 2 ? rest : "";
 }
 
-function nextLineText(lines: OcrLine[], afterIndex: number): string {
-  const next = lines[afterIndex + 1];
-  if (!next) return "";
-  const text = next.text.trim();
-  if (!text) return "";
-  // Never swallow another label line as a value.
-  const norm = normalizeText(text);
-  const anyLabel = LABEL_GROUPS.some((g) =>
-    g.words.some((w) => {
-      const n = normalizeText(w);
-      return isLatin(n)
-        ? new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(norm)
-        : norm.includes(n);
-    })
-  );
-  if (anyLabel) return "";
-  return text.replace(SEPARATORS, "");
+/** Reference-category fields (receipt numbers, tax ids) whose strings are identifiers. */
+function isReferenceField(field: FieldSchema): boolean {
+  const group = labelGroupForField(field);
+  return group === "number" || group === "tax";
 }
 
-function evidenceForNextLine(
-  lines: OcrLine[],
-  afterIndex: number,
-  value: string
-): FieldEvidence {
-  const next = lines[afterIndex + 1];
-  return {
-    quote: next?.text ?? value,
-    lineIndex: afterIndex + 1,
-    role: "label-match",
-    context: next?.text ?? value,
-    confidence: next ? baseConfidence(next) : undefined,
-  };
+/**
+ * A reference reading must look like an identifier: at least one digit and
+ * every whitespace-separated token must carry digits ("2013438351" and
+ * "2013 438351" are fine; "MILK 3.50" and "code A100" are not).
+ */
+function looksLikeReference(s: string): boolean {
+  if (!/\d/.test(s)) return false;
+  return s.split(/\s+/).every((tok) => /\d/.test(tok));
 }
 
 function makeCandidate(

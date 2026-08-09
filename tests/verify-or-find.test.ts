@@ -211,6 +211,33 @@ test("F5 Arabic label recovery uses the same normalization as grounding", () => 
   equal(found[0].value, 38.4);
 });
 
+test("F6 a multi-token label matches as a phrase — no token leaks into the value", () => {
+  const doc = docOf("Receipt Number: 123456");
+  const found = findFieldCandidates(field("receipt_number"), doc);
+  ok(found.length === 1, "phrase label must find the reference");
+  equal(found[0].value, "123456");
+  equal(found[0].raw, "123456");
+});
+
+test("F7 a generic header word alone never recovers a required field", () => {
+  const doc = docOf("RECEIPT", "MILK 3.50");
+  const found = findFieldCandidates(field("receipt_number"), doc);
+  ok(found.length === 0, "a bare header token must never borrow the next OCR line");
+});
+
+test("F8 string recovery requires the value on the label's own line", () => {
+  const doc = docOf("MERCHANT:", "ACME Foods");
+  const found = findFieldCandidates(field("merchant_name"), doc);
+  ok(found.length === 0, "a label with no value on its line yields no candidate");
+});
+
+test("F9 reference fields accept only reference-shaped readings", () => {
+  const doc = docOf("REF code A100", "REF 123456");
+  const found = findFieldCandidates(field("receipt_number"), doc);
+  ok(found.length === 1, "only the reference-shaped reading survives");
+  equal(found[0].value, "123456");
+});
+
 // ── No-invention guarantees ────────────────────────────────────────────────
 
 test("N1 never invents: Amazon must not verify as Amzon", () => {

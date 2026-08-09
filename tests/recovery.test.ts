@@ -203,6 +203,29 @@ test("no total anywhere → field stays missing even after recovery", async () =
   ok(job.validation.missing.includes("total_amount"));
 });
 
+test("M16 regression: a generic RECEIPT header never becomes receipt_number", async () => {
+  const doc = "CORNER STORE\nRECEIPT\nMILK 3.50\nBREAD 2.00\nTOTAL 5.50\nDate: 2025-01-15\n";
+  const ai = makeAI(EMPTY, EMPTY);
+  const job = await runReceipt(ai, doc);
+
+  const n = job.extraction.fieldsMap.receipt_number;
+  ok(!n, "the header word must not be recovered as the receipt number");
+  ok(job.validation.missing.includes("receipt_number"), "receipt_number stays missing");
+});
+
+test("M16 regression: a real 'Receipt Number: 20134' label recovers the reference", async () => {
+  const doc = "CORNER STORE\nReceipt Number: 20134\nMILK 3.50\nBREAD 2.00\nTOTAL 5.50\nDate: 2025-01-15\n";
+  const ai = makeAI(EMPTY, EMPTY);
+  const job = await runReceipt(ai, doc);
+
+  const n = job.extraction.fieldsMap.receipt_number;
+  ok(n, "receipt_number must be recovered from the labeled line");
+  equal(n!.value, "20134");
+  equal(n!.status, "flagged");
+  equal(n!.source, "ocr");
+  ok(n!.confidence > 0.3 && n!.confidence < 0.5, "flagged confidence must stay in the 0.3–0.5 window");
+});
+
 test("recovered fields survive export DTO serialization with alternatives", async () => {
   const doc = "Receipt\nTotal: 68.38\nGrand total: 55.00\n";
   const ai = makeAI(EMPTY, EMPTY);

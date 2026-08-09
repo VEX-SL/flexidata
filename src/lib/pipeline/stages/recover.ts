@@ -2,7 +2,12 @@ import type {
   AIClient,
   ExtractionProfile,
   ExtractionResult,
+  FieldEvidence,
+  FieldSchema,
+  FieldValue,
+  FieldsMap,
   NormalizedField,
+  OcrDocument,
   PipelineStage,
 } from "../types";
 import { buildOcrDocument } from "../ocr";
@@ -24,7 +29,8 @@ import {
  * 1. Deterministic, label-driven evidence search (profile metadata only):
  *    single grounded candidate → source "ocr" / status "flagged" (low
  *    confidence); several candidates → status "ambiguous" with alternatives;
- *    none → keep null.
+ *    none → keep null. Flagged candidates re-pass through the grounding ladder
+ *    (relabel veto + universal semantic checks) before being committed.
  * 2. Cross-provider retry — only for required fields where the model returned
  *    null AND deterministic recovery found no candidate. The extraction prompt
  *    is re-issued on a different provider (skipping the one already used), and
@@ -51,16 +57,32 @@ export function recoverStage(opts: { ai?: AIClient } = {}): PipelineStage {
         ctx.sourceText,
         ocrDoc
       );
+      // Verdict pass: re-anchor flagged FIND candidates through the same
+      // grounding ladder, so recovery can never commit a value strict grounding
+      // would veto (relabel conflicts, tax/currency/noise checks).
+      const flagged = groundFlaggedRecovery(
+        profile,
+        extraction,
+        recovered,
+        ctx.sourceText,
+        ocrDoc,
+        ctx.ocr === undefined
+          ? undefined
+          : createLayoutEvidenceProvider(layoutReaderFor(ctx.ocr))
+      );
       const eligible = retryEligibleRequiredFields(profile, extraction, recovered);
 
       ctx.recovery = {
-        flagged: [...recovered.flagged.keys()],
+        flagged: [...flagged.keys()],
         ambiguous: [...recovered.ambiguous.keys()],
         retryAttempted: false,
         retryProviders: [],
       };
 
-      ctx.extraction = applyRecovery(profile, extraction, recovered);
+      ctx.extraction = applyRecovery(profile, extraction, {
+        ...recovered,
+        flagged,
+      });
 
       if (eligible.length > 0 && ai?.retryProviders) {
         const skipProviders =
@@ -100,6 +122,52 @@ export function recoverStage(opts: { ai?: AIClient } = {}): PipelineStage {
       }
     },
   };
+}
+
+/**
+ * Verdict pass for flagged FIND candidates: re-anchor them through the shared
+ * grounding ladder (Pass 1) so the relabel veto and the universal semantic
+ * checks apply to recovery exactly as they do to grounding. The flagged status
+ * and the low FIND confidence are preserved — only strict-grounding verdicts
+ * gate what gets committed.
+ */
+function groundFlaggedRecovery(
+  profile: ExtractionProfile,
+  extraction: ExtractionResult,
+  recovered: RecoverResult,
+  sourceText: string,
+  ocrDoc: OcrDocument,
+  evidenceProvider?: (field: FieldSchema, fv: FieldValue) => readonly FieldEvidence[]
+): Map<string, FieldValue> {
+  if (recovered.flagged.size === 0) return recovered.flagged;
+
+  const flaggedMap: FieldsMap = {};
+  for (const [key, fv] of recovered.flagged) flaggedMap[key] = fv;
+
+  const candidateExtraction: ExtractionResult = {
+    ...extraction,
+    fields: [],
+    fieldsMap: flaggedMap,
+    cleanFields: {},
+    droppedFields: {},
+  };
+  const grounded = groundExtraction(
+    profile,
+    candidateExtraction,
+    sourceText,
+    ocrDoc,
+    evidenceProvider
+  );
+
+  // Pass 1 deletes vetoed fields from the map (confidence recomposition in
+  // Pass 2/3 does not); a survivor is a field still anchored after the ladder.
+  const survivors = new Map<string, FieldValue>();
+  for (const [key, fv] of recovered.flagged) {
+    const surviving = grounded.fieldsMap[key];
+    if (!surviving || isEmptyValue(surviving.value)) continue;
+    survivors.set(key, fv);
+  }
+  return survivors;
 }
 
 /**
