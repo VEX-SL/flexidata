@@ -67,6 +67,37 @@ function humanize(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * M22 — a discovery job's title is never a raw OCR slice (that would
+ * concatenate garbled OCR lines into an invented title). Prefer a discovered
+ * title-ish grounded field (label/key mentioning title, merchant, store,
+ * description or name) when one exists; otherwise return undefined so the
+ * caller shows a neutral label. Legacy jobs are untouched.
+ */
+function discoveryTitle(job: JobDTO | null): string | undefined {
+  if (!job || job.extractionMode !== "dynamic") return undefined;
+  const fields = job.fields ?? [];
+  const haystack = (f: FieldDTO) =>
+    `${f.label ?? ""} ${f.key}`.toLowerCase();
+  const pick = (needle: string) =>
+    fields.find((f) => haystack(f).includes(needle));
+  const titleLike =
+    pick("title") ??
+    pick("merchant") ??
+    pick("store") ??
+    pick("vendor") ??
+    pick("description") ??
+    pick("name");
+  const v = titleLike?.value;
+  const s =
+    typeof v === "string"
+      ? v
+      : v === null || v === undefined
+        ? ""
+        : JSON.stringify(v);
+  return s.trim().slice(0, 60) || undefined;
+}
+
 function displayValue(v: unknown): string {
   if (v === null || v === undefined || v === "") return "";
   if (Array.isArray(v)) return v.length ? JSON.stringify(v, null, 2) : "";
@@ -686,7 +717,12 @@ function DocRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <p className="text-[.85rem] font-bold text-foreground m-0 truncate">
-            {fileName ?? job?.sourceText?.slice(0, 40) ?? t("documents.title")}
+            {fileName ??
+              discoveryTitle(job) ??
+              (job?.extractionMode === "dynamic"
+                ? profileLabel(job.profileType)
+                : job?.sourceText?.slice(0, 40)) ??
+              t("documents.title")}
           </p>
           {complete && (
             <span className="fd-doc-chip flex-shrink-0" style={{ background: "rgba(16,185,129,.1)", color: "#10B981" }}>
@@ -848,7 +884,11 @@ function ReviewWorkspace(props: ReviewProps) {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-foreground m-0 truncate">
-                {job.sourceText?.slice(0, 60) || profileLabel(job.profileType)}
+                {discoveryTitle(job) ??
+                  (job.extractionMode === "dynamic"
+                    ? profileLabel(job.profileType)
+                    : (job.sourceText?.slice(0, 60) ||
+                        profileLabel(job.profileType)))}
               </p>
               <p className="text-xs text-muted-foreground m-0 mt-0.5">
                 {profileLabel(job.profileType)} · {t("documents.reviewTitle")}

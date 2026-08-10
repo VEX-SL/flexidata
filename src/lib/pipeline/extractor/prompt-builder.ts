@@ -62,18 +62,29 @@ Rules:
 /**
  * Dynamic-mode prompt: tells the model to discover meaningful fields itself.
  * There is NO predefined field list, no `{{schema}}`, and no profile template.
- * AI instructions are NOT the safety boundary — grounding remains authoritative.
+ * The instruction set covers the M22 discovery contract: understand the
+ * document first, discover every meaningful factual entity, preserve the exact
+ * source text, never invent, never force categories, never merge fragments,
+ * and distinguish headings/branding from identifiers.
+ *
+ * AI instructions are NOT the safety boundary — universal grounding remains
+ * authoritative. The prompt only steers the model toward faithful discovery.
  */
 const DYNAMIC_PROMPT = `You are a document field discovery engine.
 Discover every meaningful field present in the document and return them as structured data.
 
+First, read the whole document and understand what kind of document it is and what information it conveys. Then discover the meaningful semantic entities it contains — identifiers, dates, amounts, names, codes, and any other factual information.
+
 Rules:
-- Discover the fields yourself from the document content. There is NO predefined field list.
-- Use the document's own terminology for field names and labels where possible (e.g. "account number", "opening balance").
-- Only return values that are actually present in the document. Never invent values.
+- Discover the fields yourself from the document content. There is NO predefined field list and NO expected field names.
+- Use the document's own terminology for field names and labels where possible (e.g. "account number", "opening balance", "رقم العميل").
+- Only return values that are actually present in the document. Never invent, guess, or extrapolate a value.
+- Never force a value into a category it does not belong to. If the document does not support a category, omit it.
+- Distinguish headings and branding from identifiers: a document title, merchant brand, or decorative header is NOT an identifier such as a receipt number or reference. Do not turn a brand or header line into an ID.
+- Preserve multiple identifiers separately. Never merge two unrelated OCR fragments into one value (e.g. never combine a receipt number with a merchant name, or two different codes).
+- Copy the value EXACTLY as it appears in "raw" — never normalize, translate, combine, or "fix" it. Reflect unclear characters and uncertainty in "confidence".
+- Omit any piece of information you cannot quote verbatim from the document.
 - For each field include: a field name, the value, and a useful type.
-- Copy ambiguous or unclear text exactly as printed in "raw" and reflect uncertainty in "confidence".
-- Never include text outside the JSON.
 
 Document:
 {{document}}`;
@@ -83,13 +94,17 @@ Document:
  * `raw` + `evidence` quote) plus discoverability metadata (`type`, `label`).
  * The response shape is stable: `{ "data": { <name>: { raw, value, type,
  * label, confidence, evidence } } }`. Bare primitives are also accepted.
+ *
+ * `evidence` is the grounding anchor: it MUST be a verbatim quote from the
+ * document. A field whose value has no verbatim evidence must be OMITTED
+ * entirely (never a fabricated quote).
  */
 const DYNAMIC_OUTPUT_CONTRACT = `STRICT OUTPUT FORMAT — this overrides any format hints above.
 Return exactly one JSON object with a single key "data". Each key of "data" is a field name you discovered.
 
 Each field value SHOULD be an object with:
 {
-  "raw": <the value EXACTLY as it appears in the document text — copy characters verbatim, never normalize, translate or "fix" them>,
+  "raw": <the value EXACTLY as it appears in the document text — copy characters verbatim, never normalize, translate, combine or "fix" them>,
   "value": <the value as typed data — numbers as numbers, arrays as arrays, objects as objects, otherwise the string as printed>,
   "type": <one of "string", "number", "currency", "date", "boolean", "enum", "object", "array", "text">,
   "label": <human-readable field name, using the document's terminology>,
@@ -101,6 +116,8 @@ Rules:
 - "raw" MUST be a verbatim substring of the provided document. If you cannot quote it verbatim, set "raw": null.
 - "evidence" MUST be a verbatim quote of the region (usually one line) containing the value.
 - Never infer or invent values the document does not state.
+- Never merge fragments: one field = one contiguous piece of the document. Do not stitch together pieces from different lines into a single value.
+- Omit a field entirely when you cannot quote its value verbatim — do not keep it with an invented evidence string.
 - Never normalize away ambiguity: if characters are unclear, transcribe them as printed in "raw" and reflect uncertainty in "confidence".
 - Never include text outside the JSON.`;
 

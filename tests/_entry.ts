@@ -55,5 +55,6 @@ import "./tax-gate.test.ts";
 import "./line-items-evidence.test.ts";
 import "./dynamic-extraction.test.ts";
 import "./m21-dynamic-lifecycle.test.ts";
+import "./m22-discovery-acceptance.test.ts";
 
 await run();

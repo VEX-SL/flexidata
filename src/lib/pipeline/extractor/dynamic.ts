@@ -17,7 +17,61 @@ import type { FieldSchema, FieldType, FieldValue, RawExtraction } from "../types
 /** Default per-field confidence when the model omits one (mirrors legacy). */
 export const DEFAULT_DYNAMIC_FIELD_CONFIDENCE = 0.85;
 
-/** One AI-discovered field. */
+/**
+ * M22 — Discovery entity contract.
+ *
+ * The discovery result is a set of entities the AI discovered from the
+ * document content. It has NO binding to any profile schema: there are no
+ * required document fields and no hidden universal field list. The contract
+ * invariants (non-negotiable):
+ *
+ *  1. label      — human-readable semantic label, AI-discovered (never a
+ *                  schema label; `label` defaults to a safe derivation of the
+ *                  AI's own field name, never to a schema key).
+ *  2. raw_value  — the value exactly as the AI claims it from the document.
+ *  3. evidence_text — the grounding anchor: a verbatim quote that universal
+ *                  grounding must prove exists in the OCR (see
+ *                  `universalGrounding`). Never proof by itself — the value
+ *                  must also anchor.
+ *  4. normalized_value — OPTIONAL typed/normalized reading. It NEVER replaces
+ *                  raw_value; the raw reading is always preserved and exported.
+ *  5. confidence — informational only. Never treated as verified truth until
+ *                  universal grounding validates the value.
+ *  6. type       — descriptive hint from the AI, NOT a schema restriction.
+ *  7. No required document fields, no no-invention exception, no fabricated
+ *                  relationships.
+ *
+ * Mapped onto the existing architecture:
+ *   DynamicFieldSpec.name            → id (safe snake_case key)
+ *   DynamicFieldSpec.label           → label
+ *   DynamicFieldSpec.value           → raw_value (preserved as-is)
+ *   DynamicFieldSpec.raw             → optional verbatim source reading
+ *   DynamicFieldSpec.evidence        → evidence_text (grounding hint)
+ *   DynamicFieldSpec.type/confidence → type / confidence
+ *   FieldValue (NormalizedField)     → the committed entity
+ *
+ * Relationships are intentionally NOT modeled in this release: discovery must
+ * never fabricate links between entities, so nothing in the contract asks for
+ * them.
+ */
+export interface DiscoveredEntity {
+  /** Stable identity: the safe snake_case key (never a JS prototype key). */
+  id: string;
+  /** Human-readable semantic label — AI-discovered, never a schema label. */
+  label?: string;
+  /** The value exactly as the AI claims it from the document. */
+  raw_value: unknown;
+  /** Optional typed/normalized reading. NEVER replaces `raw_value`. */
+  normalized_value?: unknown;
+  /** Descriptive type from the AI. Informational, not a schema restriction. */
+  type: FieldType;
+  /** Verbatim quote the AI anchors the value to (grounding anchor, not proof). */
+  evidence_text?: string;
+  /** Model confidence 0..1 — informational until universal grounding validates. */
+  confidence?: number;
+}
+
+/** One AI-discovered field (runtime shape underlying the contract). */
 export interface DynamicFieldSpec {
   /** Canonical safe key (snake_case, never a JS object-prototype key). */
   name: string;

@@ -60,6 +60,45 @@ export function isGenericItemDescription(desc: string): boolean {
 }
 
 /**
+ * M22 — Universal grounding: deterministic verbatim-existence proof that an
+ * AI-supplied evidence quote genuinely appears in the OCR stream.
+ *
+ * This is the discovery mode's grounding primitive. It is deliberately NOT:
+ *  - schema semantics / lexicon / required-field validity checks,
+ *  - fuzzy character matching, edit distance, or "close enough" acceptance
+ *    ("60 SuperPay eX" must NEVER ground against "$ SuperPay e&"),
+ *  - cross-line stitching of fragments into one quote.
+ *
+ * It proves only that the normalized quote is a contiguous substring of one
+ * OCR line (after the same deterministic normalization the whole pipeline
+ * uses: bidi stripping, digit unification, Arabic-variant canonicalization,
+ * case folding). Every accepted discovery entity must satisfy this (either
+ * via its `evidence` quote or via its value).
+ */
+export interface UniversalGroundingResult {
+  grounded: boolean;
+  /** First OCR line that contains the quote, when grounded. */
+  matchedLine?: number;
+  /** Verbatim text of that line, when grounded. */
+  quote?: string;
+}
+
+export function universalGrounding(
+  evidenceText: string,
+  rawOcr: string
+): UniversalGroundingResult {
+  const needle = normalizeText(evidenceText);
+  if (!needle) return { grounded: false };
+
+  const lines = rawOcr.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    if (!normalizeText(lines[i]).includes(needle)) continue;
+    return { grounded: true, matchedLine: i, quote: lines[i].trim() };
+  }
+  return { grounded: false };
+}
+
+/**
  * Ground an extraction: attach verified evidence, drop ungrounded or
  * relabeled values, and compose real per-field confidence.
  *
@@ -161,6 +200,22 @@ export function groundExtraction(
       drops[field.key] = "not found in source text";
       delete map[field.key];
       continue;
+    }
+
+    // M22 — evidence-text anchoring for discovery entities: when the AI
+    // supplied an evidence quote that universal grounding proves verbatim,
+    // those lines become the field's anchor (displayed alongside the value
+    // evidence). This runs AFTER the value-existence gate, so a fabricated
+    // value can never be smuggled in via a grounded quote — the value must
+    // still anchor (see the drop above).
+    if (dynamic) {
+      const hint = evidenceQuoteOf(fv);
+      if (hint && universalGrounding(hint, ocrDoc.text).grounded) {
+        const quoteEvidence = findQuoteEvidence(ocrDoc, hint);
+        if (quoteEvidence.length > 0) {
+          evidence = dedupeEvidence([...quoteEvidence, ...evidence]);
+        }
+      }
     }
 
     // Line items are evidence in their own right: each item's description is
@@ -352,6 +407,31 @@ export function derivedVariants(field: FieldSchema, value: unknown): string[] {
     return [normalizeText(Number(value).toLocaleString("en-US"))];
   }
   return [];
+}
+
+/** AI-supplied evidence quote carried on the value's meta (grounding hint). */
+function evidenceQuoteOf(fv: FieldValue): string | undefined {
+  const meta = fv.meta as { evidenceQuote?: unknown } | undefined;
+  return typeof meta?.evidenceQuote === "string" &&
+    meta.evidenceQuote.trim().length > 0
+    ? meta.evidenceQuote
+    : undefined;
+}
+
+/**
+ * Anchor a verbatim evidence quote to the OCR line(s) containing it. Used to
+ * turn a universally-grounded AI quote into a real FieldEvidence anchor.
+ */
+function findQuoteEvidence(ocrDoc: OcrDocument, hint: string): FieldEvidence[] {
+  const norm = normalizeText(hint);
+  if (!norm) return [];
+  const out: FieldEvidence[] = [];
+  for (let i = 0; i < ocrDoc.lines.length; i++) {
+    const line = ocrDoc.lines[i];
+    if (!normalizeText(line.text).includes(norm)) continue;
+    out.push(makeEvidence(line, i, "value-match", norm));
+  }
+  return dedupeEvidence(out);
 }
 
 /**

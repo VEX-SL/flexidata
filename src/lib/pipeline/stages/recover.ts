@@ -43,6 +43,23 @@ export function recoverStage(opts: { ai?: AIClient } = {}): PipelineStage {
   return {
     id: "recover",
     async run(ctx) {
+      // M22 — discovery mode has no profile schema to recover against. The
+      // deterministic FIND arm (label-driven, schema-required fields) and the
+      // cross-provider retry (schema-required fields only) are both
+      // meaningless — and dangerous — when the extraction contract is
+      // schema-free: they would inject legacy schema fields into a discovery
+      // result. Discovery mode therefore skips recovery entirely. "Less
+      // extraction" always beats fabricated extraction.
+      if (ctx.input?.extractionMode === "dynamic") {
+        ctx.recovery = {
+          flagged: [],
+          ambiguous: [],
+          retryAttempted: false,
+          retryProviders: [],
+        };
+        return;
+      }
+
       const profile = ctx.profile;
       const extraction = ctx.extraction;
       if (!profile || !extraction) {
@@ -189,6 +206,9 @@ function retryEligibleRequiredFields(
   extraction: ExtractionResult,
   recovered: RecoverResult
 ): string[] {
+  // M22 — the cross-provider retry is gated on schema-required fields, which
+  // discovery mode does not have. Never retry a dynamic extraction.
+  if (extraction.extractionMode === "dynamic") return [];
   const eligible: string[] = [];
   for (const field of profile.schema.fields) {
     if (!field.required) continue;

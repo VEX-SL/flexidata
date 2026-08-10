@@ -51,6 +51,13 @@ export function recoverMissingFields(
   sourceText: string,
   ocr?: OcrDocument
 ): RecoverResult {
+  // M22 — discovery results are schema-free: there are no required fields to
+  // recover. Running the legacy label-driven FIND over the profile schema here
+  // would re-inject legacy schema fields (P0#1), so recovery is a no-op for
+  // dynamic extractions no matter which caller invokes it.
+  if (extraction.extractionMode === "dynamic") {
+    return { flagged: new Map(), ambiguous: new Map(), candidates: new Map() };
+  }
   const ocrDoc = ocr ?? buildOcrDocument(sourceText);
   const flagged = new Map<string, FieldValue>();
   const ambiguous = new Map<string, FieldValue>();
