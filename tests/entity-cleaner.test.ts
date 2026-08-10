@@ -369,8 +369,14 @@ test("clean stage improves real-world output end-to-end", async () => {
   );
   ok(out.status === "complete", `pipeline must complete: ${JSON.stringify(out.error)}`);
   equal(out.job!.extraction.fieldsMap.merchant_name.value, "SuperPay");
-  ok(!out.job!.extraction.fieldsMap.notes, "line-merged notes must be dropped by the cleaner");
+  // Line-merged notes (two real OCR lines glued by the model) are not verbatim
+  // on any single OCR line: grounding now drops them, so they never reach the
+  // cleaner at all. The end-to-end guarantee is unchanged.
+  ok(!out.job!.extraction.fieldsMap.notes, "line-merged notes must be dropped");
+  ok(
+    /not found in source text/.test(out.job!.extraction.droppedFields.notes ?? ""),
+    "line-merged notes must be dropped by grounding"
+  );
   const cleanTrace = out.trace.find((t) => t.stage === "clean" && t.event === "finish")?.data as Record<string, unknown>;
   includes(cleanTrace.cleaned as string, "merchant_name");
-  includes(cleanTrace.dropped as string, "notes");
 });

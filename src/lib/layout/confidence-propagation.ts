@@ -27,6 +27,7 @@ import type {
 import {
   COMPONENT_KEYS,
   aggregateConfidenceComponents,
+  createConfidenceComponents,
   defaultCompositeScore,
 } from "./confidence";
 import type { ConfidenceDistribution } from "./types";
@@ -78,14 +79,17 @@ function weightedDistribution(
 }
 
 function sampleComponents(profile: ConfidenceProfile): ConfidenceComponents {
-  return {
-    ocr: profile.ocr.mean,
-    geometric: profile.geometric.mean,
-    structural: profile.structural.mean,
-    boundary: profile.boundary.mean,
-    typological: profile.typological.mean,
-    order: profile.order.mean,
-  };
+  return createConfidenceComponents(
+    {
+      ocr: profile.ocr.mean,
+      geometric: profile.geometric.mean,
+      structural: profile.structural.mean,
+      boundary: profile.boundary.mean,
+      typological: profile.typological.mean,
+      order: profile.order.mean,
+    },
+    profile.measured
+  );
 }
 
 /**
@@ -113,7 +117,7 @@ function propagateParent(
   const samples = profiles.map((profile) => sampleComponents(profile));
   const propagated = aggregateConfidenceComponents(samples, weights);
 
-  const byKey = {} as Record<keyof ConfidenceComponents, ConfidenceDistribution>;
+  const byKey = {} as Record<(typeof COMPONENT_KEYS)[number], ConfidenceDistribution>;
   for (const key of COMPONENT_KEYS) {
     byKey[key] = weightedDistribution(
       samples.map((sample) => sample[key]),
@@ -123,6 +127,7 @@ function propagateParent(
   const composite = compositePolicy(propagated);
   return Object.freeze({
     ...byKey,
+    measured: propagated.measured,
     aggregate: Object.freeze({
       count: 1,
       mean: composite,

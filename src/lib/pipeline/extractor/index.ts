@@ -1,5 +1,6 @@
 import type {
   AIClient,
+  ExtractionMode,
   ExtractionProfile,
   ExtractionResult,
   FieldsMap,
@@ -10,7 +11,8 @@ import type {
 import { extractJSON } from "./json-repair";
 import { extractWithAI } from "./ai-client";
 import { buildExtractionPrompt } from "./prompt-builder";
-import { normalizeFields } from "./normalizer";
+import { normalizeDynamicFields, normalizeFields } from "./normalizer";
+import { fieldSchemaForDynamicField } from "./dynamic";
 import { groundExtraction } from "./grounding";
 
 export interface ExtractDocumentInput {
@@ -18,6 +20,7 @@ export interface ExtractDocumentInput {
   sourceText: string;
   ocr?: OcrDocument;
   model?: string;
+  extractionMode?: ExtractionMode;
 }
 
 export interface ExtractDocumentOptions {
@@ -39,7 +42,11 @@ export async function extractDocument(
   ai?: AIClient,
   opts: ExtractDocumentOptions = {}
 ): Promise<ExtractionResult> {
-  const prompt = buildExtractionPrompt(input.profile, input.sourceText);
+  const prompt = buildExtractionPrompt(
+    input.profile,
+    input.sourceText,
+    input.extractionMode
+  );
 
   const aiCall = await extractWithAI(
     {
@@ -49,7 +56,11 @@ export async function extractDocument(
     ai
   );
 
-  const candidates = candidatesFromAICall(input.profile, aiCall);
+  const candidates = candidatesFromAICall(
+    input.profile,
+    aiCall,
+    input.extractionMode
+  );
 
   if (opts.grounded === false) return candidates;
 
@@ -65,18 +76,28 @@ export async function extractDocument(
  * Build the candidate extraction (normalized, ungrounded) from a raw AI call.
  * Shared by the main extraction path and the recovery stage's cross-provider
  * retry so both construct candidates identically.
+ *
+ * In dynamic mode the normalizer preserves arbitrary AI-discovered fields and
+ * `candidateFields` synthesizes a schema per field (compatibility adapter);
+ * the synthesized schema is NOT a registry and is only used to carry the field
+ * through the existing pipeline shape.
  */
 export function candidatesFromAICall(
   profile: ExtractionProfile,
-  aiCall: { content: string; model?: string; provider?: string }
+  aiCall: { content: string; model?: string; provider?: string },
+  extractionMode: ExtractionMode = "legacy"
 ): ExtractionResult {
   const raw: RawExtraction = parseRaw(aiCall.content);
-  const normalizedMap = normalizeFields(profile, raw);
+  const dynamic = extractionMode === "dynamic";
+  const normalizedMap = dynamic
+    ? normalizeDynamicFields(profile, raw)
+    : normalizeFields(profile, raw);
 
   return {
     profileType: profile.id as ExtractionResult["profileType"],
     profileVersion: profile.version,
-    fields: candidateFields(profile, normalizedMap),
+    extractionMode,
+    fields: candidateFields(profile, normalizedMap, dynamic),
     fieldsMap: normalizedMap,
     cleanFields: candidateCleanFields(normalizedMap),
     droppedFields: {},
@@ -88,9 +109,19 @@ export function candidatesFromAICall(
 
 function candidateFields(
   profile: ExtractionProfile,
-  map: FieldsMap
+  map: FieldsMap,
+  dynamic: boolean
 ): NormalizedField[] {
   const fields: NormalizedField[] = [];
+  if (dynamic) {
+    for (const [key, fv] of Object.entries(map)) {
+      fields.push({
+        field: fieldSchemaForDynamicField(key, fv),
+        value: fv,
+      });
+    }
+    return fields;
+  }
   for (const field of profile.schema.fields) {
     if (map[field.key]) fields.push({ field, value: map[field.key] });
   }

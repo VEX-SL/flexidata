@@ -21,6 +21,7 @@ import "./edge-types.test.ts";
 import "./region-types.test.ts";
 import "./node-levels.test.ts";
 import "./confidence.test.ts";
+import "./confidence-measured.test.ts";
 import "./semantic-graph.test.ts";
 import "./layout-validation.test.ts";
 import "./layout-stats.test.ts";
@@ -50,5 +51,9 @@ import "./layout-selection.test.ts";
 import "./layout-extractor-adapter.test.ts";
 import "./layout-aware-extraction.test.ts";
 import "./verify-or-find.test.ts";
+import "./tax-gate.test.ts";
+import "./line-items-evidence.test.ts";
+import "./dynamic-extraction.test.ts";
+import "./m21-dynamic-lifecycle.test.ts";
 
 await run();

@@ -11,6 +11,7 @@ import { computeConfidence } from "./confidence";
 import { validateExtraction } from "./validator";
 import type {
   AIClient,
+  ExtractionMode,
   ExtractionResult,
   ExportFormat,
   FieldEvidence,
@@ -25,6 +26,7 @@ import type {
 import type { JobDTO, ExtractionListDTO, FieldDTO } from "./dto";
 import { exportExtraction } from "./exporter";
 import { isEmptyValue } from "./extractor/post-processor";
+import { safeFieldKey } from "./extractor/dynamic";
 
 /**
  * PipelineService — transport-agnostic pipeline execution.
@@ -55,6 +57,7 @@ export class PipelineService {
       idempotencyKey?: string;
       force?: boolean;
       ocr?: OcrDocument;
+      extractionMode?: ExtractionMode;
     }
   ): Promise<{ job: JobDTO; created: boolean; rerun: boolean }> {
     // ── Resolve + validate input ─────────────────────────────────────
@@ -178,6 +181,7 @@ export class PipelineService {
       fileId,
       profileType: req.profileType,
       ocr,
+      extractionMode: req.extractionMode,
     };
 
     const out = await runPipeline(input, { ai: this.ai });
@@ -192,6 +196,7 @@ export class PipelineService {
         source_text: sourceText.slice(0, 200_000),
         profile_type: classification.profileType,
         profile_version: extraction.profileVersion,
+        extraction_mode: extraction.extractionMode ?? "legacy",
         provider: extraction.provider ?? null,
         model: extraction.model ?? null,
         processing_time_ms: processingTimeMs,
@@ -346,8 +351,26 @@ export class PipelineService {
     }
 
     const profile = getProfileManager().getOrFallback(String(row.profile_type));
+    const mode: ExtractionMode = (row.extraction_mode as ExtractionMode) ?? "legacy";
     const schemaKeys = new Set(profile.schema.fields.map((f) => f.key));
-    const unknown = Object.keys(overrides).filter((k) => !schemaKeys.has(k));
+
+    const stored = (Array.isArray(row.fields_json)
+      ? row.fields_json
+      : []) as FieldDTO[];
+    const byKey = new Map(stored.map((f) => [f.key, f] as const));
+
+    // Which keys may be corrected depends on the extraction mode:
+    // - legacy: only profile-schema keys (unchanged behaviour).
+    // - dynamic: only fields the extraction actually produced AND that are
+    //   structurally safe keys. Editing a dynamic field never creates new
+    //   fields, so the no-invention contract (nothing beyond what the document
+    //   produced) is preserved — the user can fix a discovered value but
+    //   cannot inject arbitrary keys.
+    const allowedKey = (k: string): boolean => {
+      if (mode === "legacy") return schemaKeys.has(k);
+      return stored.some((f) => f.key === k) && safeFieldKey(k) === k;
+    };
+    const unknown = Object.keys(overrides).filter((k) => !allowedKey(k));
     if (unknown.length > 0) {
       throw new PipelineError(`Unknown field(s): ${unknown.join(", ")}`, {
         code: "BAD_REQUEST",
@@ -355,17 +378,19 @@ export class PipelineService {
       });
     }
 
-    const stored = (Array.isArray(row.fields_json)
-      ? row.fields_json
-      : []) as FieldDTO[];
-    const byKey = new Map(stored.map((f) => [f.key, f] as const));
-
     for (const [key, rawValue] of Object.entries(overrides)) {
-      const schema = profile.schema.fields.find((f) => f.key === key)!;
-      const value = coerceValue(rawValue, schema.type);
+      const schema = profile.schema.fields.find((f) => f.key === key);
       const existing = byKey.get(key);
+      // Dynamic fields carry their persisted type/label; legacy fields resolve
+      // to their profile schema. Either way the type is known before coercion.
+      const type =
+        schema?.type ?? (existing?.type as FieldSchema["type"]) ?? "string";
+      const value = coerceValue(rawValue, type);
+      const label = schema?.label ?? existing?.label ?? key;
       if (existing) {
         existing.value = value;
+        existing.type = type;
+        existing.label = label;
         existing.confidence = 1;
         existing.source = "verified";
         existing.status = "edited";
@@ -375,6 +400,8 @@ export class PipelineService {
         byKey.set(key, {
           key,
           value,
+          type,
+          label,
           confidence: 1,
           source: "verified",
           status: "edited",
@@ -465,6 +492,7 @@ export class PipelineService {
       fileId: newFileId,
       idempotencyKey: `file:${newFileId}`,
       force: true,
+      extractionMode: (row.extraction_mode as "legacy" | "dynamic") ?? "legacy",
     });
   }
 
@@ -603,11 +631,24 @@ function rebuildExtraction(
   row: Row,
   profile: ReturnType<ReturnType<typeof getProfileManager>["getOrFallback"]>
 ): ExtractionResult {
+  const mode: ExtractionMode = (row.extraction_mode as ExtractionMode) ?? "legacy";
   const stored = (Array.isArray(row.fields_json) ? row.fields_json : []) as FieldDTO[];
   const fields: NormalizedField[] = stored.map((s) => {
-    const fieldSchema = profile.schema.fields.find((f) => f.key === s.key);
+    const schemaField = profile.schema.fields.find((f) => f.key === s.key);
+    // Fields that belong to the profile schema are reconstructed from that
+    // schema (legacy byte-identical). Dynamic fields keep their persisted
+    // discovered type/label instead of degrading to an untyped string.
+    const fieldSchema =
+      schemaField ??
+      (s.type
+        ? {
+            key: s.key,
+            type: s.type as FieldSchema["type"],
+            label: s.label ?? s.key,
+          }
+        : { key: s.key, type: "string" as const, label: s.key });
     return {
-      field: fieldSchema ?? { key: s.key, type: "string", label: s.key },
+      field: fieldSchema,
       value: {
         value: s.value,
         rawValue: s.raw,
@@ -633,6 +674,7 @@ function rebuildExtraction(
   return {
     profileType: String(row.profile_type) as ProfileType,
     profileVersion: row.profile_version,
+    extractionMode: mode,
     fields,
     fieldsMap,
     cleanFields,
@@ -647,6 +689,8 @@ function serializeFields(extraction: ExtractionResult): FieldDTO[] {
     key: f.field.key,
     value: f.value.value,
     raw: f.value.rawValue,
+    type: f.field.type,
+    label: f.field.label ?? f.field.key,
     evidence: f.value.evidence,
     confidence: round4(f.value.confidence),
     source: f.value.source,

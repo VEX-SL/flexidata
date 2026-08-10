@@ -16,6 +16,7 @@ import { detectLabelGroup, labelGroupForField } from "./label-lexicon";
 import { verifyEvidence } from "./verify-or-find";
 import { isNoiseFragment } from "../text-quality";
 import { spanBox } from "../geometry";
+import { fieldSchemaForDynamicField } from "./dynamic";
 
 /**
  * Grounding stage — turns AI *candidates* into committed *fields*.
@@ -81,7 +82,11 @@ export function groundExtraction(
   const totalValue = totalField ? map[totalField.key]?.value : undefined;
 
   // ── Pass 1: evidence + strict grounding ─────────────────────────────
-  for (const field of profile.schema.fields) {
+  // Iterate every field in the map: schema fields first (schema order), then
+  // any additional discovered fields (dynamic mode) in their insertion order.
+  // The universal semantic checks and evidence anchoring apply to all of them —
+  // grounding is the authority for both legacy and dynamic extraction.
+  for (const { field, dynamic } of enumerateFields(profile, map)) {
     const fv = map[field.key];
     if (!fv || isEmpty(fv.value)) continue;
 
@@ -97,22 +102,24 @@ export function groundExtraction(
       if (!TAX_KEYWORD.test(sourceText)) {
         drops[field.key] = "no tax identifier in document";
         delete map[field.key];
+        continue;
       }
-      continue;
     }
     if (field.key === "line_items" && Array.isArray(fv.value)) {
       if (!looksLikeItemizedList(fv.value, totalValue, sourceText)) {
         drops[field.key] = "no itemized product list in document";
         delete map[field.key];
+        continue;
       }
-      continue;
     }
     if (field.key === "notes") {
       if (isNoiseFragment(String(fv.value))) {
         drops[field.key] = "OCR artifacts / non-clean text";
         delete map[field.key];
+        continue;
       }
-      continue;
+      // A clean note is still anchored to its OCR span below (evidence, label
+      // verdict, confidence) like every other field — never `no_direct_evidence`.
     }
     if (field.type === "text" && isNoiseFragment(String(fv.value))) {
       drops[field.key] = "OCR artifacts / non-clean text";
@@ -156,9 +163,29 @@ export function groundExtraction(
       continue;
     }
 
+    // Line items are evidence in their own right: each item's description is
+    // anchored to the OCR line it came from, so the whole matching set is the
+    // field's evidence. There is no single value being borrowed from a labeled
+    // line (the relabel veto does not apply — the descriptions ARE the line
+    // content) and no single "primary reading" to rank, so the evidence is
+    // kept as-is instead of being split into a primary plus alternatives.
+    if (field.key === "line_items") {
+      map[field.key] = { ...fv, evidence: dedupeEvidence(evidence) };
+      continue;
+    }
+
     // Never relabel: a value sitting on a line labeled for another category
     // (e.g. a reference number used as a tax ID) is dropped, not borrowed.
-    const verdict = labelVerdict(field, evidence);
+    // This veto guards SCHEMA fields — it is derived from the field-key →
+    // label-category heuristic, which is meaningless for arbitrary AI-discovered
+    // labels. For dynamic fields the AI declared the field, its label and its
+    // evidence together, and the value still must anchor verbatim above; the
+    // lexicon heuristic must not veto that (e.g. "Reference Date" hits the
+    // "reference" number word).
+    let verdict: LabelVerdict = "ok";
+    if (!dynamic) {
+      verdict = labelVerdict(field, evidence);
+    }
     if (verdict === "conflict") {
       drops[field.key] = "value labeled for a different field";
       delete map[field.key];
@@ -177,7 +204,7 @@ export function groundExtraction(
   }
 
   // ── Pass 2: composed confidence ─────────────────────────────────────
-  for (const field of profile.schema.fields) {
+  for (const { field } of enumerateFields(profile, map)) {
     const fv = map[field.key];
     if (!fv || isEmpty(fv.value)) continue;
     const aiConf = clampFieldConfidence(fv);
@@ -195,7 +222,7 @@ export function groundExtraction(
   // ── Pass 3: post-processing (drop empty / low-confidence) ───────────
   const fields: NormalizedField[] = [];
   const cleanFields: Record<string, unknown> = {};
-  for (const field of profile.schema.fields) {
+  for (const { field } of enumerateFields(profile, map)) {
     const fv = map[field.key];
     if (!fv) {
       drops[field.key] ??= "not found in document";
@@ -224,6 +251,28 @@ export function groundExtraction(
 
 // ── Evidence ───────────────────────────────────────────────────────────────
 
+/**
+ * Enumerate every field in the extraction map: profile schema fields in schema
+ * order first, then any additional discovered keys (dynamic mode) in their
+ * insertion order. Dynamic keys get a per-field schema synthesized from the
+ * value's own metadata (type/label) — a compatibility adapter, never a field
+ * registry. In legacy mode the map only holds schema keys, so this is a no-op
+ * over the original behavior.
+ */
+function enumerateFields(
+  profile: ExtractionProfile,
+  map: FieldsMap
+): Array<{ field: FieldSchema; dynamic: boolean }> {
+  const schemaKeys = new Set(profile.schema.fields.map((f) => f.key));
+  const out: Array<{ field: FieldSchema; dynamic: boolean }> =
+    profile.schema.fields.map((field) => ({ field, dynamic: false }));
+  for (const key of Object.keys(map)) {
+    if (schemaKeys.has(key)) continue;
+    out.push({ field: fieldSchemaForDynamicField(key, map[key]), dynamic: true });
+  }
+  return out;
+}
+
 function findEvidence(
   ocrDoc: OcrDocument,
   field: FieldSchema,
@@ -251,17 +300,21 @@ function findEvidence(
   return dedupeEvidence(out);
 }
 
-/** Verbatim (or best-guess) source strings to search for. */
+/**
+ * Verbatim (or best-guess) source strings to search for. An array field (e.g.
+ * line items) anchors on its ITEM descriptions — each item is its own OCR line
+ * — never on the model's concatenated `rawValue`, which is not a single span.
+ */
 export function valueNeedles(field: FieldSchema, fv: FieldValue): string[] {
-  const raw = fv.rawValue !== undefined && fv.rawValue !== null
-    ? fv.rawValue
-    : fv.value;
-
-  if (field.type === "array" && Array.isArray(raw)) {
-    return (raw as Array<Record<string, unknown>>)
+  if (field.type === "array" && Array.isArray(fv.value)) {
+    return (fv.value as Array<Record<string, unknown>>)
       .map((it) => it?.description)
       .filter((d): d is string => typeof d === "string" && d.trim().length > 0);
   }
+
+  const raw = fv.rawValue !== undefined && fv.rawValue !== null
+    ? fv.rawValue
+    : fv.value;
   if (typeof raw === "string") return raw.trim() ? [raw] : [];
   if (typeof raw === "number") return [String(raw)];
   return [];

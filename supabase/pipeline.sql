@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS public.extractions (
   idempotency_key    TEXT,                     -- dedupe: client key or file:<file_id>
   profile_type       TEXT NOT NULL DEFAULT 'unknown',
   profile_version    INTEGER NOT NULL DEFAULT 1,
+  extraction_mode    TEXT NOT NULL DEFAULT 'legacy'
+                     CHECK (extraction_mode IN ('legacy','dynamic')), -- contract mode of this run
   status             TEXT NOT NULL DEFAULT 'queued'
                      CHECK (status IN ('queued','classifying','extracting','validating','complete','error')),
   -- ── Immutable metadata (set once) ──
@@ -43,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.extractions (
   completed_at       TIMESTAMPTZ,
   -- ── Results (written once on completion) ──
   overall_confidence NUMERIC(5,4),             -- 0..1
-  fields_json        JSONB,                    -- [{key,value,confidence,source,status}]
+  fields_json        JSONB,                    -- [{key,value,confidence,source,status,type?,label?,raw?,evidence?,alternatives?,reasons?}]
   validation_json    JSONB,                    -- {ok, missing, results[]}
   confidence_json    JSONB,                    -- {overall, signals, summary[]}
   trace_json         JSONB,                    -- TraceEvent[] (debugging/monitoring)
@@ -113,3 +115,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_extractions_idempotency
 -- Upgrade path for existing databases (idempotent)
 -- ==========================================
 ALTER TABLE public.extractions ADD COLUMN IF NOT EXISTS ocr_json JSONB;
+ALTER TABLE public.extractions ADD COLUMN IF NOT EXISTS extraction_mode TEXT NOT NULL DEFAULT 'legacy'
+  CHECK (extraction_mode IN ('legacy','dynamic'));

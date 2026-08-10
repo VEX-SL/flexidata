@@ -14,6 +14,15 @@ import { getProfileManager } from "./profiles/registry";
 export function validateExtraction(
   extraction: ExtractionResult
 ): ValidationResult {
+  // Dynamic extractions are not bound to the profile schema, so no profile
+  // validation rule can apply: there are no required keys and no pattern/enum
+  // contracts. Validation is neutral (ok) and confidence is driven by
+  // grounding signals only. This is a deliberate divergence — the "schema" for
+  // a dynamic extraction IS what the document produced.
+  if (extraction.extractionMode === "dynamic") {
+    return { ok: true, results: [], missing: [] };
+  }
+
   const profile = getProfileManager().getOrFallback(extraction.profileType);
   const rules = profile.validationRules;
   const results: ValidationOutcome[] = [];

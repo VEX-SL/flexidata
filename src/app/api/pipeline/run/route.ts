@@ -53,6 +53,11 @@ export async function POST(request: Request) {
     return badRequest(`Unknown profile type: ${profileType}`);
   }
 
+  const extractionMode = asString(body.extractionMode);
+  if (extractionMode && !["legacy", "dynamic"].includes(extractionMode)) {
+    return badRequest(`Unknown extraction mode: ${extractionMode}`);
+  }
+
   try {
     const service = new PipelineService();
     const { job, created, rerun } = await service.run(user.id, {
@@ -63,6 +68,7 @@ export async function POST(request: Request) {
       profileType: profileType as ProfileType,
       idempotencyKey: asString(body.idempotencyKey),
       force: body.force === true,
+      extractionMode: extractionMode as "legacy" | "dynamic" | undefined,
     });
 
     return NextResponse.json(

@@ -16,6 +16,18 @@ export interface FieldDTO {
   value: unknown;
   /** Verbatim source value (raw OCR reading), when preserved. */
   raw?: unknown;
+  /**
+   * Per-field type (dynamic mode) or the profile schema type (legacy).
+   * Persisted so dynamic fields reload with their discovered type instead of
+   * degrading to an untyped string.
+   */
+  type?: string;
+  /**
+   * Human-readable label: the AI-discovered label (dynamic) or the schema
+   * label (legacy). Persisted so dynamic fields never lose their label on
+   * reload.
+   */
+  label?: string;
   /** Source-document anchors supporting the value. */
   evidence?: Array<{
     quote: string;
@@ -49,6 +61,8 @@ export interface JobDTO {
   profileType: ProfileType | string;
   profileVersion: number;
   pipelineVersion: number;
+  /** Extraction contract mode: "legacy" (default) or "dynamic". */
+  extractionMode?: string | null;
   provider?: string | null;
   model?: string | null;
   processingTimeMs?: number | null;
@@ -96,6 +110,7 @@ export interface ExtractionRow {
   profile_type: ProfileType | string;
   profile_version: number;
   pipeline_version: number;
+  extraction_mode?: string | null;
   provider?: string | null;
   model?: string | null;
   processing_time_ms?: number | null;
@@ -125,6 +140,7 @@ export function toJobDTO(row: ExtractionRow): JobDTO {
     profileType: row.profile_type,
     profileVersion: row.profile_version,
     pipelineVersion: row.pipeline_version,
+    extractionMode: row.extraction_mode ?? "legacy",
     provider: row.provider ?? null,
     model: row.model ?? null,
     processingTimeMs: row.processing_time_ms ?? null,

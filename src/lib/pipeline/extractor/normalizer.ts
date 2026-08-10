@@ -6,6 +6,10 @@ import type {
   FieldsMap,
   RawExtraction,
 } from "../types";
+import {
+  DEFAULT_DYNAMIC_FIELD_CONFIDENCE,
+  parseDynamicExtraction,
+} from "./dynamic";
 
 const DEFAULT_FIELD_CONFIDENCE = 0.85;
 
@@ -46,6 +50,49 @@ export function normalizeFields(
       source: "ai",
       status: "extracted",
       meta: envelope.evidence ? { evidenceQuote: envelope.evidence } : undefined,
+    };
+  }
+
+  return map;
+}
+
+/**
+ * Dynamic-mode normalizer — preserves arbitrary AI-discovered fields.
+ *
+ * Unlike `normalizeFields` (which iterates `profile.schema.fields` and silently
+ * discards any non-schema key), this iterates EVERY key the AI returned:
+ *  - arbitrary field names are preserved (safe-keyed, never prototype keys);
+ *  - values are preserved as-is (structure kept, meaning NOT inferred — date
+ *    and number interpretation belongs to later grounding/domain validation);
+ *  - type / label / semantic-group / evidence from the AI are kept on `meta`
+ *    (type is consumed by the compatibility adapter at the extractor boundary);
+ *  - AI confidence is preserved but stays informational until grounding
+ *    validates the value.
+ *
+ * Legacy behavior is untouched: this function is only used in dynamic mode.
+ */
+export function normalizeDynamicFields(
+  _profile: ExtractionProfile,
+  raw: RawExtraction
+): FieldsMap {
+  const map: FieldsMap = {};
+  const specs = parseDynamicExtraction(raw);
+
+  for (const spec of specs) {
+    const meta: Record<string, unknown> = { dynamicType: spec.type };
+    if (spec.label !== undefined) meta.dynamicLabel = spec.label;
+    if (spec.group !== undefined) meta.dynamicGroup = spec.group;
+    if (spec.evidence !== undefined) meta.evidenceQuote = spec.evidence;
+
+    map[spec.name] = {
+      value: spec.value,
+      rawValue: spec.raw,
+      confidence: clamp(
+        spec.confidence ?? DEFAULT_DYNAMIC_FIELD_CONFIDENCE
+      ),
+      source: "ai",
+      status: "extracted",
+      meta,
     };
   }
 

@@ -107,8 +107,15 @@ function exportCsv(
   _options: ExportOptions,
   fileName: string
 ): ExportResult {
+  // Dynamic extractions have no static column list: columns are exactly the
+  // fields the extraction produced, in extraction order (deduped). Legacy
+  // extractions keep the profile's configured columns (unchanged behaviour).
   const columns =
-    profile.exportConfig.csvColumns ?? Object.keys(extraction.cleanFields);
+    extraction.extractionMode === "dynamic"
+      ? Array.from(
+          new Set(extraction.fields.map((f) => f.field.key))
+        )
+      : profile.exportConfig.csvColumns ?? Object.keys(extraction.cleanFields);
   const row = columns.map((col) => {
     const fv = extraction.fieldsMap[col];
     const value = fv && !isEmptyValue(fv.value) ? fv.value : "";

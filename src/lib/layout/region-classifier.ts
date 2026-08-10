@@ -27,7 +27,7 @@ import type { LayoutHierarchy } from "./hierarchy";
 import { NODE_LEVEL } from "./node-levels";
 import type { RegionType } from "./region-types";
 import { REGION_TYPE } from "./region-types";
-import { createConfidenceProfile } from "./confidence";
+import { createConfidenceComponents, createConfidenceProfile } from "./confidence";
 import type {
   CompositeScorePolicy,
   ConfidenceProfile,
@@ -258,14 +258,19 @@ function classifyScoredRegion(
 
   const confidence = createConfidenceProfile(
     [
-      {
-        ocr: 0,
-        geometric: topScore,
-        structural: 0,
-        boundary: 0,
-        typological,
-        order: 0,
-      },
+      createConfidenceComponents(
+        {
+          ocr: 0,
+          geometric: topScore,
+          structural: 0,
+          boundary: 0,
+          typological,
+          order: 0,
+        },
+        // Only the geometric and typological signals are genuinely measured
+        // here; the zero placeholders above are not readings.
+        { geometric: true, typological: true }
+      ),
     ],
     policy
   );

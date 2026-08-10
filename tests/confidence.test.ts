@@ -26,8 +26,26 @@ function approx(
 
 test("createConfidenceComponents defaults to a neutral zero set", () => {
   const c = createConfidenceComponents();
-  equal(c, { ocr: 0, geometric: 0, structural: 0, boundary: 0, typological: 0, order: 0 });
+  // The presence mask is part of the component set (M13): a default set has
+  // NO measured components, so every signal is absent (NA), not a zero reading.
+  equal(c, {
+    ocr: 0,
+    geometric: 0,
+    structural: 0,
+    boundary: 0,
+    typological: 0,
+    order: 0,
+    measured: {
+      ocr: false,
+      geometric: false,
+      structural: false,
+      boundary: false,
+      typological: false,
+      order: false,
+    },
+  });
   ok(Object.isFrozen(c), "component set is frozen");
+  ok(Object.isFrozen(c.measured), "presence mask is frozen");
 });
 
 test("createConfidenceComponents fills partial inputs", () => {
@@ -63,8 +81,11 @@ test("default weights are equal and sum to one", () => {
 test("defaultCompositeScore with equal weights averages the components", () => {
   const allHigh = createConfidenceComponents({ ocr: 1, geometric: 1, structural: 1, boundary: 1, typological: 1, order: 1 });
   approx(defaultCompositeScore(allHigh), 1);
+  // M13: the default policy is measured-aware. A single measured component is
+  // no longer diluted by five unmeasured zeros (previously 1/6); all-measured
+  // sets score exactly as before.
   const oneHigh = createConfidenceComponents({ ocr: 1 });
-  approx(defaultCompositeScore(oneHigh), 1 / 6);
+  approx(defaultCompositeScore(oneHigh), 1);
 });
 
 test("defaultCompositeScore honors custom weights", () => {
@@ -166,7 +187,22 @@ test("aggregateConfidenceComponents rejects bad sample weights", () => {
 
 test("aggregateConfidenceComponents of empty samples is neutral", () => {
   const aggregated = aggregateConfidenceComponents([]);
-  equal(aggregated, { ocr: 0, geometric: 0, structural: 0, boundary: 0, typological: 0, order: 0 });
+  equal(aggregated, {
+    ocr: 0,
+    geometric: 0,
+    structural: 0,
+    boundary: 0,
+    typological: 0,
+    order: 0,
+    measured: {
+      ocr: false,
+      geometric: false,
+      structural: false,
+      boundary: false,
+      typological: false,
+      order: false,
+    },
+  });
 });
 
 test("createConfidenceProfile summarizes each component and the composite", () => {
@@ -180,9 +216,13 @@ test("createConfidenceProfile summarizes each component and the composite", () =
   equal(profile.ocr.count, 2);
   approx(profile.order.mean, 0.6);
   approx(profile.structural.mean, 0);
-  approx(profile.aggregate.mean, 0.2);
+  // M13: ocr and order are the only measured components, so the measured-aware
+  // composite averages those two per sample: (0.7 + 0.5) / 2 = 0.6. The old
+  // 0.2 diluted by four unmeasured zeros is exactly the NA bug being fixed.
+  approx(profile.aggregate.mean, 0.6);
   equal(profile.aggregate.count, 2);
   ok(Object.isFrozen(profile), "profile is frozen");
+  ok(Object.isFrozen(profile.measured), "profile presence mask is frozen");
 });
 
 test("createConfidenceProfile of empty samples is neutral", () => {
@@ -198,7 +238,10 @@ test("the composite policy is replaceable without API change", () => {
     createConfidenceComponents({ ocr: 0.4 }),
   ];
   const defaultProfile = createConfidenceProfile(samples);
-  approx(defaultProfile.aggregate.mean, 0.1, 1e-9, "equal-weight default");
+  // M13: only ocr is measured in these samples, so the measured-aware default
+  // composite is the mean of the ocr values (0.8, 0.4) = 0.6 — not the old
+  // 0.1 that diluted both by five unmeasured zeros.
+  approx(defaultProfile.aggregate.mean, 0.6, 1e-9, "measured-aware default");
 
   const ocrOnly: (c: { readonly ocr: number }) => number = (c) => c.ocr;
   const replaced = createConfidenceProfile(samples, ocrOnly);

@@ -29,7 +29,9 @@ export async function GET(
 /**
  * PATCH /api/pipeline/extractions/{id}
  * Persist user field corrections: body `{ fields: { key: value } }`.
- * Only values for keys defined by the job's profile schema are accepted.
+ * Which keys are accepted is decided by the service from the job's extraction
+ * mode: legacy jobs accept profile-schema keys; dynamic jobs accept the fields
+ * the extraction actually produced (never arbitrary new keys).
  */
 export async function PATCH(
   request: Request,

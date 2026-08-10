@@ -25,6 +25,15 @@ export type FieldType =
   | "array"
   | "text";
 
+/**
+ * Extraction contract mode.
+ * - "legacy" (default): schema-driven — the profile schema IS the AI contract.
+ * - "dynamic": the AI discovers fields from the document; there is NO predefined
+ *   field list at the contract boundary. The normalizer preserves every
+ *   discovered field instead of filtering against a schema.
+ */
+export type ExtractionMode = "legacy" | "dynamic";
+
 export interface FieldSchema {
   /** Field key, snake_case (e.g. "invoice_number"). */
   key: string;
@@ -333,6 +342,12 @@ export interface ExtractionResult {
   cleanFields: Record<string, unknown>;
   /** Fields dropped by post-processing (e.g. PII scrubbing). */
   droppedFields: Record<string, string>;
+  /**
+   * Extraction contract mode that produced this result. Defaults to "legacy".
+   * Dynamic results are never reconstructed from a static profile schema;
+   * consumers (validator, exporter, service) use this to stay schema-neutral.
+   */
+  extractionMode?: ExtractionMode;
   model?: string;
   provider?: string;
   /** Optional model-provided overall confidence (0..1). */
@@ -463,6 +478,12 @@ export interface RunJobInput {
   profileType?: ProfileType;
   /** Structured OCR input (word-level confidence) when available. */
   ocr?: OcrDocument;
+  /**
+   * Extraction contract mode. Defaults to "legacy" (schema-driven). "dynamic"
+   * lets the AI discover fields with no predefined field list — explicit,
+   * opt-in, and never the default.
+   */
+  extractionMode?: ExtractionMode;
 }
 
 export interface RunJobOutput {

@@ -156,6 +156,76 @@ test("grounding drops garbage notes via the generic filter", () => {
   ok(out.droppedFields.notes, "drop reason must be recorded");
 });
 
+test("clean notes verbatim in a single OCR line carry real evidence (no false no_direct_evidence)", () => {
+  // The note is printed on its own line; the committed value must anchor to it
+  // exactly like any other field instead of being flagged no_direct_evidence.
+  const src = "له SuperPay 60\n[ عملية ناجحة";
+  const out = groundExtraction(
+    receiptProfile,
+    candidates("notes", "عملية ناجحة"),
+    src,
+    ocrWithWords([
+      { text: "له SuperPay 60", words: [
+        { text: "له", bbox: { x: 0, y: 0, width: 20, height: 12 } },
+        { text: "SuperPay", bbox: { x: 24, y: 0, width: 60, height: 12 } },
+        { text: "60", bbox: { x: 88, y: 0, width: 20, height: 12 } },
+      ] },
+      { text: "[ عملية ناجحة", words: [
+        { text: "[", bbox: { x: 0, y: 16, width: 10, height: 12 } },
+        { text: "عملية", bbox: { x: 14, y: 16, width: 50, height: 12 } },
+        { text: "ناجحة", bbox: { x: 68, y: 16, width: 50, height: 12 } },
+      ] },
+    ])
+  );
+  const notes = out.fieldsMap.notes;
+  ok(notes, "clean grounded notes must survive grounding");
+  ok(notes!.evidence && notes!.evidence.length > 0, "notes must carry OCR evidence");
+  equal(notes!.evidence![0].role, "value-match");
+  equal(notes!.evidence![0].lineIndex, 1);
+  equal(notes!.evidence![0].quote, "عملية ناجحة");
+  ok(!(notes!.reasons ?? []).includes("no_direct_evidence"), "grounded notes must not be flagged no_direct_evidence");
+});
+
+test("notes absent from the document are dropped in grounding", () => {
+  const src = "له SuperPay 60\nالمطلوب : 68.38";
+  const out = groundExtraction(
+    receiptProfile,
+    candidates("notes", "Thank you for shopping"),
+    src,
+    ocrWithWords([
+      { text: "له SuperPay 60", words: [
+        { text: "SuperPay", bbox: { x: 0, y: 0, width: 60, height: 12 } },
+      ] },
+      { text: "المطلوب : 68.38", words: [
+        { text: "المطلوب", bbox: { x: 0, y: 16, width: 50, height: 12 } },
+        { text: "68.38", bbox: { x: 60, y: 16, width: 40, height: 12 } },
+      ] },
+    ])
+  );
+  ok(!out.fieldsMap.notes, "ungrounded notes must be dropped");
+  ok(/not found in source text/.test(out.droppedFields.notes ?? ""), "drop reason must be recorded");
+});
+
+test("notes verbatim on a line labeled for another field are dropped (never relabel)", () => {
+  // "due" appears inside the total-labeled line "AMOUNT DUE"; the value must
+  // not be borrowed from a line labeled for a different category.
+  const src = "AMOUNT DUE 38.40";
+  const out = groundExtraction(
+    receiptProfile,
+    candidates("notes", "due"),
+    src,
+    ocrWithWords([
+      { text: "AMOUNT DUE 38.40", words: [
+        { text: "AMOUNT", bbox: { x: 0, y: 0, width: 50, height: 12 } },
+        { text: "DUE", bbox: { x: 54, y: 0, width: 30, height: 12 } },
+        { text: "38.40", bbox: { x: 88, y: 0, width: 50, height: 12 } },
+      ] },
+    ])
+  );
+  ok(!out.fieldsMap.notes, "notes must not be relabeled from another field's line");
+  ok(/different field/.test(out.droppedFields.notes ?? ""), "drop reason must explain the relabel veto");
+});
+
 test("text-quality module reports interpretable reasons", () => {
   const q = assessTextQuality("Hostinger;Description…)0123456788(");
   equal(q.noiseScore, 1);

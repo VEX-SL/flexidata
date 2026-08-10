@@ -35,6 +35,7 @@ import type {
 import { normalizeText } from "@/lib/pipeline/ocr";
 import { spanBox } from "@/lib/pipeline/geometry";
 import type { ConfidenceProfile } from "@/lib/layout";
+import { COMPONENT_KEYS } from "@/lib/layout";
 import { LayoutAwareReader } from "./layout-aware-reader";
 import type { LayoutLineView } from "./layout-aware-reader";
 import { LayoutAwareSelector } from "./layout-aware-selector";
@@ -87,19 +88,35 @@ export function layoutReaderFor(ocr: import("@/lib/pipeline/types").OcrDocument)
 }
 
 /**
- * Deterministic confidence combination: the mean of the six frozen component
- * means. Reuses the M2 `ConfidenceProfile` as-is — no new confidence model.
+ * Deterministic confidence combination: the mean of the MEASURED component
+ * means of the frozen M2 `ConfidenceProfile`. Components the profile never
+ * measured (NA, presence `measured=false`) are excluded, so an OCR-only line
+ * scores its OCR confidence directly instead of being diluted by five zeros.
+ * A profile without a presence mask falls back to the mean of all six (the
+ * pre-M13 behavior). Reuses the M2 model as-is — no new confidence model.
  */
 export function combineConfidence(profile: ConfidenceProfile): number {
-  const parts = [
-    profile.ocr.mean,
-    profile.geometric.mean,
-    profile.structural.mean,
-    profile.boundary.mean,
-    profile.typological.mean,
-    profile.order.mean,
-  ];
-  return clamp(parts.reduce((s, n) => s + n, 0) / parts.length);
+  const measured = profile.measured;
+  if (measured === undefined) {
+    const parts = [
+      profile.ocr.mean,
+      profile.geometric.mean,
+      profile.structural.mean,
+      profile.boundary.mean,
+      profile.typological.mean,
+      profile.order.mean,
+    ];
+    return clamp(parts.reduce((s, n) => s + n, 0) / parts.length);
+  }
+  let sum = 0;
+  let count = 0;
+  for (const key of COMPONENT_KEYS) {
+    if (measured[key]) {
+      sum += profile[key].mean;
+      count += 1;
+    }
+  }
+  return clamp(count === 0 ? 0 : sum / count);
 }
 
 /**

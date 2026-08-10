@@ -97,9 +97,17 @@ export function recoverStage(opts: { ai?: AIClient } = {}): PipelineStage {
               ctx.ocr === undefined
                 ? ctx.sourceText
                 : layoutReaderFor(ctx.ocr).documentText(ctx.sourceText);
-            const prompt = buildExtractionPrompt(profile, documentText);
+            const prompt = buildExtractionPrompt(
+              profile,
+              documentText,
+              ctx.input?.extractionMode
+            );
             const aiCall = await extractWithAIRetry({ prompt }, ai, skipProviders);
-            const retryCandidates = candidatesFromAICall(profile, aiCall);
+            const retryCandidates = candidatesFromAICall(
+              profile,
+              aiCall,
+              ctx.input?.extractionMode
+            );
             const groundedRetry = groundExtraction(
               profile,
               retryCandidates,

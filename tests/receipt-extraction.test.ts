@@ -108,6 +108,28 @@ test("every surviving field preserves raw OCR value + evidence anchors", async (
   );
 });
 
+test("grounded notes carry OCR evidence end-to-end (no false no_direct_evidence)", async () => {
+  const profile = getProfileManager().get("receipt");
+  const result = await extractDocument(
+    { profile: profile!, sourceText: SUPERYPAY_RECEIPT_OCR },
+    fakeAI(GROUNDED)
+  );
+
+  const notes = result.fieldsMap.notes;
+  ok(notes, "verbatim clean notes must survive");
+  equal(notes.value, "عملية ناجحة");
+  ok(notes.evidence && notes.evidence.length > 0, "notes must carry OCR evidence");
+  equal(notes.evidence![0].role, "value-match");
+  ok(
+    notes.evidence![0].lineIndex !== undefined,
+    "notes evidence must reference an OCR line"
+  );
+  ok(
+    !(notes.reasons ?? []).includes("no_direct_evidence"),
+    "grounded notes must not be flagged no_direct_evidence"
+  );
+});
+
 test("confidence is composed per field, not a fixed 0.85", async () => {
   const profile = getProfileManager().get("receipt");
   const result = await extractDocument(

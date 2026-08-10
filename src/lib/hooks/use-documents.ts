@@ -7,6 +7,10 @@ export interface FieldDTO {
   key: string;
   value: unknown;
   raw?: unknown;
+  /** Field type: profile schema type (legacy) or AI-discovered type (dynamic). */
+  type?: string;
+  /** Human label: schema label (legacy) or AI-discovered label (dynamic). */
+  label?: string;
   evidence?: Array<{
     quote: string;
     lineIndex?: number;
@@ -28,6 +32,8 @@ export interface JobDTO {
   profileType: string;
   profileVersion: number;
   pipelineVersion: number;
+  /** Extraction contract mode: "legacy" (default) or "dynamic". */
+  extractionMode?: string | null;
   provider?: string | null;
   model?: string | null;
   processingTimeMs?: number | null;

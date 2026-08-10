@@ -222,7 +222,16 @@ export default function DocumentsPage() {
 
   async function handleFieldSave(job: JobDTO, key: string) {
     if (!editing) return;
-    const def = activeSchema?.fields.find((f) => f.key === key);
+    const persisted = job.fields?.find((f) => f.key === key);
+    const def =
+      activeSchema?.fields.find((f) => f.key === key) ??
+      (persisted
+        ? {
+            key,
+            type: persisted.type ?? "string",
+            label: persisted.label ?? key,
+          }
+        : undefined);
     setSavingKey(key);
     setFieldError(null);
     try {
@@ -807,7 +816,9 @@ function ReviewWorkspace(props: ReviewProps) {
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const missing = job.validation?.missing ?? [];
   const fieldLabel = (key: string) =>
-    schema?.fields.find((f) => f.key === key)?.label ?? humanize(key);
+    schema?.fields.find((f) => f.key === key)?.label ??
+    byKey.get(key)?.label ??
+    humanize(key);
   const [view, setView] = useState<"fields" | "preview">("fields");
 
   const groups: Array<{ label: string; fields: FieldDTO[] }> = [];
@@ -941,7 +952,13 @@ function ReviewWorkspace(props: ReviewProps) {
                       key={field.key}
                       field={field}
                       label={fieldLabel(field.key)}
-                      def={schema?.fields.find((f) => f.key === field.key)}
+                      def={
+                        schema?.fields.find((f) => f.key === field.key) ?? {
+                          key: field.key,
+                          type: field.type ?? "string",
+                          label: field.label ?? field.key,
+                        }
+                      }
                       t={t}
                       editing={editing?.key === field.key ? editing : null}
                       saving={savingKey === field.key}

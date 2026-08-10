@@ -12,6 +12,7 @@ import type { ConfidenceProfile, ConfidenceComponents } from "./confidence";
 import {
   COMPONENT_KEYS,
   aggregateConfidenceComponents,
+  createConfidenceComponents,
   defaultCompositeScore,
 } from "./confidence";
 import type { ConfidenceDistribution } from "./types";
@@ -64,14 +65,17 @@ export function confidenceProfilesEqual(
 }
 
 function sampleComponents(profile: ConfidenceProfile): ConfidenceComponents {
-  return {
-    ocr: profile.ocr.mean,
-    geometric: profile.geometric.mean,
-    structural: profile.structural.mean,
-    boundary: profile.boundary.mean,
-    typological: profile.typological.mean,
-    order: profile.order.mean,
-  };
+  return createConfidenceComponents(
+    {
+      ocr: profile.ocr.mean,
+      geometric: profile.geometric.mean,
+      structural: profile.structural.mean,
+      boundary: profile.boundary.mean,
+      typological: profile.typological.mean,
+      order: profile.order.mean,
+    },
+    profile.measured
+  );
 }
 
 /**

@@ -23,7 +23,12 @@ export function extractStage(opts: { ai?: AIClient } = {}): PipelineStage {
           ? ctx.sourceText
           : layoutReaderFor(ctx.ocr).documentText(ctx.sourceText);
       ctx.extraction = await extractDocument(
-        { profile, sourceText: documentText, ocr: ctx.ocr },
+        {
+          profile,
+          sourceText: documentText,
+          ocr: ctx.ocr,
+          extractionMode: ctx.input?.extractionMode,
+        },
         opts.ai,
         { grounded: false }
       );

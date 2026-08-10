@@ -26,7 +26,11 @@ import type { NodeLevel } from "./node-levels";
 import { NODE_LEVEL, NODE_LEVELS } from "./node-levels";
 import type { RegionType } from "./region-types";
 import { isRegionType } from "./region-types";
-import { createConfidenceProfile, defaultCompositeScore } from "./confidence";
+import {
+  createConfidenceComponents,
+  createConfidenceProfile,
+  defaultCompositeScore,
+} from "./confidence";
 import type {
   CompositeScorePolicy,
   ConfidenceProfile,
@@ -163,22 +167,28 @@ export function createHierarchyNode(
 
 /**
  * Parent confidence aggregation: each child contributes one sample whose six
- * component values are the child profile's per-component means. Uses only the
- * existing `createConfidenceProfile` aggregation; empty children yield a
- * neutral profile.
+ * component values are the child profile's per-component means, carrying the
+ * child's presence mask so a component stays measured for the parent whenever
+ * any child measured it. Uses only the existing `createConfidenceProfile`
+ * aggregation; empty children yield a neutral profile.
  */
 export function aggregateChildConfidence(
   children: readonly HierarchyNode[],
   policy: CompositeScorePolicy = defaultCompositeScore
 ): ConfidenceProfile {
-  const samples = children.map((child) => ({
-    ocr: child.confidence.ocr.mean,
-    geometric: child.confidence.geometric.mean,
-    structural: child.confidence.structural.mean,
-    boundary: child.confidence.boundary.mean,
-    typological: child.confidence.typological.mean,
-    order: child.confidence.order.mean,
-  }));
+  const samples = children.map((child) =>
+    createConfidenceComponents(
+      {
+        ocr: child.confidence.ocr.mean,
+        geometric: child.confidence.geometric.mean,
+        structural: child.confidence.structural.mean,
+        boundary: child.confidence.boundary.mean,
+        typological: child.confidence.typological.mean,
+        order: child.confidence.order.mean,
+      },
+      child.confidence.measured
+    )
+  );
   return createConfidenceProfile(samples, policy);
 }
 

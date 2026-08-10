@@ -205,7 +205,9 @@ export function computeBlockGeometry(bbox: BBox): BlockGeometry {
 /**
  * Confidence profile over the child words: each word contributes one sample
  * whose `ocr` component is its OCR confidence (0 when absent); all other
- * components are neutral zero. The composite policy is injectable and the
+ * components are neutral zero. The `ocr` component counts as measured only
+ * when the word really carries an OCR confidence — a missing confidence is
+ * NA, not a measured zero. The composite policy is injectable and the
  * shipped default is the temporary equal-weight policy — swappable here
  * without any public API change.
  */
@@ -214,7 +216,10 @@ export function buildBlockConfidence(
   policy: CompositeScorePolicy = defaultCompositeScore
 ): ConfidenceProfile {
   const samples = words.map((w) =>
-    createConfidenceComponents({ ocr: w.confidence ?? 0 })
+    createConfidenceComponents(
+      { ocr: w.confidence ?? 0 },
+      { ocr: typeof w.confidence === "number" }
+    )
   );
   return createConfidenceProfile(samples, policy);
 }
