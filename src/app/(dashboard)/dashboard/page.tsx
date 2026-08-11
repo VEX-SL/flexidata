@@ -201,16 +201,18 @@ export default function DashboardPage() {
       
       .fd-dash { 
         font-family: 'Sora', system-ui, sans-serif;
-        height: 100%;           /* ← was 100dvh, now fills parent */
         display: flex;
         flex-direction: column;
+        flex: 1;                /* fill parent flex container */
+        min-height: 0;          /* critical — allows flex child to shrink */
         overflow: hidden;
         background: var(--color-background);
       }
 
       .fd-content {
-        flex: 1;                  /* ← fills remaining space */
-        overflow-y: auto;         /* ← THIS IS THE SCROLL */
+        flex: 1;                /* takes all remaining vertical space */
+        min-height: 0;          /* critical — enables scrolling inside flex */
+        overflow-y: auto;
         overflow-x: hidden;
         padding: 1.5rem;
         max-width: 1280px;
@@ -236,11 +238,8 @@ export default function DashboardPage() {
         align-items: center;
         justify-content: space-between;
         padding: 0 1.5rem;
-        position: sticky;
-        top: 0;
+        flex-shrink: 0;         /* prevents header from shrinking */
         z-index: 20;
-        backdrop-filter: blur(12px);
-        background: rgba(var(--color-card-rgb), 0.8);
       }
       
       .fd-search {
@@ -928,9 +927,10 @@ export default function DashboardPage() {
       .fd-animate {
         opacity: 0;
         transform: translateY(12px);
-        animation: fd-slide-up 0.5s cubic-bezier(0.16,1,0.3,1) forwards;
+        animation: fd-slide-up 0.5s cubic-bezier(0.16,1,0.3,1) both;
       }
       @keyframes fd-slide-up {
+        from { opacity: 0; transform: translateY(12px); }
         to { opacity: 1; transform: translateY(0); }
       }
       
@@ -1448,9 +1448,6 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
-      </div>
-      <div style={{ height: '200vh', display: 'flex', alignItems: 'flex-end', paddingBottom: '2rem', color: 'var(--color-muted-foreground)' }}>
-        👇 If you can see this, scrolling works!
       </div>
     </>
   );
