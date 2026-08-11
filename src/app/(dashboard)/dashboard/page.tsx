@@ -105,7 +105,7 @@ export default function DashboardPage() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "recent" | "activity">("overview");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -124,7 +124,7 @@ export default function DashboardPage() {
           setSelectedAgentId(data[0].id);
         }
       }
-    } catch {}
+    } catch { }
   }, [selectedAgentId]);
 
   const fetchFiles = useCallback(async () => {
@@ -132,7 +132,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/agents/${selectedAgentId}/files`);
       if (res.ok) setFiles(await res.json());
-    } catch {}
+    } catch { }
   }, [selectedAgentId]);
 
   useEffect(() => { fetchAgents(); }, []);
@@ -146,7 +146,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/agents/${selectedAgentId}/files`, { method: "POST", body: formData });
       if (res.ok) { const data = await res.json(); setFiles((prev) => [data.file, ...prev]); fetchAgents(); }
-    } catch {}
+    } catch { }
     setUploading(false);
   }
 
@@ -184,7 +184,7 @@ export default function DashboardPage() {
   }
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
-  const filteredFiles = files.filter(f => 
+  const filteredFiles = files.filter(f =>
     f.file_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -196,13 +196,26 @@ export default function DashboardPage() {
 
   return (
     <>
-    <style>{`
+      <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
       
       .fd-dash { 
         font-family: 'Sora', system-ui, sans-serif;
         min-height: 100dvh;
+        overflow-y: auto;          /* ← add this */
+        display: flex;             /* ← add this */
+        flex-direction: column;    /* ← add this */
         background: var(--color-background);
+      }
+
+      /* ── Content ── */
+      .fd-content {
+        flex: 1;                   /* ← add this */
+        overflow-y: auto;          /* ← add this */
+        padding: 1.5rem;
+        max-width: 1280px;
+        margin: 0 auto;
+        width: 100%;
       }
       
       /* ── Top Header ── */
@@ -294,13 +307,6 @@ export default function DashboardPage() {
       .fd-avatar:hover {
         border-color: rgba(99,102,241,0.4);
         box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
-      }
-      
-      /* ── Content ── */
-      .fd-content {
-        padding: 1.5rem;
-        max-width: 1280px;
-        margin: 0 auto;
       }
       
       /* ── Hero ── */
@@ -963,477 +969,477 @@ export default function DashboardPage() {
       }
     `}</style>
 
-    <div className="fd-dash">
-      {/* Sticky Header */}
-      <header className="fd-header">
-        <div className="fd-search">
-          <Search size={15} />
-          <input 
-            type="text" 
-            placeholder="Search agents, files..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      <div className="fd-dash">
+        {/* Sticky Header */}
+        <header className="fd-header">
+          <div className="fd-search">
+            <Search size={15} />
+            <input
+              type="text"
+              placeholder="Search agents, files..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
 
-        <div className="fd-header-actions">
-          <div style={{ position: 'relative' }}>
-            <button 
-              className="fd-icon-btn"
-              onClick={() => { setNotificationsOpen(!notificationsOpen); setUserMenuOpen(false); }}
-            >
-              <Bell size={16} />
-              <span style={{
-                position: 'absolute', top: 6, right: 6,
-                width: 7, height: 7, borderRadius: '50%',
-                background: '#EF4444', border: '2px solid var(--color-card)'
-              }} />
-            </button>
-            {notificationsOpen && (
-              <div className="fd-dropdown" style={{ width: 260, right: -10 }}>
-                <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>Notifications</span>
+          <div className="fd-header-actions">
+            <div style={{ position: 'relative' }}>
+              <button
+                className="fd-icon-btn"
+                onClick={() => { setNotificationsOpen(!notificationsOpen); setUserMenuOpen(false); }}
+              >
+                <Bell size={16} />
+                <span style={{
+                  position: 'absolute', top: 6, right: 6,
+                  width: 7, height: 7, borderRadius: '50%',
+                  background: '#EF4444', border: '2px solid var(--color-card)'
+                }} />
+              </button>
+              {notificationsOpen && (
+                <div className="fd-dropdown" style={{ width: 260, right: -10 }}>
+                  <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>Notifications</span>
+                  </div>
+                  <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-muted-foreground)', fontSize: '0.8rem' }}>
+                    No new notifications
+                  </div>
                 </div>
-                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-muted-foreground)', fontSize: '0.8rem' }}>
-                  No new notifications
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div style={{ position: 'relative' }}>
-            <div className="fd-avatar" onClick={() => { setUserMenuOpen(!userMenuOpen); setNotificationsOpen(false); }}>
-              U
+              )}
             </div>
-            {userMenuOpen && (
-              <div className="fd-dropdown">
-                <button className="fd-dropdown-item" onClick={() => router.push("/settings")}>
-                  <Settings size={14} /> Settings
-                </button>
-                <div className="fd-dropdown-divider" />
-                <button className="fd-dropdown-item danger" onClick={() => {}}>
-                  <LogOut size={14} /> Sign out
-                </button>
+
+            <div style={{ position: 'relative' }}>
+              <div className="fd-avatar" onClick={() => { setUserMenuOpen(!userMenuOpen); setNotificationsOpen(false); }}>
+                U
               </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="fd-content">
-        {/* Hero */}
-        <div className="fd-hero fd-animate">
-          <div className="fd-hero-orb" />
-          <h1>{t("dashboard.title")} 👋</h1>
-          <p>{t("dashboard.subtitle")}</p>
-        </div>
-
-        {/* Tabs */}
-        <div className="fd-tabs fd-animate" style={{ animationDelay: '0.05s' }}>
-          <button 
-            className={`fd-tab ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Overview
-          </button>
-          <button 
-            className={`fd-tab ${activeTab === 'recent' ? 'active' : ''}`}
-            onClick={() => setActiveTab('recent')}
-          >
-            Recent Files
-          </button>
-          <button 
-            className={`fd-tab ${activeTab === 'activity' ? 'active' : ''}`}
-            onClick={() => setActiveTab('activity')}
-          >
-            Activity
-          </button>
-        </div>
-
-        {/* Stats */}
-        <div className="fd-stats fd-animate" style={{ animationDelay: '0.1s' }}>
-          <div className="fd-stat">
-            <div className="fd-stat-top">
-              <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))' }}>
-                <Bot size={17} style={{ color: '#6366F1' }} />
-              </div>
-              <span className="fd-stat-badge" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366F1' }}>
-                <Flame size={10} /> Active
-              </span>
-            </div>
-            <div className="fd-stat-value">{agents.length}</div>
-            <div className="fd-stat-label">{t("dashboard.agents")}</div>
-          </div>
-
-          <div className="fd-stat">
-            <div className="fd-stat-top">
-              <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))' }}>
-                <FolderOpen size={17} style={{ color: '#22C55E' }} />
-              </div>
-              <span className="fd-stat-badge" style={{ background: 'rgba(34,197,94,0.1)', color: '#22C55E' }}>
-                <TrendingUp size={10} /> +{totalFiles > 0 ? totalFiles : 0}
-              </span>
-            </div>
-            <div className="fd-stat-value">{totalFiles}</div>
-            <div className="fd-stat-label">{t("dashboard.files")}</div>
-          </div>
-
-          <div className="fd-stat">
-            <div className="fd-stat-top">
-              <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))' }}>
-                <MessageSquare size={17} style={{ color: '#F59E0B' }} />
-              </div>
-              <span className="fd-stat-badge" style={{ background: 'rgba(245,158,11,0.1)', color: '#F59E0B' }}>
-                <Activity size={10} /> Live
-              </span>
-            </div>
-            <div className="fd-stat-value">{totalChats}</div>
-            <div className="fd-stat-label">{t("dashboard.allChats")}</div>
-          </div>
-        </div>
-
-        {/* Content based on active tab */}
-        {activeTab === 'overview' && (
-          <div className="fd-layout fd-animate" style={{ animationDelay: '0.15s' }}>
-            <div>
-              {/* Agent Selector Cards */}
-              <div className="fd-section">
-                <div className="fd-section-header">
-                  <h2 className="fd-section-title">
-                    <Bot size={16} style={{ color: '#6366F1' }} />
-                    Your Agents
-                  </h2>
-                  <button className="fd-section-link" onClick={() => router.push("/agents")}>
-                    View all <ChevronRight size={14} />
+              {userMenuOpen && (
+                <div className="fd-dropdown">
+                  <button className="fd-dropdown-item" onClick={() => router.push("/settings")}>
+                    <Settings size={14} /> Settings
+                  </button>
+                  <div className="fd-dropdown-divider" />
+                  <button className="fd-dropdown-item danger" onClick={() => { }}>
+                    <LogOut size={14} /> Sign out
                   </button>
                 </div>
+              )}
+            </div>
+          </div>
+        </header>
 
-                {agents.length > 0 ? (
-                  <div className="fd-agent-grid">
-                    {agents.map((agent) => (
-                      <button
-                        key={agent.id}
-                        className={`fd-agent-card ${agent.id === selectedAgentId ? 'active' : ''}`}
-                        onClick={() => setSelectedAgentId(agent.id)}
-                      >
-                        <div className="fd-agent-card-header">
-                          <div className="fd-agent-avatar">
-                            <Bot size={18} style={{ color: '#6366F1' }} />
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <h3>{agent.name}</h3>
-                            <p>AI Document Agent</p>
-                          </div>
-                        </div>
-                        <div className="fd-agent-stats">
-                          <span className="fd-agent-stat">
-                            <FolderOpen size={12} /> {agent.files_count} files
-                          </span>
-                          <span className="fd-agent-stat">
-                            <MessageSquare size={12} /> {agent.chats_count} chats
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                    <button 
-                      className="fd-agent-card"
-                      onClick={() => setShowCreateAgent(true)}
-                      style={{ 
-                        borderStyle: 'dashed', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        gap: '0.5rem',
-                        color: 'var(--color-muted-foreground)',
-                        fontWeight: 600,
-                        fontSize: '0.85rem'
-                      }}
-                    >
-                      <Plus size={18} /> Create Agent
+        {/* Main Content */}
+        <div className="fd-content">
+          {/* Hero */}
+          <div className="fd-hero fd-animate">
+            <div className="fd-hero-orb" />
+            <h1>{t("dashboard.title")} 👋</h1>
+            <p>{t("dashboard.subtitle")}</p>
+          </div>
+
+          {/* Tabs */}
+          <div className="fd-tabs fd-animate" style={{ animationDelay: '0.05s' }}>
+            <button
+              className={`fd-tab ${activeTab === 'overview' ? 'active' : ''}`}
+              onClick={() => setActiveTab('overview')}
+            >
+              Overview
+            </button>
+            <button
+              className={`fd-tab ${activeTab === 'recent' ? 'active' : ''}`}
+              onClick={() => setActiveTab('recent')}
+            >
+              Recent Files
+            </button>
+            <button
+              className={`fd-tab ${activeTab === 'activity' ? 'active' : ''}`}
+              onClick={() => setActiveTab('activity')}
+            >
+              Activity
+            </button>
+          </div>
+
+          {/* Stats */}
+          <div className="fd-stats fd-animate" style={{ animationDelay: '0.1s' }}>
+            <div className="fd-stat">
+              <div className="fd-stat-top">
+                <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))' }}>
+                  <Bot size={17} style={{ color: '#6366F1' }} />
+                </div>
+                <span className="fd-stat-badge" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366F1' }}>
+                  <Flame size={10} /> Active
+                </span>
+              </div>
+              <div className="fd-stat-value">{agents.length}</div>
+              <div className="fd-stat-label">{t("dashboard.agents")}</div>
+            </div>
+
+            <div className="fd-stat">
+              <div className="fd-stat-top">
+                <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))' }}>
+                  <FolderOpen size={17} style={{ color: '#22C55E' }} />
+                </div>
+                <span className="fd-stat-badge" style={{ background: 'rgba(34,197,94,0.1)', color: '#22C55E' }}>
+                  <TrendingUp size={10} /> +{totalFiles > 0 ? totalFiles : 0}
+                </span>
+              </div>
+              <div className="fd-stat-value">{totalFiles}</div>
+              <div className="fd-stat-label">{t("dashboard.files")}</div>
+            </div>
+
+            <div className="fd-stat">
+              <div className="fd-stat-top">
+                <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))' }}>
+                  <MessageSquare size={17} style={{ color: '#F59E0B' }} />
+                </div>
+                <span className="fd-stat-badge" style={{ background: 'rgba(245,158,11,0.1)', color: '#F59E0B' }}>
+                  <Activity size={10} /> Live
+                </span>
+              </div>
+              <div className="fd-stat-value">{totalChats}</div>
+              <div className="fd-stat-label">{t("dashboard.allChats")}</div>
+            </div>
+          </div>
+
+          {/* Content based on active tab */}
+          {activeTab === 'overview' && (
+            <div className="fd-layout fd-animate" style={{ animationDelay: '0.15s' }}>
+              <div>
+                {/* Agent Selector Cards */}
+                <div className="fd-section">
+                  <div className="fd-section-header">
+                    <h2 className="fd-section-title">
+                      <Bot size={16} style={{ color: '#6366F1' }} />
+                      Your Agents
+                    </h2>
+                    <button className="fd-section-link" onClick={() => router.push("/agents")}>
+                      View all <ChevronRight size={14} />
                     </button>
                   </div>
-                ) : (
-                  <div className="fd-empty">
-                    <div className="fd-empty-icon">
-                      <Bot size={24} style={{ color: '#6366F1' }} />
+
+                  {agents.length > 0 ? (
+                    <div className="fd-agent-grid">
+                      {agents.map((agent) => (
+                        <button
+                          key={agent.id}
+                          className={`fd-agent-card ${agent.id === selectedAgentId ? 'active' : ''}`}
+                          onClick={() => setSelectedAgentId(agent.id)}
+                        >
+                          <div className="fd-agent-card-header">
+                            <div className="fd-agent-avatar">
+                              <Bot size={18} style={{ color: '#6366F1' }} />
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <h3>{agent.name}</h3>
+                              <p>AI Document Agent</p>
+                            </div>
+                          </div>
+                          <div className="fd-agent-stats">
+                            <span className="fd-agent-stat">
+                              <FolderOpen size={12} /> {agent.files_count} files
+                            </span>
+                            <span className="fd-agent-stat">
+                              <MessageSquare size={12} /> {agent.chats_count} chats
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                      <button
+                        className="fd-agent-card"
+                        onClick={() => setShowCreateAgent(true)}
+                        style={{
+                          borderStyle: 'dashed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.5rem',
+                          color: 'var(--color-muted-foreground)',
+                          fontWeight: 600,
+                          fontSize: '0.85rem'
+                        }}
+                      >
+                        <Plus size={18} /> Create Agent
+                      </button>
                     </div>
-                    <p style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-foreground)', margin: '0 0 0.3rem' }}>
-                      {t("agents.noAgents")}
-                    </p>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--color-muted-foreground)', margin: '0 0 1.25rem' }}>
-                      {t("agents.noAgentsSub")}
-                    </p>
-                    <button 
-                      onClick={() => setShowCreateAgent(true)} 
-                      className="fd-btn fd-btn-primary"
-                      style={{ maxWidth: 200, margin: '0 auto' }}
-                    >
-                      <Plus size={16} /> {t("agents.create")}
+                  ) : (
+                    <div className="fd-empty">
+                      <div className="fd-empty-icon">
+                        <Bot size={24} style={{ color: '#6366F1' }} />
+                      </div>
+                      <p style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-foreground)', margin: '0 0 0.3rem' }}>
+                        {t("agents.noAgents")}
+                      </p>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--color-muted-foreground)', margin: '0 0 1.25rem' }}>
+                        {t("agents.noAgentsSub")}
+                      </p>
+                      <button
+                        onClick={() => setShowCreateAgent(true)}
+                        className="fd-btn fd-btn-primary"
+                        style={{ maxWidth: 200, margin: '0 auto' }}
+                      >
+                        <Plus size={16} /> {t("agents.create")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Upload Zone */}
+                {selectedAgent && (
+                  <div
+                    className={`fd-upload ${dragOver ? 'drag-over' : ''}`}
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={onDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp"
+                      onChange={onFileInputChange}
+                      disabled={uploading}
+                    />
+                    {uploading ? (
+                      <div className="flex flex-col items-center">
+                        <Loader2 size={24} className="animate-spin" style={{ color: '#6366F1', marginBottom: '0.6rem' }} />
+                        <h3>Uploading...</h3>
+                        <p>Processing your document</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <div className="fd-upload-icon">
+                          <Upload size={22} style={{ color: '#6366F1' }} />
+                        </div>
+                        <h3>Drop files here or click to upload</h3>
+                        <p>PDF, Word, Excel, Images, Code — up to 50MB</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Quick Actions */}
+                {selectedAgent && (
+                  <div className="fd-actions">
+                    <button className="fd-action" onClick={() => router.push(`/agents/${selectedAgentId}`)}>
+                      <div className="fd-action-icon" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))' }}>
+                        <FolderOpen size={17} style={{ color: '#6366F1' }} />
+                      </div>
+                      <div>
+                        <h4>Manage Files</h4>
+                        <p>View and organize documents</p>
+                      </div>
+                    </button>
+                    <button className="fd-action" onClick={() => router.push(`/agents/${selectedAgentId}/chat`)}>
+                      <div className="fd-action-icon" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))' }}>
+                        <Zap size={17} style={{ color: '#F59E0B' }} />
+                      </div>
+                      <div>
+                        <h4>Start Chat</h4>
+                        <p>Talk with your AI agent</p>
+                      </div>
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Upload Zone */}
-              {selectedAgent && (
-                <div 
-                  className={`fd-upload ${dragOver ? 'drag-over' : ''}`}
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={onDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp"
-                    onChange={onFileInputChange}
-                    disabled={uploading}
-                  />
-                  {uploading ? (
-                    <div className="flex flex-col items-center">
-                      <Loader2 size={24} className="animate-spin" style={{ color: '#6366F1', marginBottom: '0.6rem' }} />
-                      <h3>Uploading...</h3>
-                      <p>Processing your document</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <div className="fd-upload-icon">
-                        <Upload size={22} style={{ color: '#6366F1' }} />
-                      </div>
-                      <h3>Drop files here or click to upload</h3>
-                      <p>PDF, Word, Excel, Images, Code — up to 50MB</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Quick Actions */}
-              {selectedAgent && (
-                <div className="fd-actions">
-                  <button className="fd-action" onClick={() => router.push(`/agents/${selectedAgentId}`)}>
-                    <div className="fd-action-icon" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))' }}>
-                      <FolderOpen size={17} style={{ color: '#6366F1' }} />
-                    </div>
-                    <div>
-                      <h4>Manage Files</h4>
-                      <p>View and organize documents</p>
-                    </div>
-                  </button>
-                  <button className="fd-action" onClick={() => router.push(`/agents/${selectedAgentId}/chat`)}>
-                    <div className="fd-action-icon" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))' }}>
-                      <Zap size={17} style={{ color: '#F59E0B' }} />
-                    </div>
-                    <div>
-                      <h4>Start Chat</h4>
-                      <p>Talk with your AI agent</p>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Right Sidebar Content */}
-            <div>
-              <div className="fd-card fd-animate" style={{ animationDelay: '0.2s' }}>
-                <h3 className="fd-card-title">
-                  <Activity size={15} style={{ color: '#F59E0B' }} />
-                  Recent Activity
-                </h3>
-                <div className="fd-activity">
-                  {recentActivity.map((item, i) => (
-                    <div key={i} className="fd-activity-item">
-                      <div 
-                        className="fd-activity-dot" 
-                        style={{ 
-                          background: item.type === 'upload' ? '#6366F1' : item.type === 'chat' ? '#F59E0B' : '#22C55E' 
-                        }} 
-                      />
-                      <div className="fd-activity-content">
-                        <p className="fd-activity-text">{item.text}</p>
-                        <div className="fd-activity-meta">
-                          <span>{item.agent}</span>
-                          <span>·</span>
-                          <span>{item.time}</span>
+              {/* Right Sidebar Content */}
+              <div>
+                <div className="fd-card fd-animate" style={{ animationDelay: '0.2s' }}>
+                  <h3 className="fd-card-title">
+                    <Activity size={15} style={{ color: '#F59E0B' }} />
+                    Recent Activity
+                  </h3>
+                  <div className="fd-activity">
+                    {recentActivity.map((item, i) => (
+                      <div key={i} className="fd-activity-item">
+                        <div
+                          className="fd-activity-dot"
+                          style={{
+                            background: item.type === 'upload' ? '#6366F1' : item.type === 'chat' ? '#F59E0B' : '#22C55E'
+                          }}
+                        />
+                        <div className="fd-activity-content">
+                          <p className="fd-activity-text">{item.text}</p>
+                          <div className="fd-activity-meta">
+                            <span>{item.agent}</span>
+                            <span>·</span>
+                            <span>{item.time}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {selectedAgent && filteredFiles.length > 0 && (
-                <div className="fd-card fd-animate" style={{ animationDelay: '0.25s', marginTop: '1rem' }}>
-                  <div className="fd-section-header" style={{ marginBottom: '0.75rem' }}>
-                    <h3 className="fd-card-title" style={{ margin: 0 }}>
-                      <FileText size={15} style={{ color: '#6366F1' }} />
-                      Latest Files
-                    </h3>
+                    ))}
                   </div>
-                  <div className="fd-file-list">
-                    {filteredFiles.slice(0, 4).map((file) => {
-                      const colors = getFileColor(file.file_type);
-                      return (
-                        <div key={file.id} className="fd-file-row">
-                          <div className={`fd-file-icon ${colors.bg} ${colors.color}`}>
-                            {getFileIcon(file.file_type)}
-                          </div>
-                          <div className="fd-file-info">
-                            <p className="fd-file-name">{file.file_name}</p>
-                            <div className="fd-file-meta">
-                              <span>{formatFileSize(file.size)}</span>
-                              <span>·</span>
-                              <span>{timeAgo(file.created_at)}</span>
+                </div>
+
+                {selectedAgent && filteredFiles.length > 0 && (
+                  <div className="fd-card fd-animate" style={{ animationDelay: '0.25s', marginTop: '1rem' }}>
+                    <div className="fd-section-header" style={{ marginBottom: '0.75rem' }}>
+                      <h3 className="fd-card-title" style={{ margin: 0 }}>
+                        <FileText size={15} style={{ color: '#6366F1' }} />
+                        Latest Files
+                      </h3>
+                    </div>
+                    <div className="fd-file-list">
+                      {filteredFiles.slice(0, 4).map((file) => {
+                        const colors = getFileColor(file.file_type);
+                        return (
+                          <div key={file.id} className="fd-file-row">
+                            <div className={`fd-file-icon ${colors.bg} ${colors.color}`}>
+                              {getFileIcon(file.file_type)}
                             </div>
+                            <div className="fd-file-info">
+                              <p className="fd-file-name">{file.file_name}</p>
+                              <div className="fd-file-meta">
+                                <span>{formatFileSize(file.size)}</span>
+                                <span>·</span>
+                                <span>{timeAgo(file.created_at)}</span>
+                              </div>
+                            </div>
+                            <span className={`fd-file-status ${file.status}`}>
+                              {file.status === 'indexed' && <CheckCircle2 size={9} />}
+                              {file.status === 'processing' && <Clock size={9} />}
+                              {file.status === 'error' && <AlertCircle size={9} />}
+                            </span>
                           </div>
-                          <span className={`fd-file-status ${file.status}`}>
-                            {file.status === 'indexed' && <CheckCircle2 size={9} />}
-                            {file.status === 'processing' && <Clock size={9} />}
-                            {file.status === 'error' && <AlertCircle size={9} />}
-                          </span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
+                    {filteredFiles.length > 4 && (
+                      <button
+                        className="fd-section-link"
+                        style={{ marginTop: '0.75rem', width: '100%', justifyContent: 'center' }}
+                        onClick={() => router.push(`/agents/${selectedAgentId}`)}
+                      >
+                        View all {filteredFiles.length} files <ChevronRight size={14} />
+                      </button>
+                    )}
                   </div>
-                  {filteredFiles.length > 4 && (
-                    <button 
-                      className="fd-section-link" 
-                      style={{ marginTop: '0.75rem', width: '100%', justifyContent: 'center' }}
-                      onClick={() => router.push(`/agents/${selectedAgentId}`)}
-                    >
-                      View all {filteredFiles.length} files <ChevronRight size={14} />
-                    </button>
-                  )}
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'recent' && (
+            <div className="fd-animate" style={{ animationDelay: '0.15s' }}>
+              {filteredFiles.length > 0 ? (
+                <div className="fd-file-list">
+                  {filteredFiles.map((file) => {
+                    const colors = getFileColor(file.file_type);
+                    return (
+                      <div key={file.id} className="fd-file-row">
+                        <div className={`fd-file-icon ${colors.bg} ${colors.color}`}>
+                          {getFileIcon(file.file_type)}
+                        </div>
+                        <div className="fd-file-info">
+                          <p className="fd-file-name">{file.file_name}</p>
+                          <div className="fd-file-meta">
+                            <span>{formatFileSize(file.size)}</span>
+                            <span>·</span>
+                            <span>{timeAgo(file.created_at)}</span>
+                          </div>
+                        </div>
+                        <span className={`fd-file-status ${file.status}`}>
+                          {file.status === 'indexed' && <CheckCircle2 size={9} />}
+                          {file.status === 'processing' && <Clock size={9} />}
+                          {file.status === 'error' && <AlertCircle size={9} />}
+                          {file.status}
+                        </span>
+                        <button className="fd-icon-btn" style={{ width: 32, height: 32 }}>
+                          <MoreHorizontal size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="fd-empty">
+                  <p style={{ color: 'var(--color-muted-foreground)', fontSize: '0.9rem' }}>
+                    {searchQuery ? `No files match "${searchQuery}"` : "No files uploaded yet"}
+                  </p>
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'recent' && (
-          <div className="fd-animate" style={{ animationDelay: '0.15s' }}>
-            {filteredFiles.length > 0 ? (
-              <div className="fd-file-list">
-                {filteredFiles.map((file) => {
-                  const colors = getFileColor(file.file_type);
-                  return (
-                    <div key={file.id} className="fd-file-row">
-                      <div className={`fd-file-icon ${colors.bg} ${colors.color}`}>
-                        {getFileIcon(file.file_type)}
+          {activeTab === 'activity' && (
+            <div className="fd-card fd-animate" style={{ animationDelay: '0.15s', maxWidth: 640 }}>
+              <h3 className="fd-card-title">
+                <BarChart3 size={15} style={{ color: '#6366F1' }} />
+                Activity Log
+              </h3>
+              <div className="fd-activity">
+                {recentActivity.map((item, i) => (
+                  <div key={i} className="fd-activity-item">
+                    <div
+                      className="fd-activity-dot"
+                      style={{
+                        background: item.type === 'upload' ? '#6366F1' : item.type === 'chat' ? '#F59E0B' : '#22C55E'
+                      }}
+                    />
+                    <div className="fd-activity-content">
+                      <p className="fd-activity-text">{item.text}</p>
+                      <div className="fd-activity-meta">
+                        <span>{item.agent}</span>
+                        <span>·</span>
+                        <span>{item.time}</span>
                       </div>
-                      <div className="fd-file-info">
-                        <p className="fd-file-name">{file.file_name}</p>
-                        <div className="fd-file-meta">
-                          <span>{formatFileSize(file.size)}</span>
-                          <span>·</span>
-                          <span>{timeAgo(file.created_at)}</span>
-                        </div>
-                      </div>
-                      <span className={`fd-file-status ${file.status}`}>
-                        {file.status === 'indexed' && <CheckCircle2 size={9} />}
-                        {file.status === 'processing' && <Clock size={9} />}
-                        {file.status === 'error' && <AlertCircle size={9} />}
-                        {file.status}
-                      </span>
-                      <button className="fd-icon-btn" style={{ width: 32, height: 32 }}>
-                        <MoreHorizontal size={14} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="fd-empty">
-                <p style={{ color: 'var(--color-muted-foreground)', fontSize: '0.9rem' }}>
-                  {searchQuery ? `No files match "${searchQuery}"` : "No files uploaded yet"}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'activity' && (
-          <div className="fd-card fd-animate" style={{ animationDelay: '0.15s', maxWidth: 640 }}>
-            <h3 className="fd-card-title">
-              <BarChart3 size={15} style={{ color: '#6366F1' }} />
-              Activity Log
-            </h3>
-            <div className="fd-activity">
-              {recentActivity.map((item, i) => (
-                <div key={i} className="fd-activity-item">
-                  <div 
-                    className="fd-activity-dot" 
-                    style={{ 
-                      background: item.type === 'upload' ? '#6366F1' : item.type === 'chat' ? '#F59E0B' : '#22C55E' 
-                    }} 
-                  />
-                  <div className="fd-activity-content">
-                    <p className="fd-activity-text">{item.text}</p>
-                    <div className="fd-activity-meta">
-                      <span>{item.agent}</span>
-                      <span>·</span>
-                      <span>{item.time}</span>
                     </div>
                   </div>
+                ))}
+                <div className="fd-activity-item" style={{ opacity: 0.5 }}>
+                  <div className="fd-activity-dot" style={{ background: 'var(--color-border)' }} />
+                  <div className="fd-activity-content">
+                    <p className="fd-activity-text">End of recent activity</p>
+                  </div>
                 </div>
-              ))}
-              <div className="fd-activity-item" style={{ opacity: 0.5 }}>
-                <div className="fd-activity-dot" style={{ background: 'var(--color-border)' }} />
-                <div className="fd-activity-content">
-                  <p className="fd-activity-text">End of recent activity</p>
-                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Create Agent Modal */}
+        {showCreateAgent && (
+          <div className="fd-modal-bg" onClick={() => setShowCreateAgent(false)}>
+            <div className="fd-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="fd-modal-header">
+                <h3>Create New Agent</h3>
+                <button className="fd-modal-close" onClick={() => setShowCreateAgent(false)}>
+                  <X size={15} />
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder={t("agents.namePlaceholder")}
+                value={newAgentName}
+                onChange={(e) => setNewAgentName(e.target.value)}
+                className="fd-input"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateAgent();
+                  if (e.key === "Escape") setShowCreateAgent(false);
+                }}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCreateAgent}
+                  disabled={creating || !newAgentName.trim()}
+                  className="fd-btn fd-btn-primary"
+                  style={{ flex: 1 }}
+                >
+                  {creating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  {creating ? t("agents.creating") : t("agents.create")}
+                </button>
+                <button
+                  onClick={() => setShowCreateAgent(false)}
+                  className="fd-btn fd-btn-secondary"
+                  style={{ width: 'auto', padding: '0.65rem 1.1rem' }}
+                >
+                  {t("common.cancel")}
+                </button>
               </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* Create Agent Modal */}
-      {showCreateAgent && (
-        <div className="fd-modal-bg" onClick={() => setShowCreateAgent(false)}>
-          <div className="fd-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="fd-modal-header">
-              <h3>Create New Agent</h3>
-              <button className="fd-modal-close" onClick={() => setShowCreateAgent(false)}>
-                <X size={15} />
-              </button>
-            </div>
-            <input
-              type="text"
-              placeholder={t("agents.namePlaceholder")}
-              value={newAgentName}
-              onChange={(e) => setNewAgentName(e.target.value)}
-              className="fd-input"
-              autoFocus
-              onKeyDown={(e) => { 
-                if (e.key === "Enter") handleCreateAgent(); 
-                if (e.key === "Escape") setShowCreateAgent(false); 
-              }}
-            />
-            <div className="flex gap-2">
-              <button 
-                onClick={handleCreateAgent} 
-                disabled={creating || !newAgentName.trim()} 
-                className="fd-btn fd-btn-primary"
-                style={{ flex: 1 }}
-              >
-                {creating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {creating ? t("agents.creating") : t("agents.create")}
-              </button>
-              <button 
-                onClick={() => setShowCreateAgent(false)} 
-                className="fd-btn fd-btn-secondary"
-                style={{ width: 'auto', padding: '0.65rem 1.1rem' }}
-              >
-                {t("common.cancel")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
     </>
   );
 }
