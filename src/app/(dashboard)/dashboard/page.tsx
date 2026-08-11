@@ -7,7 +7,6 @@ import {
   FileText,
   MessageSquare,
   Loader2,
-  ChevronDown,
   Bot,
   Plus,
   Sparkles,
@@ -16,16 +15,7 @@ import {
   FolderOpen,
   Search,
   Bell,
-  Settings,
-  LogOut,
-  LayoutDashboard,
-  Users,
-  BarChart3,
-  MoreVertical,
-  Trash2,
-  X,
-  Menu,
-  ChevronLeft,
+  MoreHorizontal,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -35,9 +25,15 @@ import {
   File,
   TrendingUp,
   Activity,
+  X,
+  ChevronRight,
+  BarChart3,
+  Users,
+  Flame,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
-import { createClient } from "@/lib/supabase/client";
 
 interface Agent {
   id: string;
@@ -45,6 +41,7 @@ interface Agent {
   files_count: number;
   chats_count: number;
   created_at?: string;
+  description?: string;
 }
 
 interface AgentFile {
@@ -58,20 +55,20 @@ interface AgentFile {
 
 function getFileIcon(type: string) {
   const t = type.toLowerCase();
-  if (t.includes("pdf") || t.includes("doc")) return <FileText size={18} />;
-  if (t.includes("sheet") || t.includes("excel") || t.includes("csv")) return <FileSpreadsheet size={18} />;
-  if (t.includes("image") || t.includes("jpg") || t.includes("png")) return <FileImage size={18} />;
-  if (t.includes("json") || t.includes("code") || t.includes("md")) return <FileCode size={18} />;
-  return <File size={18} />;
+  if (t.includes("pdf") || t.includes("doc")) return <FileText size={16} />;
+  if (t.includes("sheet") || t.includes("excel") || t.includes("csv")) return <FileSpreadsheet size={16} />;
+  if (t.includes("image") || t.includes("jpg") || t.includes("png")) return <FileImage size={16} />;
+  if (t.includes("json") || t.includes("code") || t.includes("md")) return <FileCode size={16} />;
+  return <File size={16} />;
 }
 
 function getFileColor(type: string) {
   const t = type.toLowerCase();
-  if (t.includes("pdf") || t.includes("doc")) return { bg: "rgba(99,102,241,.12)", color: "#6366F1" };
-  if (t.includes("sheet") || t.includes("excel") || t.includes("csv")) return { bg: "rgba(34,197,94,.12)", color: "#22C55E" };
-  if (t.includes("image") || t.includes("jpg") || t.includes("png")) return { bg: "rgba(245,158,11,.12)", color: "#F59E0B" };
-  if (t.includes("json") || t.includes("code") || t.includes("md")) return { bg: "rgba(236,72,153,.12)", color: "#EC4899" };
-  return { bg: "rgba(148,163,184,.12)", color: "#94A3B8" };
+  if (t.includes("pdf") || t.includes("doc")) return { bg: "bg-indigo-500/10", color: "text-indigo-500", border: "border-indigo-500/20" };
+  if (t.includes("sheet") || t.includes("excel") || t.includes("csv")) return { bg: "bg-emerald-500/10", color: "text-emerald-500", border: "border-emerald-500/20" };
+  if (t.includes("image") || t.includes("jpg") || t.includes("png")) return { bg: "bg-amber-500/10", color: "text-amber-500", border: "border-amber-500/20" };
+  if (t.includes("json") || t.includes("code") || t.includes("md")) return { bg: "bg-pink-500/10", color: "text-pink-500", border: "border-pink-500/20" };
+  return { bg: "bg-slate-500/10", color: "text-slate-500", border: "border-slate-500/20" };
 }
 
 function formatFileSize(bytes?: number) {
@@ -102,18 +99,15 @@ export default function DashboardPage() {
   const [newAgentName, setNewAgentName] = useState("");
   const [creating, setCreating] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [activeTab, setActiveTab] = useState<"overview" | "recent" | "activity">("overview");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const router = useRouter();
   const { t } = useTranslation();
-  const supabase = createClient();
 
   useEffect(() => setMounted(true), []);
 
@@ -189,204 +183,30 @@ export default function DashboardPage() {
     } finally { setCreating(false); }
   }
 
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  }
-
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
   const filteredFiles = files.filter(f => 
     f.file_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const recentFiles = [...files].sort((a, b) => 
-    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  ).slice(0, 4);
+  const recentActivity = [
+    { type: "upload", text: "Uploaded quarterly-report.pdf", time: "2m ago", agent: "Finance Agent" },
+    { type: "chat", text: "New conversation started", time: "15m ago", agent: "Support Bot" },
+    { type: "index", text: "3 files indexed successfully", time: "1h ago", agent: "Research Agent" },
+  ];
 
   return (
     <>
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
       
-      .fd-dash-root { 
-        font-family: 'Sora', system-ui, sans-serif; 
-        display: flex;
-        height: 100dvh;
-        overflow: hidden;
+      .fd-dash { 
+        font-family: 'Sora', system-ui, sans-serif;
+        min-height: 100dvh;
         background: var(--color-background);
       }
       
-      /* ── Sidebar ── */
-      .fd-sidebar {
-        width: 280px;
-        height: 100%;
-        background: var(--color-card);
-        border-right: 1px solid var(--color-border);
-        display: flex;
-        flex-direction: column;
-        transition: width .35s cubic-bezier(.16,1,.3,1);
-        flex-shrink: 0;
-        position: relative;
-        z-index: 40;
-      }
-      .fd-sidebar.collapsed { width: 72px; }
-      
-      @media (max-width: 1023px) {
-        .fd-sidebar {
-          position: fixed;
-          left: 0; top: 0;
-          transform: translateX(-100%);
-          box-shadow: 8px 0 32px rgba(0,0,0,.2);
-        }
-        .fd-sidebar.mobile-open { transform: translateX(0); }
-      }
-      
-      .fd-sidebar-header {
-        padding: 1.25rem 1.25rem .75rem;
-        display: flex;
-        align-items: center;
-        gap: .75rem;
-        border-bottom: 1px solid var(--color-border);
-      }
-      .fd-sidebar-logo {
-        width: 38px; height: 38px;
-        background: linear-gradient(135deg, #6366F1, #8B5CF6);
-        border-radius: 11px;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0;
-        box-shadow: 0 4px 14px rgba(99,102,241,.35);
-      }
-      .fd-sidebar-brand {
-        font-size: 1.15rem; font-weight: 700;
-        color: var(--color-foreground);
-        letter-spacing: -.02em;
-        white-space: nowrap;
-        opacity: 1;
-        transition: opacity .2s;
-      }
-      .collapsed .fd-sidebar-brand { opacity: 0; width: 0; }
-      
-      .fd-sidebar-nav {
-        flex: 1;
-        overflow-y: auto;
-        padding: .75rem;
-      }
-      .fd-sidebar-nav::-webkit-scrollbar { width: 4px; }
-      .fd-sidebar-nav::-webkit-scrollbar-thumb { background: rgba(129,140,248,.15); border-radius: 99px; }
-      
-      .fd-nav-section {
-        font-size: .68rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .08em;
-        color: var(--color-muted-foreground);
-        padding: .75rem .75rem .4rem;
-        white-space: nowrap;
-        opacity: 1;
-        transition: opacity .2s;
-      }
-      .collapsed .fd-nav-section { opacity: 0; }
-      
-      .fd-nav-item {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        gap: .75rem;
-        padding: .6rem .75rem;
-        border-radius: 10px;
-        border: none;
-        background: none;
-        color: var(--color-muted-foreground);
-        font-family: inherit;
-        font-size: .85rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all .15s;
-        margin-bottom: 2px;
-        white-space: nowrap;
-      }
-      .fd-nav-item:hover {
-        background: var(--color-accent);
-        color: var(--color-foreground);
-      }
-      .fd-nav-item.active {
-        background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(139,92,246,.08));
-        color: #6366F1;
-        font-weight: 600;
-      }
-      .fd-nav-item .nav-text {
-        opacity: 1;
-        transition: opacity .2s;
-      }
-      .collapsed .fd-nav-item .nav-text { opacity: 0; width: 0; }
-      
-      .fd-agent-list-item {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        gap: .65rem;
-        padding: .55rem .6rem;
-        border-radius: 10px;
-        border: none;
-        background: none;
-        color: var(--color-foreground);
-        font-family: inherit;
-        font-size: .82rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all .15s;
-        margin-bottom: 2px;
-        text-align: left;
-      }
-      .fd-agent-list-item:hover { background: var(--color-accent); }
-      .fd-agent-list-item.active {
-        background: rgba(99,102,241,.1);
-        color: #6366F1;
-      }
-      .fd-agent-list-item .agent-text {
-        flex: 1;
-        min-width: 0;
-        opacity: 1;
-        transition: opacity .2s;
-      }
-      .collapsed .fd-agent-list-item .agent-text { opacity: 0; width: 0; }
-      
-      .fd-sidebar-footer {
-        padding: .75rem;
-        border-top: 1px solid var(--color-border);
-      }
-      
-      .fd-collapse-btn {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: .5rem;
-        padding: .5rem;
-        border-radius: 8px;
-        border: none;
-        background: var(--color-accent);
-        color: var(--color-muted-foreground);
-        cursor: pointer;
-        font-family: inherit;
-        font-size: .75rem;
-        transition: all .15s;
-      }
-      .fd-collapse-btn:hover { background: var(--color-border); }
-      .collapsed .fd-collapse-btn svg { transform: rotate(180deg); }
-      
-      /* ── Main Content ── */
-      .fd-main {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        min-width: 0;
-      }
-      
-      /* ── Top Bar ── */
-      .fd-topbar {
+      /* ── Top Header ── */
+      .fd-header {
         height: 64px;
         border-bottom: 1px solid var(--color-border);
         background: var(--color-card);
@@ -394,16 +214,19 @@ export default function DashboardPage() {
         align-items: center;
         justify-content: space-between;
         padding: 0 1.5rem;
-        flex-shrink: 0;
-        gap: 1rem;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        backdrop-filter: blur(12px);
+        background: rgba(var(--color-card-rgb), 0.8);
       }
       
-      .fd-search-wrap {
+      .fd-search {
         position: relative;
         width: 100%;
-        max-width: 400px;
+        max-width: 360px;
       }
-      .fd-search-wrap svg {
+      .fd-search svg {
         position: absolute;
         left: 12px;
         top: 50%;
@@ -411,32 +234,31 @@ export default function DashboardPage() {
         color: var(--color-muted-foreground);
         pointer-events: none;
       }
-      .fd-search-input {
+      .fd-search input {
         width: 100%;
-        padding: .55rem .75rem .55rem 2.5rem;
+        padding: 0.55rem 0.9rem 0.55rem 2.5rem;
         border-radius: 10px;
         border: 1px solid var(--color-border);
         background: var(--color-background);
         color: var(--color-foreground);
         font-family: inherit;
-        font-size: .85rem;
+        font-size: 0.85rem;
         outline: none;
-        transition: all .2s;
-        box-sizing: border-box;
+        transition: all 0.2s;
       }
-      .fd-search-input:focus {
-        border-color: rgba(99,102,241,.4);
-        box-shadow: 0 0 0 3px rgba(99,102,241,.08);
+      .fd-search input:focus {
+        border-color: rgba(99,102,241,0.4);
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
       }
-      .fd-search-input::placeholder { color: var(--color-muted-foreground); }
       
-      .fd-topbar-actions {
+      .fd-header-actions {
         display: flex;
         align-items: center;
-        gap: .5rem;
+        gap: 0.5rem;
       }
       .fd-icon-btn {
-        width: 38px; height: 38px;
+        width: 36px;
+        height: 36px;
         border-radius: 10px;
         border: 1px solid var(--color-border);
         background: var(--color-background);
@@ -445,43 +267,39 @@ export default function DashboardPage() {
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: all .15s;
+        transition: all 0.15s;
         position: relative;
       }
       .fd-icon-btn:hover {
-        border-color: rgba(129,140,248,.3);
+        border-color: rgba(129,140,248,0.3);
         color: var(--color-foreground);
         background: var(--color-accent);
       }
       
       .fd-avatar {
-        width: 36px; height: 36px;
-        border-radius: 10px;
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
         background: linear-gradient(135deg, #6366F1, #8B5CF6);
         display: flex;
         align-items: center;
         justify-content: center;
         color: #fff;
         font-weight: 600;
-        font-size: .85rem;
+        font-size: 0.8rem;
         cursor: pointer;
         border: 2px solid var(--color-border);
-        transition: all .15s;
+        transition: all 0.15s;
       }
-      .fd-avatar:hover { border-color: rgba(99,102,241,.4); box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
+      .fd-avatar:hover {
+        border-color: rgba(99,102,241,0.4);
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+      }
       
-      /* ── Content Scroll Area ── */
+      /* ── Content ── */
       .fd-content {
-        flex: 1;
-        overflow-y: auto;
         padding: 1.5rem;
-      }
-      .fd-content::-webkit-scrollbar { width: 6px; }
-      .fd-content::-webkit-scrollbar-thumb { background: rgba(129,140,248,.15); border-radius: 99px; }
-      .fd-content::-webkit-scrollbar-track { background: transparent; }
-      
-      .fd-content-inner {
-        max-width: 1200px;
+        max-width: 1280px;
         margin: 0 auto;
       }
       
@@ -491,297 +309,480 @@ export default function DashboardPage() {
         overflow: hidden;
         border-radius: 20px;
         padding: 2rem 2.25rem;
-        background: linear-gradient(135deg, rgba(99,102,241,.1) 0%, rgba(139,92,246,.06) 50%, rgba(59,130,246,.04) 100%);
-        border: 1px solid rgba(129,140,248,.12);
+        background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.05) 50%, rgba(59,130,246,0.03) 100%);
+        border: 1px solid rgba(129,140,248,0.1);
         margin-bottom: 1.5rem;
       }
       [data-theme="light"] .fd-hero {
-        background: linear-gradient(135deg, rgba(99,102,241,.05) 0%, rgba(139,92,246,.03) 50%, rgba(59,130,246,.02) 100%);
+        background: linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(139,92,246,0.02) 50%, rgba(59,130,246,0.02) 100%);
       }
       .fd-hero-orb {
         position: absolute;
-        width: 350px; height: 350px;
+        width: 300px;
+        height: 300px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(99,102,241,.15) 0%, transparent 70%);
-        filter: blur(50px);
-        top: -100px; right: -60px;
+        background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
+        filter: blur(40px);
+        top: -80px;
+        right: -40px;
         pointer-events: none;
-        animation: fd-hero-orb 7s ease-in-out infinite;
+        animation: fd-orb 6s ease-in-out infinite;
       }
-      @keyframes fd-hero-orb {
-        0%, 100% { transform: translate(0,0) scale(1); opacity: .6; }
-        50% { transform: translate(-15px, 10px) scale(1.08); opacity: .9; }
+      @keyframes fd-orb {
+        0%, 100% { transform: translate(0,0) scale(1); opacity: 0.6; }
+        50% { transform: translate(-10px, 8px) scale(1.05); opacity: 0.9; }
       }
       .fd-hero h1 {
-        font-size: 1.5rem;
+        font-size: 1.45rem;
         font-weight: 800;
-        letter-spacing: -.03em;
+        letter-spacing: -0.03em;
         color: var(--color-foreground);
-        margin: 0 0 .35rem;
+        margin: 0 0 0.3rem;
         position: relative;
         z-index: 2;
       }
       .fd-hero p {
-        font-size: .88rem;
+        font-size: 0.87rem;
         color: var(--color-muted-foreground);
         margin: 0;
         position: relative;
         z-index: 2;
-        max-width: 500px;
+        max-width: 480px;
+        line-height: 1.6;
+      }
+      
+      /* ── Tabs ── */
+      .fd-tabs {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 1.5rem;
+        padding: 0.25rem;
+        background: var(--color-accent);
+        border-radius: 12px;
+        width: fit-content;
+        border: 1px solid var(--color-border);
+      }
+      .fd-tab {
+        padding: 0.5rem 1rem;
+        border-radius: 10px;
+        border: none;
+        background: none;
+        color: var(--color-muted-foreground);
+        font-family: inherit;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .fd-tab.active {
+        background: var(--color-card);
+        color: var(--color-foreground);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .fd-tab:hover:not(.active) {
+        color: var(--color-foreground);
       }
       
       /* ── Stats ── */
-      .fd-stats-grid {
+      .fd-stats {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 1rem;
         margin-bottom: 1.5rem;
       }
       @media (max-width: 640px) {
-        .fd-stats-grid { grid-template-columns: 1fr; }
+        .fd-stats { grid-template-columns: 1fr; }
       }
-      
-      .fd-stat-card {
+      .fd-stat {
         position: relative;
         overflow: hidden;
         border-radius: 16px;
         padding: 1.25rem;
         border: 1px solid var(--color-border);
         background: var(--color-card);
-        transition: all .25s;
+        transition: all 0.25s;
       }
-      .fd-stat-card:hover {
+      .fd-stat:hover {
         transform: translateY(-2px);
-        box-shadow: 0 12px 32px rgba(99,102,241,.06);
-        border-color: rgba(129,140,248,.2);
+        box-shadow: 0 12px 32px rgba(99,102,241,0.06);
+        border-color: rgba(129,140,248,0.2);
       }
-      .fd-stat-header {
+      .fd-stat-top {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        margin-bottom: .75rem;
+        margin-bottom: 0.75rem;
       }
-      .fd-stat-icon-wrap {
-        width: 40px; height: 40px;
-        border-radius: 11px;
-        display: flex; align-items: center; justify-content: center;
+      .fd-stat-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .fd-stat-trend {
-        font-size: .72rem;
-        font-weight: 600;
-        padding: .2rem .5rem;
+      .fd-stat-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.2rem 0.5rem;
         border-radius: 6px;
-        background: rgba(34,197,94,.1);
-        color: #22C55E;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
       }
       .fd-stat-value {
-        font-size: 1.75rem;
+        font-size: 1.65rem;
         font-weight: 800;
-        letter-spacing: -.04em;
+        letter-spacing: -0.04em;
         color: var(--color-foreground);
         line-height: 1;
-        margin-bottom: .25rem;
+        margin-bottom: 0.2rem;
       }
       .fd-stat-label {
-        font-size: .78rem;
+        font-size: 0.78rem;
         color: var(--color-muted-foreground);
         font-weight: 500;
       }
       
-      /* ── Section Headers ── */
+      /* ── Section ── */
+      .fd-section {
+        margin-bottom: 1.5rem;
+      }
       .fd-section-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 1rem;
+        margin-bottom: 0.875rem;
       }
       .fd-section-title {
-        font-size: .95rem;
+        font-size: 0.92rem;
         font-weight: 700;
         color: var(--color-foreground);
-        letter-spacing: -.01em;
+        letter-spacing: -0.01em;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .fd-section-link {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #6366F1;
+        background: none;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        transition: gap 0.2s;
+      }
+      .fd-section-link:hover { gap: 0.4rem; }
+      
+      /* ── Agent Cards ── */
+      .fd-agent-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 0.875rem;
+        margin-bottom: 1.5rem;
+      }
+      @media (max-width: 480px) {
+        .fd-agent-grid { grid-template-columns: 1fr; }
+      }
+      .fd-agent-card {
+        position: relative;
+        border-radius: 16px;
+        padding: 1.1rem;
+        border: 1px solid var(--color-border);
+        background: var(--color-card);
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: left;
+        font-family: inherit;
+        color: inherit;
+      }
+      .fd-agent-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(99,102,241,0.06);
+        border-color: rgba(129,140,248,0.25);
+      }
+      .fd-agent-card.active {
+        border-color: rgba(99,102,241,0.4);
+        background: linear-gradient(135deg, rgba(99,102,241,0.05), rgba(139,92,246,0.03));
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+      }
+      .fd-agent-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+      .fd-agent-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 11px;
+        background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.1));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .fd-agent-card h3 {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: var(--color-foreground);
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .fd-agent-card p {
+        font-size: 0.75rem;
+        color: var(--color-muted-foreground);
+        margin: 0.15rem 0 0;
+      }
+      .fd-agent-stats {
+        display: flex;
+        gap: 1rem;
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--color-border);
+      }
+      .fd-agent-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.75rem;
+        color: var(--color-muted-foreground);
+        font-weight: 500;
       }
       
       /* ── Upload Zone ── */
-      .fd-upload-zone {
+      .fd-upload {
         position: relative;
         border-radius: 16px;
-        padding: 2.5rem 1.5rem;
+        padding: 2.25rem 1.5rem;
         border: 2px dashed var(--color-border);
         text-align: center;
-        transition: all .3s;
+        transition: all 0.3s;
         cursor: pointer;
         background: var(--color-card);
         margin-bottom: 1.5rem;
       }
-      .fd-upload-zone:hover, .fd-upload-zone.drag-over {
-        border-color: rgba(99,102,241,.4);
-        background: rgba(99,102,241,.03);
+      .fd-upload:hover, .fd-upload.drag-over {
+        border-color: rgba(99,102,241,0.4);
+        background: rgba(99,102,241,0.02);
       }
-      .fd-upload-zone.drag-over {
-        transform: scale(1.01);
+      .fd-upload.drag-over {
+        transform: scale(1.005);
         border-color: #6366F1;
+        background: rgba(99,102,241,0.04);
       }
-      .fd-upload-icon-wrap {
-        width: 56px; height: 56px;
-        border-radius: 16px;
-        margin: 0 auto 1rem;
-        background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(139,92,246,.08));
-        display: flex; align-items: center; justify-content: center;
+      .fd-upload-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        margin: 0 auto 0.875rem;
+        background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08));
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .fd-upload-zone h3 {
-        font-size: .95rem;
+      .fd-upload h3 {
+        font-size: 0.92rem;
         font-weight: 600;
         color: var(--color-foreground);
-        margin: 0 0 .25rem;
+        margin: 0 0 0.2rem;
       }
-      .fd-upload-zone p {
-        font-size: .78rem;
+      .fd-upload p {
+        font-size: 0.76rem;
         color: var(--color-muted-foreground);
         margin: 0;
       }
       
-      /* ── File Grid ── */
-      .fd-file-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: .875rem;
+      /* ── File List ── */
+      .fd-file-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
         margin-bottom: 1.5rem;
       }
-      @media (max-width: 640px) {
-        .fd-file-grid { grid-template-columns: 1fr; }
-      }
-      
-      .fd-file-card {
-        position: relative;
-        border-radius: 14px;
-        padding: 1rem;
+      .fd-file-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.7rem 0.85rem;
+        border-radius: 12px;
         border: 1px solid var(--color-border);
         background: var(--color-card);
-        transition: all .2s;
+        transition: all 0.15s;
         cursor: pointer;
-        group: true;
       }
-      .fd-file-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(99,102,241,.06);
-        border-color: rgba(129,140,248,.25);
-      }
-      .fd-file-card-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        margin-bottom: .75rem;
-      }
-      .fd-file-icon-wrap {
-        width: 44px; height: 44px;
-        border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-      }
-      .fd-file-menu-btn {
-        opacity: 0;
-        transition: opacity .15s;
-        width: 28px; height: 28px;
-        border-radius: 6px;
-        border: none;
+      .fd-file-row:hover {
         background: var(--color-accent);
-        color: var(--color-muted-foreground);
-        display: flex; align-items: center; justify-content: center;
-        cursor: pointer;
+        border-color: rgba(129,140,248,0.2);
       }
-      .fd-file-card:hover .fd-file-menu-btn { opacity: 1; }
-      .fd-file-menu-btn:hover { background: var(--color-border); color: var(--color-foreground); }
-      
+      .fd-file-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .fd-file-info {
+        flex: 1;
+        min-width: 0;
+      }
       .fd-file-name {
-        font-size: .82rem;
+        font-size: 0.82rem;
         font-weight: 600;
         color: var(--color-foreground);
-        margin: 0 0 .15rem;
+        margin: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
       .fd-file-meta {
-        font-size: .72rem;
+        font-size: 0.72rem;
         color: var(--color-muted-foreground);
         display: flex;
         align-items: center;
-        gap: .4rem;
+        gap: 0.35rem;
+        margin-top: 0.1rem;
       }
       .fd-file-status {
         display: inline-flex;
         align-items: center;
-        gap: .25rem;
-        font-size: .7rem;
+        gap: 0.25rem;
+        font-size: 0.7rem;
         font-weight: 600;
-        padding: .15rem .4rem;
-        border-radius: 4px;
-        margin-top: .5rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 99px;
+        flex-shrink: 0;
       }
-      .fd-file-status.indexed { background: rgba(34,197,94,.1); color: #22C55E; }
-      .fd-file-status.processing { background: rgba(245,158,11,.1); color: #F59E0B; }
-      .fd-file-status.error { background: rgba(239,68,68,.1); color: #EF4444; }
+      .fd-file-status.indexed { background: rgba(34,197,94,0.1); color: #22C55E; }
+      .fd-file-status.processing { background: rgba(245,158,11,0.1); color: #F59E0B; }
+      .fd-file-status.error { background: rgba(239,68,68,0.1); color: #EF4444; }
       
-      /* ── Quick Actions ── */
-      .fd-quick-actions {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: .875rem;
-        margin-bottom: 1.5rem;
+      /* ── Activity Feed ── */
+      .fd-activity {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
       }
-      @media (max-width: 480px) {
-        .fd-quick-actions { grid-template-columns: 1fr; }
+      .fd-activity-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.875rem 0;
+        border-bottom: 1px solid var(--color-border);
       }
-      
-      .fd-action-card {
+      .fd-activity-item:last-child { border-bottom: none; }
+      .fd-activity-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-top: 0.4rem;
+        flex-shrink: 0;
+      }
+      .fd-activity-content {
+        flex: 1;
+        min-width: 0;
+      }
+      .fd-activity-text {
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--color-foreground);
+        margin: 0 0 0.15rem;
+      }
+      .fd-activity-meta {
+        font-size: 0.72rem;
+        color: var(--color-muted-foreground);
         display: flex;
         align-items: center;
-        gap: .875rem;
-        padding: 1rem 1.1rem;
+        gap: 0.4rem;
+      }
+      
+      /* ── Quick Actions ── */
+      .fd-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+      }
+      @media (max-width: 480px) {
+        .fd-actions { grid-template-columns: 1fr; }
+      }
+      .fd-action {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.875rem 1rem;
         border-radius: 14px;
         border: 1px solid var(--color-border);
         background: var(--color-card);
         cursor: pointer;
-        transition: all .2s;
+        transition: all 0.2s;
         text-align: left;
         font-family: inherit;
         color: inherit;
       }
-      .fd-action-card:hover {
-        border-color: rgba(129,140,248,.3);
-        box-shadow: 0 4px 16px rgba(99,102,241,.06);
+      .fd-action:hover {
+        border-color: rgba(129,140,248,0.3);
+        box-shadow: 0 4px 16px rgba(99,102,241,0.06);
         transform: translateY(-1px);
       }
       .fd-action-icon {
-        width: 42px; height: 42px;
-        border-radius: 11px;
-        display: flex; align-items: center; justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         flex-shrink: 0;
       }
-      .fd-action-card h4 {
-        font-size: .85rem;
+      .fd-action h4 {
+        font-size: 0.82rem;
         font-weight: 600;
         color: var(--color-foreground);
-        margin: 0 0 .15rem;
+        margin: 0 0 0.1rem;
       }
-      .fd-action-card p {
-        font-size: .75rem;
+      .fd-action p {
+        font-size: 0.72rem;
         color: var(--color-muted-foreground);
         margin: 0;
       }
       
-      /* ── Create Agent Modal ── */
-      .fd-modal-overlay {
+      /* ── Empty ── */
+      .fd-empty {
+        text-align: center;
+        padding: 3rem 1.5rem;
+        border-radius: 16px;
+        border: 2px dashed var(--color-border);
+        background: var(--color-card);
+      }
+      .fd-empty-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        margin: 0 auto 1rem;
+        background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      /* ── Modal ── */
+      .fd-modal-bg {
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,.5);
+        background: rgba(0,0,0,0.5);
         backdrop-filter: blur(4px);
         z-index: 50;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 1rem;
-        animation: fd-fade-in .2s ease;
+        animation: fd-fade-in 0.2s ease;
       }
       @keyframes fd-fade-in {
         from { opacity: 0; }
@@ -789,16 +790,16 @@ export default function DashboardPage() {
       }
       .fd-modal {
         width: 100%;
-        max-width: 420px;
+        max-width: 400px;
         background: var(--color-card);
         border: 1px solid var(--color-border);
         border-radius: 20px;
         padding: 1.5rem;
-        animation: fd-modal-in .3s cubic-bezier(.16,1,.3,1);
-        box-shadow: 0 24px 64px rgba(0,0,0,.2);
+        animation: fd-modal-in 0.3s cubic-bezier(0.16,1,0.3,1);
+        box-shadow: 0 24px 64px rgba(0,0,0,0.2);
       }
       @keyframes fd-modal-in {
-        from { opacity: 0; transform: scale(.95) translateY(10px); }
+        from { opacity: 0; transform: scale(0.95) translateY(10px); }
         to { opacity: 1; transform: scale(1) translateY(0); }
       }
       .fd-modal-header {
@@ -808,390 +809,376 @@ export default function DashboardPage() {
         margin-bottom: 1.25rem;
       }
       .fd-modal-header h3 {
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         font-weight: 700;
         color: var(--color-foreground);
         margin: 0;
       }
       .fd-modal-close {
-        width: 32px; height: 32px;
+        width: 30px;
+        height: 30px;
         border-radius: 8px;
         border: none;
         background: var(--color-accent);
         color: var(--color-muted-foreground);
-        display: flex; align-items: center; justify-content: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
-        transition: all .15s;
+        transition: all 0.15s;
       }
-      .fd-modal-close:hover { background: var(--color-border); color: var(--color-foreground); }
+      .fd-modal-close:hover {
+        background: var(--color-border);
+        color: var(--color-foreground);
+      }
       
       .fd-input {
         width: 100%;
-        padding: .7rem .9rem;
+        padding: 0.65rem 0.9rem;
         border-radius: 11px;
-        font-size: .9rem;
+        font-size: 0.88rem;
         font-family: inherit;
         background: var(--color-background);
         border: 1px solid var(--color-border);
         color: var(--color-foreground);
         outline: none;
-        transition: all .2s;
+        transition: all 0.2s;
         box-sizing: border-box;
-        margin-bottom: .75rem;
+        margin-bottom: 0.75rem;
       }
       .fd-input:focus {
-        border-color: rgba(99,102,241,.4);
-        box-shadow: 0 0 0 3px rgba(99,102,241,.08);
+        border-color: rgba(99,102,241,0.4);
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
       }
-      .fd-input::placeholder { color: var(--color-muted-foreground); }
       
-      .fd-btn-primary {
+      .fd-btn {
         width: 100%;
-        padding: .7rem;
+        padding: 0.65rem;
         border-radius: 11px;
-        font-size: .9rem;
+        font-size: 0.88rem;
         font-weight: 600;
         font-family: inherit;
-        color: #fff;
         border: none;
         cursor: pointer;
-        background: linear-gradient(135deg, #6366F1, #8B5CF6);
-        transition: all .2s;
+        transition: all 0.2s;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: .5rem;
+        gap: 0.5rem;
+      }
+      .fd-btn-primary {
+        background: linear-gradient(135deg, #6366F1, #8B5CF6);
+        color: #fff;
       }
       .fd-btn-primary:hover:not(:disabled) {
         transform: translateY(-1px);
-        box-shadow: 0 8px 24px rgba(99,102,241,.35);
+        box-shadow: 0 8px 24px rgba(99,102,241,0.35);
       }
-      .fd-btn-primary:disabled { opacity: .6; cursor: not-allowed; }
-      
+      .fd-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
       .fd-btn-secondary {
-        width: 100%;
-        padding: .7rem;
-        border-radius: 11px;
-        font-size: .9rem;
-        font-weight: 600;
-        font-family: inherit;
+        background: var(--color-background);
         color: var(--color-foreground);
         border: 1px solid var(--color-border);
-        background: var(--color-background);
-        cursor: pointer;
-        transition: all .2s;
       }
       .fd-btn-secondary:hover { background: var(--color-accent); }
       
-      /* ── Empty State ── */
-      .fd-empty {
-        text-align: center;
-        padding: 3rem 1.5rem;
-        border-radius: 16px;
-        border: 2px dashed var(--color-border);
-        background: var(--color-card);
+      /* ── Layout Grid ── */
+      .fd-layout {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 1.5rem;
       }
-      .fd-empty-icon {
-        width: 64px; height: 64px;
-        border-radius: 16px;
-        margin: 0 auto 1rem;
-        background: linear-gradient(135deg, rgba(99,102,241,.08), rgba(139,92,246,.06));
-        display: flex; align-items: center; justify-content: center;
+      @media (max-width: 1024px) {
+        .fd-layout { grid-template-columns: 1fr; }
       }
       
-      /* ── Mobile Overlay ── */
-      .fd-mobile-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,.4);
-        backdrop-filter: blur(2px);
-        z-index: 35;
+      /* ── Card ── */
+      .fd-card {
+        border-radius: 16px;
+        border: 1px solid var(--color-border);
+        background: var(--color-card);
+        padding: 1.25rem;
+      }
+      .fd-card-title {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: var(--color-foreground);
+        margin: 0 0 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
       }
       
       /* ── Animations ── */
-      .fd-fade-up {
-        animation: fd-fade-up .5s cubic-bezier(.16,1,.3,1) both;
+      .fd-animate {
+        opacity: 0;
+        transform: translateY(12px);
+        animation: fd-slide-up 0.5s cubic-bezier(0.16,1,0.3,1) forwards;
       }
-      @keyframes fd-fade-up {
-        from { opacity: 0; transform: translateY(12px); }
+      @keyframes fd-slide-up {
         to { opacity: 1; transform: translateY(0); }
       }
       
-      /* ── Dropdown Menus ── */
+      /* ── Dropdowns ── */
       .fd-dropdown {
         position: absolute;
         right: 0;
         top: calc(100% + 6px);
-        min-width: 200px;
+        min-width: 180px;
         background: var(--color-card);
         border: 1px solid var(--color-border);
         border-radius: 12px;
-        box-shadow: 0 16px 48px rgba(0,0,0,.15);
-        padding: .5rem;
+        box-shadow: 0 16px 48px rgba(0,0,0,0.12);
+        padding: 0.4rem;
         z-index: 50;
-        animation: fd-dropdown-in .2s ease;
+        animation: fd-drop 0.2s ease;
       }
-      @keyframes fd-dropdown-in {
-        from { opacity: 0; transform: translateY(-6px) scale(.98); }
+      @keyframes fd-drop {
+        from { opacity: 0; transform: translateY(-6px) scale(0.98); }
         to { opacity: 1; transform: translateY(0) scale(1); }
       }
       .fd-dropdown-item {
         width: 100%;
         display: flex;
         align-items: center;
-        gap: .6rem;
-        padding: .55rem .65rem;
+        gap: 0.6rem;
+        padding: 0.5rem 0.65rem;
         border-radius: 8px;
         border: none;
         background: none;
         color: var(--color-foreground);
         font-family: inherit;
-        font-size: .82rem;
+        font-size: 0.8rem;
         font-weight: 500;
         cursor: pointer;
-        transition: background .15s;
+        transition: background 0.15s;
       }
       .fd-dropdown-item:hover { background: var(--color-accent); }
       .fd-dropdown-item.danger { color: #EF4444; }
-      .fd-dropdown-item.danger:hover { background: rgba(239,68,68,.08); }
+      .fd-dropdown-item.danger:hover { background: rgba(239,68,68,0.08); }
       .fd-dropdown-divider {
         height: 1px;
         background: var(--color-border);
-        margin: .4rem .3rem;
+        margin: 0.3rem;
       }
     `}</style>
 
-    <div className="fd-dash-root">
-      {/* Mobile Overlay */}
-      {mobileMenuOpen && (
-        <div className="fd-mobile-overlay" onClick={() => setMobileMenuOpen(false)} />
-      )}
+    <div className="fd-dash">
+      {/* Sticky Header */}
+      <header className="fd-header">
+        <div className="fd-search">
+          <Search size={15} />
+          <input 
+            type="text" 
+            placeholder="Search agents, files..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
 
-      {/* Sidebar */}
-      <aside className={`fd-sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}>
-        <div className="fd-sidebar-header">
-          <div className="fd-sidebar-logo">
-            <img src="/photos/auth-logo.png" alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+        <div className="fd-header-actions">
+          <div style={{ position: 'relative' }}>
+            <button 
+              className="fd-icon-btn"
+              onClick={() => { setNotificationsOpen(!notificationsOpen); setUserMenuOpen(false); }}
+            >
+              <Bell size={16} />
+              <span style={{
+                position: 'absolute', top: 6, right: 6,
+                width: 7, height: 7, borderRadius: '50%',
+                background: '#EF4444', border: '2px solid var(--color-card)'
+              }} />
+            </button>
+            {notificationsOpen && (
+              <div className="fd-dropdown" style={{ width: 260, right: -10 }}>
+                <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>Notifications</span>
+                </div>
+                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-muted-foreground)', fontSize: '0.8rem' }}>
+                  No new notifications
+                </div>
+              </div>
+            )}
           </div>
-          <span className="fd-sidebar-brand">FlexiData</span>
+
+          <div style={{ position: 'relative' }}>
+            <div className="fd-avatar" onClick={() => { setUserMenuOpen(!userMenuOpen); setNotificationsOpen(false); }}>
+              U
+            </div>
+            {userMenuOpen && (
+              <div className="fd-dropdown">
+                <button className="fd-dropdown-item" onClick={() => router.push("/settings")}>
+                  <Settings size={14} /> Settings
+                </button>
+                <div className="fd-dropdown-divider" />
+                <button className="fd-dropdown-item danger" onClick={() => {}}>
+                  <LogOut size={14} /> Sign out
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="fd-content">
+        {/* Hero */}
+        <div className="fd-hero fd-animate">
+          <div className="fd-hero-orb" />
+          <h1>{t("dashboard.title")} 👋</h1>
+          <p>{t("dashboard.subtitle")}</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="fd-tabs fd-animate" style={{ animationDelay: '0.05s' }}>
           <button 
-            className="fd-icon-btn lg:hidden" 
-            onClick={() => setMobileMenuOpen(false)}
-            style={{ marginLeft: 'auto' }}
+            className={`fd-tab ${activeTab === 'overview' ? 'active' : ''}`}
+            onClick={() => setActiveTab('overview')}
           >
-            <X size={18} />
+            Overview
+          </button>
+          <button 
+            className={`fd-tab ${activeTab === 'recent' ? 'active' : ''}`}
+            onClick={() => setActiveTab('recent')}
+          >
+            Recent Files
+          </button>
+          <button 
+            className={`fd-tab ${activeTab === 'activity' ? 'active' : ''}`}
+            onClick={() => setActiveTab('activity')}
+          >
+            Activity
           </button>
         </div>
 
-        <nav className="fd-sidebar-nav">
-          <div className="fd-nav-section">Overview</div>
-          <button className="fd-nav-item active">
-            <LayoutDashboard size={18} />
-            <span className="nav-text">Dashboard</span>
-          </button>
-          <button className="fd-nav-item" onClick={() => router.push("/agents")}>
-            <Bot size={18} />
-            <span className="nav-text">All Agents</span>
-          </button>
-          <button className="fd-nav-item" onClick={() => router.push("/analytics")}>
-            <BarChart3 size={18} />
-            <span className="nav-text">Analytics</span>
-          </button>
-
-          <div className="fd-nav-section" style={{ marginTop: '.5rem' }}>Your Agents</div>
-          {agents.length === 0 && !sidebarCollapsed && (
-            <p style={{ fontSize: '.75rem', color: 'var(--color-muted-foreground)', padding: '.5rem .75rem' }}>
-              No agents yet
-            </p>
-          )}
-          {agents.map((agent) => (
-            <button
-              key={agent.id}
-              onClick={() => setSelectedAgentId(agent.id)}
-              className={`fd-agent-list-item ${agent.id === selectedAgentId ? 'active' : ''}`}
-            >
-              <div style={{ 
-                width: 28, height: 28, borderRadius: 8, 
-                background: agent.id === selectedAgentId ? 'linear-gradient(135deg, rgba(99,102,241,.2), rgba(139,92,246,.12))' : 'var(--color-muted)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-              }}>
-                <Bot size={13} style={{ color: agent.id === selectedAgentId ? '#6366F1' : 'var(--color-muted-foreground)' }} />
+        {/* Stats */}
+        <div className="fd-stats fd-animate" style={{ animationDelay: '0.1s' }}>
+          <div className="fd-stat">
+            <div className="fd-stat-top">
+              <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))' }}>
+                <Bot size={17} style={{ color: '#6366F1' }} />
               </div>
-              <div className="agent-text">
-                <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {agent.name}
+              <span className="fd-stat-badge" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366F1' }}>
+                <Flame size={10} /> Active
+              </span>
+            </div>
+            <div className="fd-stat-value">{agents.length}</div>
+            <div className="fd-stat-label">{t("dashboard.agents")}</div>
+          </div>
+
+          <div className="fd-stat">
+            <div className="fd-stat-top">
+              <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))' }}>
+                <FolderOpen size={17} style={{ color: '#22C55E' }} />
+              </div>
+              <span className="fd-stat-badge" style={{ background: 'rgba(34,197,94,0.1)', color: '#22C55E' }}>
+                <TrendingUp size={10} /> +{totalFiles > 0 ? totalFiles : 0}
+              </span>
+            </div>
+            <div className="fd-stat-value">{totalFiles}</div>
+            <div className="fd-stat-label">{t("dashboard.files")}</div>
+          </div>
+
+          <div className="fd-stat">
+            <div className="fd-stat-top">
+              <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))' }}>
+                <MessageSquare size={17} style={{ color: '#F59E0B' }} />
+              </div>
+              <span className="fd-stat-badge" style={{ background: 'rgba(245,158,11,0.1)', color: '#F59E0B' }}>
+                <Activity size={10} /> Live
+              </span>
+            </div>
+            <div className="fd-stat-value">{totalChats}</div>
+            <div className="fd-stat-label">{t("dashboard.allChats")}</div>
+          </div>
+        </div>
+
+        {/* Content based on active tab */}
+        {activeTab === 'overview' && (
+          <div className="fd-layout fd-animate" style={{ animationDelay: '0.15s' }}>
+            <div>
+              {/* Agent Selector Cards */}
+              <div className="fd-section">
+                <div className="fd-section-header">
+                  <h2 className="fd-section-title">
+                    <Bot size={16} style={{ color: '#6366F1' }} />
+                    Your Agents
+                  </h2>
+                  <button className="fd-section-link" onClick={() => router.push("/agents")}>
+                    View all <ChevronRight size={14} />
+                  </button>
                 </div>
-                {!sidebarCollapsed && (
-                  <div style={{ fontSize: '.7rem', color: 'var(--color-muted-foreground)', marginTop: 1 }}>
-                    {agent.files_count} files · {agent.chats_count} chats
+
+                {agents.length > 0 ? (
+                  <div className="fd-agent-grid">
+                    {agents.map((agent) => (
+                      <button
+                        key={agent.id}
+                        className={`fd-agent-card ${agent.id === selectedAgentId ? 'active' : ''}`}
+                        onClick={() => setSelectedAgentId(agent.id)}
+                      >
+                        <div className="fd-agent-card-header">
+                          <div className="fd-agent-avatar">
+                            <Bot size={18} style={{ color: '#6366F1' }} />
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <h3>{agent.name}</h3>
+                            <p>AI Document Agent</p>
+                          </div>
+                        </div>
+                        <div className="fd-agent-stats">
+                          <span className="fd-agent-stat">
+                            <FolderOpen size={12} /> {agent.files_count} files
+                          </span>
+                          <span className="fd-agent-stat">
+                            <MessageSquare size={12} /> {agent.chats_count} chats
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                    <button 
+                      className="fd-agent-card"
+                      onClick={() => setShowCreateAgent(true)}
+                      style={{ 
+                        borderStyle: 'dashed', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        color: 'var(--color-muted-foreground)',
+                        fontWeight: 600,
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      <Plus size={18} /> Create Agent
+                    </button>
+                  </div>
+                ) : (
+                  <div className="fd-empty">
+                    <div className="fd-empty-icon">
+                      <Bot size={24} style={{ color: '#6366F1' }} />
+                    </div>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-foreground)', margin: '0 0 0.3rem' }}>
+                      {t("agents.noAgents")}
+                    </p>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--color-muted-foreground)', margin: '0 0 1.25rem' }}>
+                      {t("agents.noAgentsSub")}
+                    </p>
+                    <button 
+                      onClick={() => setShowCreateAgent(true)} 
+                      className="fd-btn fd-btn-primary"
+                      style={{ maxWidth: 200, margin: '0 auto' }}
+                    >
+                      <Plus size={16} /> {t("agents.create")}
+                    </button>
                   </div>
                 )}
               </div>
-              {agent.id === selectedAgentId && !sidebarCollapsed && (
-                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#6366F1', flexShrink: 0 }} />
-              )}
-            </button>
-          ))}
-          
-          <button 
-            onClick={() => setShowCreateAgent(true)} 
-            className="fd-nav-item"
-            style={{ marginTop: '.5rem', color: '#6366F1' }}
-          >
-            <Plus size={18} />
-            <span className="nav-text">Create Agent</span>
-          </button>
-        </nav>
 
-        <div className="fd-sidebar-footer">
-          <button 
-            className="fd-collapse-btn hidden lg:flex" 
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          >
-            <ChevronLeft size={14} />
-            <span className="nav-text">Collapse</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="fd-main">
-        {/* Top Bar */}
-        <header className="fd-topbar">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button 
-              className="fd-icon-btn lg:hidden" 
-              onClick={() => setMobileMenuOpen(true)}
-            >
-              <Menu size={18} />
-            </button>
-            <div className="fd-search-wrap hidden sm:block">
-              <Search size={15} />
-              <input 
-                type="text" 
-                placeholder="Search files..." 
-                className="fd-search-input"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="fd-topbar-actions">
-            <button 
-              className="fd-icon-btn sm:hidden"
-              onClick={() => router.push("/search")}
-            >
-              <Search size={16} />
-            </button>
-            
-            <div style={{ position: 'relative' }}>
-              <button 
-                className="fd-icon-btn"
-                onClick={() => { setNotificationsOpen(!notificationsOpen); setUserMenuOpen(false); }}
-              >
-                <Bell size={16} />
-                <span style={{
-                  position: 'absolute', top: 6, right: 6,
-                  width: 7, height: 7, borderRadius: '50%',
-                  background: '#EF4444', border: '2px solid var(--color-card)'
-                }} />
-              </button>
-              
-              {notificationsOpen && (
-                <div className="fd-dropdown" style={{ width: 280, right: -10 }}>
-                  <div style={{ padding: '.5rem .5rem .75rem', borderBottom: '1px solid var(--color-border)' }}>
-                    <span style={{ fontSize: '.8rem', fontWeight: 700 }}>Notifications</span>
-                  </div>
-                  <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-muted-foreground)', fontSize: '.82rem' }}>
-                    No new notifications
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ position: 'relative' }}>
-              <div 
-                className="fd-avatar"
-                onClick={() => { setUserMenuOpen(!userMenuOpen); setNotificationsOpen(false); }}
-              >
-                U
-              </div>
-              
-              {userMenuOpen && (
-                <div className="fd-dropdown">
-                  <button className="fd-dropdown-item" onClick={() => router.push("/settings")}>
-                    <Settings size={14} /> Settings
-                  </button>
-                  <div className="fd-dropdown-divider" />
-                  <button className="fd-dropdown-item danger" onClick={handleSignOut}>
-                    <LogOut size={14} /> Sign out
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        {/* Scrollable Content */}
-        <div className="fd-content">
-          <div className="fd-content-inner">
-            {/* Hero */}
-            <div className="fd-hero fd-fade-up">
-              <div className="fd-hero-orb" />
-              <h1>{t("dashboard.title")} 👋</h1>
-              <p>{t("dashboard.subtitle")}</p>
-            </div>
-
-            {/* Stats */}
-            <div className="fd-stats-grid fd-fade-up" style={{ animationDelay: '.1s' }}>
-              <div className="fd-stat-card">
-                <div className="fd-stat-header">
-                  <div className="fd-stat-icon-wrap" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,.12), rgba(139,92,246,.08))' }}>
-                    <Bot size={18} style={{ color: '#6366F1' }} />
-                  </div>
-                  <span className="fd-stat-trend">+{agents.length > 0 ? '1' : '0'} new</span>
-                </div>
-                <div className="fd-stat-value">{agents.length}</div>
-                <div className="fd-stat-label">{t("dashboard.agents")}</div>
-              </div>
-              
-              <div className="fd-stat-card">
-                <div className="fd-stat-header">
-                  <div className="fd-stat-icon-wrap" style={{ background: 'linear-gradient(135deg, rgba(34,197,94,.12), rgba(34,197,94,.06))' }}>
-                    <FolderOpen size={18} style={{ color: '#22C55E' }} />
-                  </div>
-                  <span className="fd-stat-trend" style={{ background: 'rgba(99,102,241,.1)', color: '#6366F1' }}>
-                    <TrendingUp size={10} style={{ display: 'inline', marginRight: 2 }} />
-                    Active
-                  </span>
-                </div>
-                <div className="fd-stat-value">{totalFiles}</div>
-                <div className="fd-stat-label">{t("dashboard.files")}</div>
-              </div>
-              
-              <div className="fd-stat-card">
-                <div className="fd-stat-header">
-                  <div className="fd-stat-icon-wrap" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,.12), rgba(245,158,11,.06))' }}>
-                    <MessageSquare size={18} style={{ color: '#F59E0B' }} />
-                  </div>
-                  <span className="fd-stat-trend" style={{ background: 'rgba(245,158,11,.1)', color: '#F59E0B' }}>
-                    <Activity size={10} style={{ display: 'inline', marginRight: 2 }} />
-                    Live
-                  </span>
-                </div>
-                <div className="fd-stat-value">{totalChats}</div>
-                <div className="fd-stat-label">{t("dashboard.allChats")}</div>
-              </div>
-            </div>
-
-            {/* Selected Agent Content */}
-            {selectedAgent ? (
-              <>
-                {/* Upload Zone */}
+              {/* Upload Zone */}
+              {selectedAgent && (
                 <div 
-                  className={`fd-upload-zone fd-fade-up ${dragOver ? 'drag-over' : ''}`}
-                  style={{ animationDelay: '.15s' }}
+                  className={`fd-upload ${dragOver ? 'drag-over' : ''}`}
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={onDrop}
@@ -1207,41 +1194,37 @@ export default function DashboardPage() {
                   />
                   {uploading ? (
                     <div className="flex flex-col items-center">
-                      <Loader2 size={28} className="animate-spin" style={{ color: '#6366F1', marginBottom: '.75rem' }} />
+                      <Loader2 size={24} className="animate-spin" style={{ color: '#6366F1', marginBottom: '0.6rem' }} />
                       <h3>Uploading...</h3>
                       <p>Processing your document</p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center">
-                      <div className="fd-upload-icon-wrap">
-                        <Upload size={24} style={{ color: '#6366F1' }} />
+                      <div className="fd-upload-icon">
+                        <Upload size={22} style={{ color: '#6366F1' }} />
                       </div>
                       <h3>Drop files here or click to upload</h3>
                       <p>PDF, Word, Excel, Images, Code — up to 50MB</p>
                     </div>
                   )}
                 </div>
+              )}
 
-                {/* Quick Actions */}
-                <div className="fd-quick-actions fd-fade-up" style={{ animationDelay: '.2s' }}>
-                  <button 
-                    className="fd-action-card"
-                    onClick={() => router.push(`/agents/${selectedAgentId}`)}
-                  >
-                    <div className="fd-action-icon" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,.12), rgba(139,92,246,.08))' }}>
-                      <FolderOpen size={18} style={{ color: '#6366F1' }} />
+              {/* Quick Actions */}
+              {selectedAgent && (
+                <div className="fd-actions">
+                  <button className="fd-action" onClick={() => router.push(`/agents/${selectedAgentId}`)}>
+                    <div className="fd-action-icon" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))' }}>
+                      <FolderOpen size={17} style={{ color: '#6366F1' }} />
                     </div>
                     <div>
                       <h4>Manage Files</h4>
-                      <p>View and organize agent documents</p>
+                      <p>View and organize documents</p>
                     </div>
                   </button>
-                  <button 
-                    className="fd-action-card"
-                    onClick={() => router.push(`/agents/${selectedAgentId}/chat`)}
-                  >
-                    <div className="fd-action-icon" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,.12), rgba(245,158,11,.06))' }}>
-                      <Zap size={18} style={{ color: '#F59E0B' }} />
+                  <button className="fd-action" onClick={() => router.push(`/agents/${selectedAgentId}/chat`)}>
+                    <div className="fd-action-icon" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))' }}>
+                      <Zap size={17} style={{ color: '#F59E0B' }} />
                     </div>
                     <div>
                       <h4>Start Chat</h4>
@@ -1249,96 +1232,172 @@ export default function DashboardPage() {
                     </div>
                   </button>
                 </div>
+              )}
+            </div>
 
-                {/* Recent Files */}
-                {filteredFiles.length > 0 ? (
-                  <div className="fd-fade-up" style={{ animationDelay: '.25s' }}>
-                    <div className="fd-section-header">
-                      <h2 className="fd-section-title">Recent Files</h2>
-                      <button 
-                        onClick={() => router.push(`/agents/${selectedAgentId}`)}
+            {/* Right Sidebar Content */}
+            <div>
+              <div className="fd-card fd-animate" style={{ animationDelay: '0.2s' }}>
+                <h3 className="fd-card-title">
+                  <Activity size={15} style={{ color: '#F59E0B' }} />
+                  Recent Activity
+                </h3>
+                <div className="fd-activity">
+                  {recentActivity.map((item, i) => (
+                    <div key={i} className="fd-activity-item">
+                      <div 
+                        className="fd-activity-dot" 
                         style={{ 
-                          fontSize: '.8rem', fontWeight: 600, color: '#6366F1',
-                          background: 'none', border: 'none', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', gap: '.25rem'
-                        }}
-                      >
-                        View all <ArrowRight size={14} />
-                      </button>
+                          background: item.type === 'upload' ? '#6366F1' : item.type === 'chat' ? '#F59E0B' : '#22C55E' 
+                        }} 
+                      />
+                      <div className="fd-activity-content">
+                        <p className="fd-activity-text">{item.text}</p>
+                        <div className="fd-activity-meta">
+                          <span>{item.agent}</span>
+                          <span>·</span>
+                          <span>{item.time}</span>
+                        </div>
+                      </div>
                     </div>
-                    
-                    <div className="fd-file-grid">
-                      {filteredFiles.slice(0, 8).map((file) => {
-                        const colors = getFileColor(file.file_type);
-                        return (
-                          <div key={file.id} className="fd-file-card">
-                            <div className="fd-file-card-header">
-                              <div className="fd-file-icon-wrap" style={{ background: colors.bg, color: colors.color }}>
-                                {getFileIcon(file.file_type)}
-                              </div>
-                              <button className="fd-file-menu-btn">
-                                <MoreVertical size={14} />
-                              </button>
-                            </div>
-                            <div className="fd-file-name" title={file.file_name}>{file.file_name}</div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedAgent && filteredFiles.length > 0 && (
+                <div className="fd-card fd-animate" style={{ animationDelay: '0.25s', marginTop: '1rem' }}>
+                  <div className="fd-section-header" style={{ marginBottom: '0.75rem' }}>
+                    <h3 className="fd-card-title" style={{ margin: 0 }}>
+                      <FileText size={15} style={{ color: '#6366F1' }} />
+                      Latest Files
+                    </h3>
+                  </div>
+                  <div className="fd-file-list">
+                    {filteredFiles.slice(0, 4).map((file) => {
+                      const colors = getFileColor(file.file_type);
+                      return (
+                        <div key={file.id} className="fd-file-row">
+                          <div className={`fd-file-icon ${colors.bg} ${colors.color}`}>
+                            {getFileIcon(file.file_type)}
+                          </div>
+                          <div className="fd-file-info">
+                            <p className="fd-file-name">{file.file_name}</p>
                             <div className="fd-file-meta">
                               <span>{formatFileSize(file.size)}</span>
                               <span>·</span>
                               <span>{timeAgo(file.created_at)}</span>
                             </div>
-                            <div className={`fd-file-status ${file.status}`}>
-                              {file.status === 'indexed' && <CheckCircle2 size={10} />}
-                              {file.status === 'processing' && <Clock size={10} />}
-                              {file.status === 'error' && <AlertCircle size={10} />}
-                              {file.status}
-                            </div>
                           </div>
-                        );
-                      })}
+                          <span className={`fd-file-status ${file.status}`}>
+                            {file.status === 'indexed' && <CheckCircle2 size={9} />}
+                            {file.status === 'processing' && <Clock size={9} />}
+                            {file.status === 'error' && <AlertCircle size={9} />}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {filteredFiles.length > 4 && (
+                    <button 
+                      className="fd-section-link" 
+                      style={{ marginTop: '0.75rem', width: '100%', justifyContent: 'center' }}
+                      onClick={() => router.push(`/agents/${selectedAgentId}`)}
+                    >
+                      View all {filteredFiles.length} files <ChevronRight size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'recent' && (
+          <div className="fd-animate" style={{ animationDelay: '0.15s' }}>
+            {filteredFiles.length > 0 ? (
+              <div className="fd-file-list">
+                {filteredFiles.map((file) => {
+                  const colors = getFileColor(file.file_type);
+                  return (
+                    <div key={file.id} className="fd-file-row">
+                      <div className={`fd-file-icon ${colors.bg} ${colors.color}`}>
+                        {getFileIcon(file.file_type)}
+                      </div>
+                      <div className="fd-file-info">
+                        <p className="fd-file-name">{file.file_name}</p>
+                        <div className="fd-file-meta">
+                          <span>{formatFileSize(file.size)}</span>
+                          <span>·</span>
+                          <span>{timeAgo(file.created_at)}</span>
+                        </div>
+                      </div>
+                      <span className={`fd-file-status ${file.status}`}>
+                        {file.status === 'indexed' && <CheckCircle2 size={9} />}
+                        {file.status === 'processing' && <Clock size={9} />}
+                        {file.status === 'error' && <AlertCircle size={9} />}
+                        {file.status}
+                      </span>
+                      <button className="fd-icon-btn" style={{ width: 32, height: 32 }}>
+                        <MoreHorizontal size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="fd-empty">
+                <p style={{ color: 'var(--color-muted-foreground)', fontSize: '0.9rem' }}>
+                  {searchQuery ? `No files match "${searchQuery}"` : "No files uploaded yet"}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'activity' && (
+          <div className="fd-card fd-animate" style={{ animationDelay: '0.15s', maxWidth: 640 }}>
+            <h3 className="fd-card-title">
+              <BarChart3 size={15} style={{ color: '#6366F1' }} />
+              Activity Log
+            </h3>
+            <div className="fd-activity">
+              {recentActivity.map((item, i) => (
+                <div key={i} className="fd-activity-item">
+                  <div 
+                    className="fd-activity-dot" 
+                    style={{ 
+                      background: item.type === 'upload' ? '#6366F1' : item.type === 'chat' ? '#F59E0B' : '#22C55E' 
+                    }} 
+                  />
+                  <div className="fd-activity-content">
+                    <p className="fd-activity-text">{item.text}</p>
+                    <div className="fd-activity-meta">
+                      <span>{item.agent}</span>
+                      <span>·</span>
+                      <span>{item.time}</span>
                     </div>
                   </div>
-                ) : searchQuery ? (
-                  <div className="fd-empty fd-fade-up" style={{ animationDelay: '.25s' }}>
-                    <p style={{ color: 'var(--color-muted-foreground)', fontSize: '.9rem' }}>
-                      No files match "{searchQuery}"
-                    </p>
-                  </div>
-                ) : null}
-              </>
-            ) : agents.length === 0 ? (
-              /* Empty State - No Agents */
-              <div className="fd-empty fd-fade-up" style={{ animationDelay: '.15s' }}>
-                <div className="fd-empty-icon">
-                  <Bot size={28} style={{ color: '#6366F1' }} />
                 </div>
-                <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-foreground)', margin: '0 0 .3rem' }}>
-                  {t("agents.noAgents")}
-                </p>
-                <p style={{ fontSize: '.85rem', color: 'var(--color-muted-foreground)', margin: '0 0 1.5rem' }}>
-                  {t("agents.noAgentsSub")}
-                </p>
-                <button 
-                  onClick={() => setShowCreateAgent(true)} 
-                  className="fd-btn-primary"
-                  style={{ maxWidth: 220, margin: '0 auto' }}
-                >
-                  <Plus size={16} />
-                  {t("agents.create")}
-                </button>
+              ))}
+              <div className="fd-activity-item" style={{ opacity: 0.5 }}>
+                <div className="fd-activity-dot" style={{ background: 'var(--color-border)' }} />
+                <div className="fd-activity-content">
+                  <p className="fd-activity-text">End of recent activity</p>
+                </div>
               </div>
-            ) : null}
+            </div>
           </div>
-        </div>
-      </main>
+        )}
+      </div>
 
       {/* Create Agent Modal */}
       {showCreateAgent && (
-        <div className="fd-modal-overlay" onClick={() => setShowCreateAgent(false)}>
+        <div className="fd-modal-bg" onClick={() => setShowCreateAgent(false)}>
           <div className="fd-modal" onClick={(e) => e.stopPropagation()}>
             <div className="fd-modal-header">
               <h3>Create New Agent</h3>
               <button className="fd-modal-close" onClick={() => setShowCreateAgent(false)}>
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
             <input
@@ -1357,7 +1416,7 @@ export default function DashboardPage() {
               <button 
                 onClick={handleCreateAgent} 
                 disabled={creating || !newAgentName.trim()} 
-                className="fd-btn-primary"
+                className="fd-btn fd-btn-primary"
                 style={{ flex: 1 }}
               >
                 {creating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
@@ -1365,8 +1424,8 @@ export default function DashboardPage() {
               </button>
               <button 
                 onClick={() => setShowCreateAgent(false)} 
-                className="fd-btn-secondary"
-                style={{ width: 'auto', padding: '.7rem 1.2rem' }}
+                className="fd-btn fd-btn-secondary"
+                style={{ width: 'auto', padding: '0.65rem 1.1rem' }}
               >
                 {t("common.cancel")}
               </button>
