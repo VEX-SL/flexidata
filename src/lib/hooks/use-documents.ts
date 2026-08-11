@@ -211,6 +211,7 @@ export function useDocuments() {
             idempotencyKey: `file:${fileId}`,
             fileName: file.name,
             mimeType: file.type,
+            extractionMode: "dynamic",
           }),
         });
         if (!runRes.ok) {
@@ -291,6 +292,7 @@ export function useDocuments() {
     async (id: string) => {
       const item = docsRef.current.find((d) => d.job?.id === id);
       const fileId = item?.job?.fileId;
+      const extractionMode = item?.job?.extractionMode;
       if (!fileId) return;
       patchDoc(id, { rerunning: true, localError: undefined });
       try {
@@ -301,6 +303,7 @@ export function useDocuments() {
             fileId,
             idempotencyKey: `file:${fileId}`,
             force: true,
+            extractionMode: extractionMode as "legacy" | "dynamic" | undefined,
           }),
         });
         if (!res.ok) {
