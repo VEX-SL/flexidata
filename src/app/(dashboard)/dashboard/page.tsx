@@ -201,22 +201,31 @@ export default function DashboardPage() {
       
       .fd-dash { 
         font-family: 'Sora', system-ui, sans-serif;
-        min-height: 100dvh;
-        overflow-y: auto;          /* ← add this */
-        display: flex;             /* ← add this */
-        flex-direction: column;    /* ← add this */
+        height: 100%;           /* ← was 100dvh, now fills parent */
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         background: var(--color-background);
       }
 
-      /* ── Content ── */
       .fd-content {
-        flex: 1;                   /* ← add this */
-        overflow-y: auto;          /* ← add this */
+        flex: 1;                  /* ← fills remaining space */
+        overflow-y: auto;         /* ← THIS IS THE SCROLL */
+        overflow-x: hidden;
         padding: 1.5rem;
         max-width: 1280px;
         margin: 0 auto;
         width: 100%;
+        box-sizing: border-box;
       }
+
+      /* Smooth scrollbar */
+      .fd-content::-webkit-scrollbar { width: 6px; }
+      .fd-content::-webkit-scrollbar-thumb { 
+        background: rgba(129,140,248,0.15); 
+        border-radius: 99px; 
+      }
+      .fd-content::-webkit-scrollbar-track { background: transparent; }
       
       /* ── Top Header ── */
       .fd-header {
@@ -1439,6 +1448,9 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+      </div>
+      <div style={{ height: '200vh', display: 'flex', alignItems: 'flex-end', paddingBottom: '2rem', color: 'var(--color-muted-foreground)' }}>
+        👇 If you can see this, scrolling works!
       </div>
     </>
   );
