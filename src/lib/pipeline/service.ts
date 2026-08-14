@@ -199,6 +199,7 @@ export class PipelineService {
         extraction_mode: extraction.extractionMode ?? "legacy",
         provider: extraction.provider ?? null,
         model: extraction.model ?? null,
+        raw_ai_response: extraction.rawAIResponse ?? null,
         processing_time_ms: processingTimeMs,
         overall_confidence: round4(confidence.overall),
         fields_json: fields,

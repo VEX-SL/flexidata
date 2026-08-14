@@ -117,3 +117,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_extractions_idempotency
 ALTER TABLE public.extractions ADD COLUMN IF NOT EXISTS ocr_json JSONB;
 ALTER TABLE public.extractions ADD COLUMN IF NOT EXISTS extraction_mode TEXT NOT NULL DEFAULT 'legacy'
   CHECK (extraction_mode IN ('legacy','dynamic'));
+ALTER TABLE public.extractions ADD COLUMN IF NOT EXISTS raw_ai_response TEXT;

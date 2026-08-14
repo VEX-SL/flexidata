@@ -352,6 +352,8 @@ export interface ExtractionResult {
   provider?: string;
   /** Optional model-provided overall confidence (0..1). */
   modelConfidence?: number;
+  /** Raw AI provider response content (pre-parser/normalizer/grounding). */
+  rawAIResponse?: string;
 }
 
 export interface JobResult {

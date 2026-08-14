@@ -104,6 +104,7 @@ export function candidatesFromAICall(
     model: aiCall.model,
     provider: aiCall.provider,
     modelConfidence: raw.modelConfidence,
+    rawAIResponse: aiCall.content,
   };
 }
 
