@@ -5,6 +5,7 @@ import { GroqProvider } from "./providers/groq";
 import { GeminiProvider } from "./providers/gemini";
 import { CerebrasProvider } from "./providers/cerebras";
 import { MistralProvider } from "./providers/mistral";
+import { RdpProvider } from "./providers/rdp";
 import { HuggingFaceProvider } from "./providers/huggingface";
 import type { BaseAIProvider } from "./providers/base";
 
@@ -12,7 +13,16 @@ export class ProviderManager {
   private providers: BaseAIProvider[] = [];
 
   constructor() {
-    // Order by speed + reliability: fastest + most generous free tier first
+    // 1. ضع سيرفر الـ RDP المؤقت في البداية للاختبار بأولوية قصوى
+    // (يمكنك وضع الرابط مباشرة أو جذبه من الـ .env)
+    const rdpUrl = process.env.RDP_API_URL || "https://september-lopez-humanities-joe.trycloudflare.com";
+    const rdpKey = process.env.RDP_API_KEY || "VEX_SECRET_123";
+    
+    if (rdpUrl && rdpKey) {
+      this.providers.push(new RdpProvider(rdpUrl, rdpKey));
+    }
+
+    // باقي الproviders العادية...
     if (process.env.GROQ_API_KEY) {
       this.providers.push(new GroqProvider(process.env.GROQ_API_KEY));
     }
@@ -32,10 +42,17 @@ export class ProviderManager {
       this.providers.push(new OpenRouterProvider(process.env.OPENROUTER_API_KEY));
     }
     if (process.env.HF_API_KEY) {
-      this.providers.push(
-        new HuggingFaceProvider(process.env.HF_API_KEY)
-      );
+      this.providers.push(new HuggingFaceProvider(process.env.HF_API_KEY));
     }
+
+    if (this.providers.length === 0) {
+      throw new Error("No AI providers configured. Check your .env file.");
+    }
+
+    console.log(
+      `[ProviderManager] Initialized with ${this.providers.length} providers:`,
+      this.providers.map((p) => p.name).join(", ")
+    );
 
     if (this.providers.length === 0) {
       throw new Error("No AI providers configured. Check your .env file.");
