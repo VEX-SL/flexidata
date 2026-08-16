@@ -529,6 +529,7 @@ export type PipelineErrorCode =
   | "CONFLICT"
   | "UNAUTHORIZED"
   | "UNSUPPORTED_FORMAT"
+  | "PIPELINE_INTERRUPTED"
   | "UNKNOWN_ERROR";
 
 export interface StructuredError {

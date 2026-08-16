@@ -13,13 +13,18 @@ export class ProviderManager {
   private providers: BaseAIProvider[] = [];
 
   constructor() {
-    // 1. ضع سيرفر الـ RDP المؤقت في البداية للاختبار بأولوية قصوى
-    // (يمكنك وضع الرابط مباشرة أو جذبه من الـ .env)
-    const rdpUrl = process.env.RDP_API_URL || "https://september-lopez-humanities-joe.trycloudflare.com";
-    const rdpKey = process.env.RDP_API_KEY || "VEX_SECRET_123";
-    
+    // RDP is opt-in and requires BOTH RDP_API_URL and RDP_API_KEY. No tunnel
+    // URL or secret is ever baked into the source; a partial configuration is
+    // a bootstrap error and must fail fast (loud) rather than silently
+    // dropping a provider the operator believed was configured.
+    const rdpUrl = process.env.RDP_API_URL;
+    const rdpKey = process.env.RDP_API_KEY;
     if (rdpUrl && rdpKey) {
       this.providers.push(new RdpProvider(rdpUrl, rdpKey));
+    } else if (rdpUrl || rdpKey) {
+      throw new Error(
+        "RDP_API_URL and RDP_API_KEY must both be set to enable the RDP provider"
+      );
     }
 
     // باقي الproviders العادية...
@@ -44,15 +49,6 @@ export class ProviderManager {
     if (process.env.HF_API_KEY) {
       this.providers.push(new HuggingFaceProvider(process.env.HF_API_KEY));
     }
-
-    if (this.providers.length === 0) {
-      throw new Error("No AI providers configured. Check your .env file.");
-    }
-
-    console.log(
-      `[ProviderManager] Initialized with ${this.providers.length} providers:`,
-      this.providers.map((p) => p.name).join(", ")
-    );
 
     if (this.providers.length === 0) {
       throw new Error("No AI providers configured. Check your .env file.");

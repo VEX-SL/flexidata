@@ -128,6 +128,8 @@ export interface ExtractionRow {
   ocr_json?: OcrDocument | null;
   source_text?: string | null;
   trace_json?: unknown;
+  /** Auto-maintained by the updated_at trigger (used for stale reconciliation). */
+  updated_at?: string;
 }
 
 const SOURCE_PREVIEW_CHARS = 4_000;

@@ -4,7 +4,12 @@ import { isValidUUID } from "@/lib/validators";
 import { parseFileBufferDetailed } from "@/lib/file-parser";
 import { runPipeline } from "./defaults";
 import { getProfileManager } from "./profiles/registry";
-import { PIPELINE_VERSION, MAX_SOURCE_TEXT } from "./constants";
+import {
+  PIPELINE_VERSION,
+  MAX_SOURCE_TEXT,
+  INTERMEDIATE_STATUSES,
+  STALE_JOB_MS,
+} from "./constants";
 import { PipelineError } from "./errors";
 import { toJobDTO } from "./dto";
 import { computeConfidence } from "./confidence";
@@ -19,8 +24,10 @@ import type {
   FieldsMap,
   NormalizedField,
   OcrDocument,
+  PipelineStage,
   ProfileType,
   RunJobInput,
+  RunJobOutput,
   StructuredError,
 } from "./types";
 import type { JobDTO, ExtractionListDTO, FieldDTO } from "./dto";
@@ -67,27 +74,6 @@ export class PipelineService {
     let ocr = req.ocr;
     const fileId = req.fileId;
 
-    if (!sourceText && fileId) {
-      const resolved = await this.readFileText(userId, fileId);
-      sourceText = resolved.text;
-      fileName = resolved.fileName;
-      mimeType = resolved.mimeType;
-      ocr = resolved.ocr;
-    }
-
-    if (!sourceText) {
-      throw new PipelineError(
-        "Either sourceText or a readable fileId is required",
-        { code: "BAD_REQUEST", retryable: false }
-      );
-    }
-    if (sourceText.length > MAX_SOURCE_TEXT) {
-      throw new PipelineError(
-        `sourceText too long (max ${MAX_SOURCE_TEXT} characters)`,
-        { code: "BAD_REQUEST", retryable: false }
-      );
-    }
-
     if (req.profileType) {
       const manager = getProfileManager();
       if (!manager.has(req.profileType)) {
@@ -98,7 +84,8 @@ export class PipelineService {
       }
     }
 
-    // ── Idempotency ──────────────────────────────────────────────────
+    // ── Idempotency (checked BEFORE any file read so a duplicate request
+    // never re-downloads / re-parses / re-OCRs the source) ────────────
     const idempotencyKey =
       req.idempotencyKey?.trim() || (fileId ? `file:${fileId}` : undefined);
 
@@ -109,7 +96,12 @@ export class PipelineService {
     if (idempotencyKey) {
       const existing = await this.findByKey(userId, idempotencyKey);
       if (existing && !req.force) {
-        return { job: toJobDTO(existing), created: false, rerun: false };
+        // A previously interrupted run is surfaced as a diagnosable error
+        // (never a stuck intermediate status) so the caller can force-retry.
+        const row = this.isStalePhase(existing)
+          ? await this.markRowInterrupted(userId, existing.id)
+          : existing;
+        return { job: toJobDTO(row), created: false, rerun: false };
       }
       if (existing && req.force) {
         // Explicit re-run: recompute in place — same record, results wiped,
@@ -135,6 +127,27 @@ export class PipelineService {
       }
     }
 
+    if (!sourceText && fileId) {
+      const resolved = await this.readFileText(userId, fileId);
+      sourceText = resolved.text;
+      fileName = resolved.fileName;
+      mimeType = resolved.mimeType;
+      ocr = resolved.ocr;
+    }
+
+    if (!sourceText) {
+      throw new PipelineError(
+        "Either sourceText or a readable fileId is required",
+        { code: "BAD_REQUEST", retryable: false }
+      );
+    }
+    if (sourceText.length > MAX_SOURCE_TEXT) {
+      throw new PipelineError(
+        `sourceText too long (max ${MAX_SOURCE_TEXT} characters)`,
+        { code: "BAD_REQUEST", retryable: false }
+      );
+    }
+
     // ── Create job (queued) ──────────────────────────────────────────
     const startedAt = Date.now();
     if (!jobId) {
@@ -154,8 +167,12 @@ export class PipelineService {
       // Concurrent duplicate: unique(user_id, idempotency_key) → return existing.
       if (insertError && idempotencyKey && String(insertError.code) === "23505") {
         const existing = await this.findByKey(userId, idempotencyKey);
-        if (existing)
-          return { job: toJobDTO(existing), created: false, rerun: false };
+        if (existing) {
+          const row = this.isStalePhase(existing)
+            ? await this.markRowInterrupted(userId, existing.id)
+            : existing;
+          return { job: toJobDTO(row), created: false, rerun: false };
+        }
       }
       if (insertError || !row) {
         throw new PipelineError(
@@ -184,7 +201,16 @@ export class PipelineService {
       extractionMode: req.extractionMode,
     };
 
-    const out = await runPipeline(input, { ai: this.ai });
+    let out: RunJobOutput;
+    try {
+      out = await runPipeline(input, { ai: this.ai, onStage: this.buildOnStage(jobId) });
+    } catch (err) {
+      // In-process exception outside the stage loop (e.g. provider bootstrap,
+      // unexpected wiring failure): persist a diagnosable structured error,
+      // then rethrow the ORIGINAL error — never hide it.
+      await this.persistRunFailure(jobId, startedAt, err);
+      throw err;
+    }
     const processingTimeMs = Date.now() - startedAt;
 
     // ── Persist result (source_text is refresh-on-completion, never stale) ──
@@ -213,19 +239,28 @@ export class PipelineService {
         completed_at: new Date().toISOString(),
       } as Record<string, unknown>;
 
-      const result = await this.supabase
-        .from("extractions")
-        .update({ ...payload, ocr_json: ocr ?? null })
-        .eq("id", jobId);
-      if (result.error) {
-        throw new Error(`persist failed: ${result.error.message}`);
+      try {
+        const result = await this.supabase
+          .from("extractions")
+          .update({ ...payload, ocr_json: ocr ?? null })
+          .eq("id", jobId);
+        if (result.error) {
+          throw new Error(`persist failed: ${result.error.message}`);
+        }
+      } catch (err) {
+        // The run completed but the terminal write failed: leave a structured,
+        // recoverable error behind and surface the original failure.
+        await this.persistRunFailure(jobId, startedAt, err, out.trace);
+        throw err;
       }
 
       const finalRow = await this.getRow(userId, jobId);
       return { job: toJobDTO(finalRow), created, rerun };
     }
 
-    // Structured stage error (never a raw exception).
+    // Structured stage error (never a raw exception). Guarded against terminal
+    // statuses: if a NEWER run already resolved this row (complete/error), the
+    // late failure write must not regress that resolution.
     const structured: StructuredError = out.error ?? {
       code: "UNKNOWN_ERROR",
       message: "Pipeline failed",
@@ -240,10 +275,72 @@ export class PipelineService {
         processing_time_ms: processingTimeMs,
         completed_at: new Date().toISOString(),
       })
-      .eq("id", jobId);
+      .eq("id", jobId)
+      .in("status", INTERMEDIATE_STATUSES);
 
     const finalRow = await this.getRow(userId, jobId);
     return { job: toJobDTO(finalRow), created, rerun };
+  }
+
+  /** Persist a real phase transition, guarded so it can never regress a terminal status. */
+  private buildOnStage(jobId: string): (stage: PipelineStage) => Promise<void> {
+    return async (stage: PipelineStage) => {
+      const status = stageToStatus(stage.id);
+      if (!status) return;
+      try {
+        await this.supabase
+          .from("extractions")
+          .update({ status })
+          .eq("id", jobId)
+          .in("status", INTERMEDIATE_STATUSES);
+      } catch (err) {
+        // Best-effort observability: a phase write failure must never fail the
+        // pipeline. The terminal persist + stale reconciliation still
+        // guarantee a diagnosable row.
+        console.error(
+          `[Pipeline] phase status persist failed (${stage.id} → ${status}):`,
+          err
+        );
+      }
+    };
+  }
+
+  /**
+   * Best-effort structured failure record; the original error is rethrown by
+   * the caller. Guarded against terminal statuses: this run's failure may
+   * arrive AFTER a newer run resolved the same row — the late failure write
+   * must not regress that resolution.
+   */
+  private async persistRunFailure(
+    jobId: string,
+    startedAt: number,
+    err: unknown,
+    trace?: unknown
+  ): Promise<void> {
+    const message = err instanceof Error ? err.message : String(err);
+    try {
+      await this.supabase
+        .from("extractions")
+        .update({
+          status: "error",
+          error_json: {
+            stage: "run",
+            code: "PIPELINE_RUN_FAILED",
+            message,
+            retryable: true,
+            details: err instanceof Error ? { name: err.name } : undefined,
+          },
+          trace_json: trace ?? null,
+          processing_time_ms: Date.now() - startedAt,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", jobId)
+        .in("status", INTERMEDIATE_STATUSES);
+    } catch (persistErr) {
+      // If even the failure cannot be persisted the row stays intermediate and
+      // the stale reconciliation (read paths) will mark it later.
+      console.error("[Pipeline] failed to persist run failure:", persistErr);
+    }
   }
 
   /** GET /pipeline/extractions/{id} — single job (poll target). */
@@ -254,7 +351,11 @@ export class PipelineService {
         retryable: false,
       });
     }
-    return toJobDTO(await this.getRow(userId, id));
+    let row = await this.getRow(userId, id);
+    if (this.isStalePhase(row)) {
+      row = await this.markRowInterrupted(userId, id);
+    }
+    return toJobDTO(row);
   }
 
   /** GET /pipeline/extractions — list, newest first, optional status filter. */
@@ -264,6 +365,8 @@ export class PipelineService {
   ): Promise<ExtractionListDTO> {
     const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100);
     const offset = Math.max(opts.offset ?? 0, 0);
+
+    await this.sweepStale(userId);
 
     let query = this.supabase
       .from("extractions")
@@ -624,6 +727,87 @@ export class PipelineService {
       });
     }
     return data as unknown as Row;
+  }
+
+  // ── Stale-run reconciliation ────────────────────────────────────────
+  //
+  // `finally` cannot cover process death / platform timeout / DB outage, so a
+  // row can be left in an intermediate status forever. Read paths
+  // opportunistically reconcile such rows to a diagnosable `error`. The stale
+  // mark is non-destructive: terminal writes (complete/error) are unguarded
+  // and always win over it.
+
+  /** True when the row is stuck in an intermediate status past the threshold. */
+  private isStalePhase(row: Row): boolean {
+    if (!INTERMEDIATE_STATUSES.includes(String(row.status ?? ""))) return false;
+    const updated = new Date(row.updated_at as string).getTime();
+    if (Number.isNaN(updated)) return false;
+    return updated < Date.now() - STALE_JOB_MS;
+  }
+
+  private interruptedError(): StructuredError {
+    return {
+      stage: "run",
+      code: "PIPELINE_INTERRUPTED",
+      message:
+        "Pipeline run interrupted before completion (process died or the run stalled). Re-run with force:true.",
+      retryable: true,
+    };
+  }
+
+  /** Mark one stale intermediate row as interrupted, guarded against terminals. */
+  private async markRowInterrupted(userId: string, id: string): Promise<Row> {
+    await this.supabase
+      .from("extractions")
+      .update({
+        status: "error",
+        error_json: this.interruptedError(),
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("user_id", userId)
+      .in("status", INTERMEDIATE_STATUSES);
+    return this.getRow(userId, id);
+  }
+
+  /** Sweep the user's stale intermediate rows (list endpoint). */
+  private async sweepStale(userId: string): Promise<void> {
+    const cutoff = new Date(Date.now() - STALE_JOB_MS).toISOString();
+    try {
+      const { error } = await this.supabase
+        .from("extractions")
+        .update({
+          status: "error",
+          error_json: this.interruptedError(),
+          completed_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId)
+        .in("status", INTERMEDIATE_STATUSES)
+        .lt("updated_at", cutoff);
+      if (error) {
+        console.error("[Pipeline] stale reconciliation failed:", error);
+      }
+    } catch (err) {
+      console.error("[Pipeline] stale reconciliation failed:", err);
+    }
+  }
+}
+
+/** Map a stage id to the persisted phase status (or null for unknown stages). */
+function stageToStatus(stageId: string): string | null {
+  switch (stageId) {
+    case "classify":
+      return "classifying";
+    case "extract":
+    case "ground":
+    case "clean":
+    case "recover":
+      return "extracting";
+    case "validate":
+    case "confidence":
+      return "validating";
+    default:
+      return null;
   }
 }
 

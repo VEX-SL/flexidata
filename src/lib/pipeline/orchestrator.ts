@@ -17,8 +17,21 @@ import { buildOcrDocument } from "./ocr";
  * Replacing/adding a stage = change the stage list (see defaults.ts), never
  * this class.
  */
+export interface PipelineOptions {
+  /**
+   * Optional hook invoked before each stage runs. Additive — callers (e.g. the
+   * service, for status persistence) may observe stage execution without
+   * coupling the pipeline to their storage. Callers must not throw: a failing
+   * observer should never fail the pipeline.
+   */
+  onStage?: (stage: PipelineStage) => void | Promise<void>;
+}
+
 export class Pipeline {
-  constructor(private readonly stages: PipelineStage[]) {}
+  constructor(
+    private readonly stages: PipelineStage[],
+    private readonly opts: PipelineOptions = {}
+  ) {}
 
   async run(input: RunJobInput): Promise<RunJobOutput> {
     const state: PipelineState = {
@@ -40,6 +53,7 @@ export class Pipeline {
       trace.push(traceEvent(stage.id, "start", startedAt));
 
       try {
+        await this.opts.onStage?.(stage);
         await stage.run(state);
         trace.push(
           traceEvent(stage.id, "finish", startedAt, stageSummary(state, stage.id))

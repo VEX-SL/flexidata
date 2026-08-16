@@ -4,7 +4,7 @@ import type {
   RunJobInput,
   RunJobOutput,
 } from "./types";
-import { Pipeline } from "./orchestrator";
+import { Pipeline, type PipelineOptions } from "./orchestrator";
 import { defaultPipelineStages } from "./stages";
 
 /**
@@ -12,15 +12,22 @@ import { defaultPipelineStages } from "./stages";
  * Keeping this outside orchestrator.ts guarantees the coordinator stays
  * stage-agnostic (point: replaceable without changing the orchestrator).
  */
+export interface DefaultPipelineOptions extends PipelineOptions {
+  ai?: AIClient;
+  stages?: PipelineStage[];
+}
+
 export function createDefaultPipeline(
-  opts: { ai?: AIClient; stages?: PipelineStage[] } = {}
+  opts: DefaultPipelineOptions = {}
 ): Pipeline {
-  return new Pipeline(opts.stages ?? defaultPipelineStages({ ai: opts.ai }));
+  return new Pipeline(opts.stages ?? defaultPipelineStages({ ai: opts.ai }), {
+    onStage: opts.onStage,
+  });
 }
 
 export async function runPipeline(
   input: RunJobInput,
-  opts: { ai?: AIClient; stages?: PipelineStage[] } = {}
+  opts: DefaultPipelineOptions = {}
 ): Promise<RunJobOutput> {
   return createDefaultPipeline(opts).run(input);
 }
