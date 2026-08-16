@@ -111,7 +111,7 @@ export function safeFieldKey(name: string): string {
   if (!trimmed) return "";
   const snake = trimmed
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/[^\p{L}\p{N}]+/gu, "_")
     .replace(/^_+|_+$/g, "")
     .toLowerCase();
   if (!snake) return "";

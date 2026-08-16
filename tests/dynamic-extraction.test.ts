@@ -76,6 +76,29 @@ test("safeFieldKey normalizes to deterministic snake_case and blocks dangerous n
   equal(safeFieldKey("hasOwnProperty"), "");
 });
 
+test("safeFieldKey supports Unicode field names", () => {
+  equal(safeFieldKey("رقم الحساب"), "رقم_الحساب");
+  equal(safeFieldKey("المرجعي"), "المرجعي");
+  equal(safeFieldKey("Account رقم"), "account_رقم");
+  equal(safeFieldKey("مرجع #123"), "مرجع_123");
+  equal(safeFieldKey("اسم العميل"), "اسم_العميل");
+});
+
+test("safeFieldKey blocks exact dangerous names, Unicode-aware keys stay safe", () => {
+  equal(safeFieldKey("constructor"), "");
+  equal(safeFieldKey("__proto__"), "");
+  equal(safeFieldKey("toString"), "");
+  equal(safeFieldKey("hasOwnProperty"), "");
+  equal(safeFieldKey("مرجع constructor"), "مرجع_constructor", "prefixed names are safe object keys");
+});
+
+test("safeFieldKey handles mixed ASCII and Unicode", () => {
+  equal(safeFieldKey("Account Number: 123"), "account_number_123");
+  equal(safeFieldKey("المرجع: REF123"), "المرجع_ref123");
+  equal(safeFieldKey("Customer Name: John"), "customer_name_john");
+  equal(safeFieldKey("العميل: أحمد"), "العميل_أحمد");
+});
+
 test("dynamic candidates preserve every discovered field under a safe key", () => {
   const profile = getProfileManager().get("invoice");
   const result = candidatesFromAICall(

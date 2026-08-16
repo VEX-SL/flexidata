@@ -1,11 +1,14 @@
 import type { FieldDTO } from "@/lib/pipeline/dto";
-import type { ExtractionResult, FieldValue } from "@/lib/pipeline/types";
+import type { ExtractionResult, FieldValue, RawExtraction } from "@/lib/pipeline/types";
 import { PipelineService } from "@/lib/pipeline/service";
 import { validateExtraction } from "@/lib/pipeline/validator";
 import { exportExtraction } from "@/lib/pipeline/exporter";
 import { toJobDTO } from "@/lib/pipeline/dto";
 import { getProfileManager } from "@/lib/pipeline/profiles/registry";
 import { safeFieldKey } from "@/lib/pipeline/extractor/dynamic";
+import { normalizeDynamicFields } from "@/lib/pipeline/extractor/normalizer";
+import { candidatesFromAICall } from "@/lib/pipeline/extractor/index";
+import { groundExtraction } from "@/lib/pipeline/extractor/grounding";
 import { test, ok, equal, assert, includes } from "./harness.ts";
 
 /**
@@ -420,4 +423,121 @@ test("exportCsv dynamic columns differ from the profile's configured columns", (
     !legacyColumns.includes("account_number"),
     "dynamic columns must not come from the profile column list"
   );
+});
+
+test("Unicode dynamic fields are preserved throughout the pipeline", () => {
+  const unicodeFields: FieldDTO[] = [
+    {
+      key: "رقم_الحساب",
+      value: "12345",
+      raw: "12345",
+      type: "string",
+      label: "رقم الحساب",
+      confidence: 0.9,
+      source: "ai",
+      status: "extracted",
+      evidence: [{ quote: "رقم الحساب: 12345", lineIndex: 0 }],
+    },
+    {
+      key: "المرجعي",
+      value: "REF123",
+      raw: "REF123",
+      type: "string",
+      label: "المرجعي",
+      confidence: 0.8,
+      source: "ai",
+      status: "extracted",
+      evidence: [{ quote: "المرجعي: REF123", lineIndex: 1 }],
+    },
+  ];
+
+  const extraction: ExtractionResult = {
+    profileType: "invoice",
+    profileVersion: 1,
+    extractionMode: "dynamic",
+    fields: unicodeFields.map((f) => ({
+      field: {
+        key: f.key,
+        type: (f.type ?? "string") as "string",
+        label: f.label ?? f.key,
+      },
+      value: fv(f.value),
+    })),
+    fieldsMap: Object.fromEntries(unicodeFields.map((f) => [f.key, fv(f.value)])),
+    cleanFields: Object.fromEntries(unicodeFields.map((f) => [f.key, f.value])),
+    droppedFields: {},
+  };
+
+  // Test that Unicode fields are not dropped
+  equal(extraction.droppedFields["رقم_الحساب"], undefined);
+  equal(extraction.droppedFields["المرجعي"], undefined);
+
+  // Test that Unicode fields are in cleanFields
+  equal(extraction.cleanFields["رقم_الحساب"], "12345");
+  equal(extraction.cleanFields["المرجعي"], "REF123");
+
+  // Test validation is schema-neutral for Unicode dynamic fields
+  const result = validateExtraction(extraction);
+  equal(result.ok, true);
+  equal(result.missing.length, 0);
+});
+
+test("Unicode dynamic fields enter FieldsMap and survive field enumeration", () => {
+  const profile = getProfileManager().get("invoice")!;
+  const raw: RawExtraction = {
+    data: {
+      "رقم الحساب": { raw: "12345", value: "12345", type: "string", label: "رقم الحساب" },
+      "المرجعي": { raw: "REF123", value: "REF123", type: "string", label: "المرجعي" },
+      "Account Number": { raw: "67890", value: "67890", type: "string", label: "Account Number" },
+    },
+  };
+
+  const map = normalizeDynamicFields(profile!, raw);
+
+  // Test that Unicode fields are in FieldsMap
+  ok("رقم_الحساب" in map, "Unicode field enters FieldsMap");
+  ok("المرجعي" in map, "Unicode field enters FieldsMap");
+  ok("account_number" in map, "ASCII field still works");
+
+  // Test that values are preserved
+  equal(map["رقم_الحساب"].value, "12345");
+  equal(map["المرجعي"].value, "REF123");
+  equal(map["account_number"].value, "67890");
+
+  // Test that metadata is preserved
+  ok(map["رقم_الحساب"].meta?.dynamicLabel === "رقم الحساب");
+  ok(map["المرجعي"].meta?.dynamicLabel === "المرجعي");
+  ok(map["account_number"].meta?.dynamicLabel === "Account Number");
+});
+
+test("Unicode dynamic fields reach grounding stage", () => {
+  // Real production path: candidatesFromAICall (parseRaw → parseDynamicExtraction
+  // → safeFieldKey → normalizeDynamicFields) then groundExtraction, exactly as
+  // extractDocument composes them (extractor/index.ts). Arabic field names and
+  // Arabic source text flow through without ASCII assumptions.
+  const profile = getProfileManager().get("invoice")!;
+  const content = JSON.stringify({
+    data: {
+      "رقم الحساب": { value: "12345", raw: "12345" },
+      "المرجعي": { value: "REF123", raw: "REF123" },
+    },
+  });
+  const sourceText = "رقم الحساب: 12345\nالمرجعي: REF123";
+
+  const candidates = candidatesFromAICall(profile, { content }, "dynamic");
+  const result = groundExtraction(profile, candidates, sourceText);
+
+  const grounded = (key: string) =>
+    result.fields.some((f) => f.field.key === key) ||
+    key in result.cleanFields;
+
+  ok(grounded("رقم_الحساب"), "رقم_الحساب survives grounding");
+  ok(grounded("المرجعي"), "المرجعي survives grounding");
+
+  for (const key of ["رقم_الحساب", "المرجعي"]) {
+    const fv = result.fieldsMap[key];
+    ok(fv, `${key} present in fieldsMap`);
+    ok((fv?.evidence?.length ?? 0) > 0, `${key} carries OCR evidence`);
+    ok(!(key in result.droppedFields), `${key} is not dropped`);
+  }
 });
