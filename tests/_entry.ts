@@ -61,5 +61,6 @@ import "./m22-discovery-acceptance.test.ts";
 import "./provider-manager.test.ts";
 import "./provider-timeout.test.ts";
 import "./service-lifecycle.test.ts";
+import "./recall-recovery.test.ts";
 
 await run();

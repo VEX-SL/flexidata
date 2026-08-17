@@ -366,7 +366,7 @@ export function estimateQuarterRotation(gray: Float32Array, width: number, heigh
  * Count distinct ink bands along one axis of a thresholded image. Text lines
  * appear as separated peaks (many bands); a solid block appears as one band.
  */
-function inkBandCount(gray: Float32Array, w: number, h: number, rows: boolean, threshold: number, frac: number): number {
+export function inkBandCount(gray: Float32Array, w: number, h: number, rows: boolean, threshold: number, frac: number): number {
   const n = rows ? h : w;
   const sums = new Float64Array(n);
   if (rows) {
@@ -421,7 +421,7 @@ export function estimateSkewAngle(gray: Float32Array, width: number, height: num
   return Math.abs(best) < 0.3 ? 0 : best;
 }
 
-function rowProjectionVariance(gray: Float32Array, w: number, h: number, rows: boolean): number {
+export function rowProjectionVariance(gray: Float32Array, w: number, h: number, rows: boolean): number {
   const n = rows ? h : w;
   const sums = new Float64Array(n);
   if (rows) {

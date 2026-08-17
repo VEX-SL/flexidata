@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-17T13:01:23.022Z",
+  "generated": "2026-08-17T12:45:05.510Z",
   "results": [
     {
       "id": "en-clean",
@@ -36,9 +36,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 1685,
-      "wallAfterMs": 1149,
-      "wallBefore2Ms": 1001,
+      "wallBeforeMs": 2103,
+      "wallAfterMs": 1247,
+      "wallBefore2Ms": 1101,
       "addedLatencyMs": 0
     },
     {
@@ -76,9 +76,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 839,
-      "wallAfterMs": 827,
-      "wallBefore2Ms": 797,
+      "wallBeforeMs": 783,
+      "wallAfterMs": 866,
+      "wallBefore2Ms": 897,
       "addedLatencyMs": 0
     },
     {
@@ -116,9 +116,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 1068,
-      "wallAfterMs": 902,
-      "wallBefore2Ms": 914,
+      "wallBeforeMs": 1134,
+      "wallAfterMs": 841,
+      "wallBefore2Ms": 967,
       "addedLatencyMs": 0
     },
     {
@@ -156,9 +156,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 945,
-      "wallAfterMs": 896,
-      "wallBefore2Ms": 888,
+      "wallBeforeMs": 825,
+      "wallAfterMs": 815,
+      "wallBefore2Ms": 889,
       "addedLatencyMs": 0
     },
     {
@@ -196,9 +196,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 633,
-      "wallAfterMs": 594,
-      "wallBefore2Ms": 579,
+      "wallBeforeMs": 588,
+      "wallAfterMs": 545,
+      "wallBefore2Ms": 502,
       "addedLatencyMs": 0
     },
     {
@@ -244,9 +244,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 1038,
-      "wallAfterMs": 1729,
-      "wallBefore2Ms": 1024,
+      "wallBeforeMs": 965,
+      "wallAfterMs": 927,
+      "wallBefore2Ms": 906,
       "addedLatencyMs": 0
     },
     {
@@ -292,9 +292,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 1311,
-      "wallAfterMs": 1289,
-      "wallBefore2Ms": 1278,
+      "wallBeforeMs": 1125,
+      "wallAfterMs": 1117,
+      "wallBefore2Ms": 1252,
       "addedLatencyMs": 0
     },
     {
@@ -324,9 +324,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 478,
-      "wallAfterMs": 509,
-      "wallBefore2Ms": 563,
+      "wallBeforeMs": 440,
+      "wallAfterMs": 408,
+      "wallBefore2Ms": 446,
       "addedLatencyMs": 0
     },
     {
@@ -385,10 +385,10 @@
           "reason": "verifier_low_confidence"
         }
       ],
-      "wallBeforeMs": 6026,
-      "wallAfterMs": 6227,
-      "wallBefore2Ms": 5796,
-      "addedLatencyMs": 431
+      "wallBeforeMs": 5186,
+      "wallAfterMs": 5061,
+      "wallBefore2Ms": 4742,
+      "addedLatencyMs": 319
     }
   ]
 }

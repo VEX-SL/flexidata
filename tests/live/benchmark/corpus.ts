@@ -69,8 +69,15 @@ function renderReceipt(opts: {
     canvas.height = chh;
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, cw, chh);
+    // Rotate about the CONTENT center, not the canvas center: the content is
+    // drawn in its own [0..width]×[0..h] space, so the pre-rotation translate
+    // must land the content center (width/2, h/2) on the canvas center.
+    // Without the -width/2, -height/2 offset, non-square content rotates
+    // off-center and is clipped at the canvas edge (the rot90 fixture lost
+    // the receipt header and the right end of the last line).
     ctx.translate(cw / 2, chh / 2);
     ctx.rotate(rad);
+    ctx.translate(-width / 2, -h / 2);
   }
   let y = 26;
   for (const [text, fs] of lines) {

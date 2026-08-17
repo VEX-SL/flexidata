@@ -35,6 +35,11 @@ import type { RawImage } from "@/lib/ocr/preprocess";
 import type { OcrPreset } from "@/lib/ocr/preprocess";
 import type { RegionReader, RegionRead } from "@/lib/ocr/numeric-verify";
 import { verifyNumericCandidates } from "@/lib/ocr/numeric-verify";
+import {
+  runRecallRecovery,
+  OCR_TIMEOUT_MS,
+  type RecallRecoveryRecord,
+} from "@/lib/ocr/recall";
 
 // Resolve the CJS require for the emscripten core + wasm-feature-detect.
 // Must stay opaque to Turbopack: a statically-resolvable require (createRequire)
@@ -222,6 +227,21 @@ export interface RecognizeOptions {
    * contract — the report is attached to `doc.meta.numericVerifications`.
    */
   verifyNumerics?: boolean;
+  /**
+   * Recall recovery (opt-in): after the existing raw-image fallback, a
+   * deterministic detector checks for a silently-collapsed OCR result
+   * (few lines / low coverage / junk). On suspicion, up to 3 targeted
+   * recovery passes run inside the remaining OCR timeout budget and the
+   * best candidate replaces the primary only when it clearly wins on the
+   * deterministic score. Additive — the decision is attached to
+   * `doc.meta.recallRecovery`, and a healthy result costs nothing.
+   */
+  recoverRecall?: boolean;
+  /**
+   * Recovery budget override (default: OCR_TIMEOUT_MS - elapsedPrimary).
+   * Multi-page callers (PDF) use this to cap total recovery spend.
+   */
+  recoveryBudgetMs?: number;
 }
 
 function isImageDataInput(input: OcrInput): input is { data: ArrayLike<number>; width: number; height: number } {
@@ -244,13 +264,32 @@ export async function recognizeMainThread(
 
   const { mod, api } = await getApi(langs);
 
-  const attempt = async (buf: Buffer, exif: number): Promise<OcrDocument> => {
-    setImage(mod, api, buf, exif);
-    api.Recognize(null);
-    // The Arabic-first OCR layer (normalization + generic repair + RTL line
-    // reconstruction) runs on every recognized document before it reaches the
-    // pipeline. It never inflates confidence and never invents text.
-    return postProcessOcr(buildDocument(api, langs)).doc;
+  const startedAt = Date.now();
+
+  const attempt = async (buf: Buffer, exif: number, psm?: number): Promise<OcrDocument> => {
+    if (psm !== undefined) {
+      try {
+        api.SetVariable("tessedit_pageseg_mode", String(psm));
+      } catch {
+        // optional variable on this build
+      }
+    }
+    try {
+      setImage(mod, api, buf, exif);
+      api.Recognize(null);
+      // The Arabic-first OCR layer (normalization + generic repair + RTL line
+      // reconstruction) runs on every recognized document before it reaches the
+      // pipeline. It never inflates confidence and never invents text.
+      return postProcessOcr(buildDocument(api, langs)).doc;
+    } finally {
+      if (psm !== undefined) {
+        try {
+          api.SetVariable("tessedit_pageseg_mode", "3");
+        } catch {
+          // optional variable on this build
+        }
+      }
+    }
   };
 
   const primary = await prepareImage(input, preset, doPreprocess);
@@ -259,13 +298,40 @@ export async function recognizeMainThread(
 
   // Preprocessing must never serve worse input than the untouched image:
   // when it produced garbage or only mediocre confidence, retry with the raw
-  // bytes and keep whichever result is clearly better.
+  // bytes and keep whichever result is clearly better. PRESERVED — the recall
+  // recovery layer below is strictly additive on top of this fallback.
   if (doPreprocess && (isPoorResult(doc) || isMediocreResult(doc))) {
     const raw = await prepareImage(input, preset, false);
     const rawDoc = await attempt(raw.buf, raw.exif);
     if (isBetterThan(rawDoc, doc)) {
       doc = rawDoc;
       winning = raw;
+    }
+  }
+
+  // Opt-in recall recovery: detector → targeted attempts → deterministic
+  // selection, all inside the remaining OCR timeout budget. Never fails the
+  // request; the decision is recorded in doc.meta.recallRecovery.
+  if (opts.recoverRecall) {
+    try {
+      const elapsedPrimary = Date.now() - startedAt;
+      const budgetMs =
+        opts.recoveryBudgetMs ?? Math.max(0, OCR_TIMEOUT_MS - elapsedPrimary);
+      const rec = await runRecallRecovery(doc, winning, {
+        budgetMs,
+        recognize: attempt,
+      });
+      doc = rec.doc;
+      winning = rec.image;
+      const record: RecallRecoveryRecord = rec.record;
+      if (record.detected || record.skippedReason !== undefined) {
+        doc = {
+          ...doc,
+          meta: { ...(doc.meta ?? {}), recallRecovery: record },
+        };
+      }
+    } catch {
+      // Recovery is additive observability — never fail OCR because of it.
     }
   }
 

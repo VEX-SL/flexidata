@@ -8,10 +8,11 @@ import fs from "fs";
 
 import { recognizeMainThread } from "@/lib/tesseract-main";
 import type { OcrDocument } from "@/lib/pipeline/types";
+import { OCR_TIMEOUT_MS } from "@/lib/ocr/recall";
 
 // Bound every OCR call with a hard timeout so the pipeline can never get
-// stuck; on failure the caller falls back to the "no text" path.
-const OCR_TIMEOUT_MS = 25_000;
+// stuck; on failure the caller falls back to the "no text" path. The same
+// constant drives the recall-recovery dynamic budget (see @/lib/ocr/recall).
 
 function withOcrTimeout<T>(promise: Promise<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -157,6 +158,12 @@ async function ocrPdfPages(buffer: Buffer): Promise<OcrDocument> {
   const allLines: OcrDocument["lines"] = [];
   const chunks: string[] = [];
 
+  // Overall per-PDF recovery budget: only suspicious pages run recovery, and
+  // the total recovery spend across all pages is capped so a multi-page scan
+  // can never blow its OCR time budget.
+  const PDF_RECOVERY_BUDGET_MS = 6_000;
+  let pdfRecoverySpentMs = 0;
+
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
     const viewport = page.getViewport({ scale: 2.0 });
@@ -172,8 +179,17 @@ async function ocrPdfPages(buffer: Buffer): Promise<OcrDocument> {
 
     const imageData = ctx.getImageData(0, 0, viewport.width, viewport.height);
     const pageOcr = await withOcrTimeout(
-      recognizeMainThread(imageData, "ara+eng")
+      recognizeMainThread(imageData, "ara+eng", {
+        recoverRecall: true,
+        recoveryBudgetMs: Math.max(0, PDF_RECOVERY_BUDGET_MS - pdfRecoverySpentMs),
+      })
     );
+    const rec = pageOcr.meta?.recallRecovery as
+      | { elapsedMs?: unknown }
+      | undefined;
+    if (rec && typeof rec.elapsedMs === "number") {
+      pdfRecoverySpentMs += rec.elapsedMs;
+    }
     if (pageOcr.text.trim()) {
       chunks.push(pageOcr.text);
       allLines.push(...pageOcr.lines);
@@ -213,7 +229,10 @@ async function extractExcelText(buffer: Buffer): Promise<string> {
 async function extractImageText(buffer: Buffer): Promise<ParseResult> {
   try {
     const ocr = await withOcrTimeout(
-      recognizeMainThread(buffer, "ara+eng", { verifyNumerics: true })
+      recognizeMainThread(buffer, "ara+eng", {
+        verifyNumerics: true,
+        recoverRecall: true,
+      })
     );
     return { text: ocr.text?.trim() || "[No text found in image]", ocr };
   } catch (err) {
