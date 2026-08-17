@@ -123,7 +123,8 @@ export function recoverStage(opts: { ai?: AIClient } = {}): PipelineStage {
             const retryCandidates = candidatesFromAICall(
               profile,
               aiCall,
-              ctx.input?.extractionMode
+              ctx.input?.extractionMode,
+              documentText
             );
             const groundedRetry = groundExtraction(
               profile,

@@ -84,6 +84,10 @@ Rules:
 - Preserve multiple identifiers separately. Never merge two unrelated OCR fragments into one value (e.g. never combine a receipt number with a merchant name, or two different codes).
 - Copy the value EXACTLY as it appears in "raw" — never normalize, translate, combine, or "fix" it. Reflect unclear characters and uncertainty in "confidence".
 - Omit any piece of information you cannot quote verbatim from the document.
+- A field label must be a semantic category of the information (e.g. "receipt number", "total"), never an arbitrary printed fragment of the document text.
+- On OCR lines that mix Arabic and English, the printed order may be unreliable (RTL bidi layout): never assume the segment before ":" is the label. In an Arabic document the Arabic segment of a mixed line is usually the label. If you cannot confidently determine which side is the label, do NOT create the field.
+- Only create a field when the value is plausibly compatible with the meaning of the label (a "mobile number" label must hold a phone number, not another label or a foreign text fragment).
+- Do not turn broken or garbled OCR snippets into fields: a line that reads as short fragments with no clear category is not a field — omit it.
 - For each field include: a field name, the value, and a useful type.
 
 Document:

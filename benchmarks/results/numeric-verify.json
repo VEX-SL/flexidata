@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-17T10:43:33.151Z",
+  "generated": "2026-08-17T11:55:18.875Z",
   "results": [
     {
       "id": "en-clean",
@@ -36,9 +36,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 1141,
-      "wallAfterMs": 711,
-      "wallBefore2Ms": 882,
+      "wallBeforeMs": 1706,
+      "wallAfterMs": 1092,
+      "wallBefore2Ms": 1011,
       "addedLatencyMs": 0
     },
     {
@@ -76,9 +76,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 599,
-      "wallAfterMs": 572,
-      "wallBefore2Ms": 565,
+      "wallBeforeMs": 876,
+      "wallAfterMs": 842,
+      "wallBefore2Ms": 928,
       "addedLatencyMs": 0
     },
     {
@@ -116,9 +116,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 470,
-      "wallAfterMs": 454,
-      "wallBefore2Ms": 486,
+      "wallBeforeMs": 705,
+      "wallAfterMs": 764,
+      "wallBefore2Ms": 670,
       "addedLatencyMs": 0
     },
     {
@@ -156,9 +156,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 491,
-      "wallAfterMs": 484,
-      "wallBefore2Ms": 481,
+      "wallBeforeMs": 693,
+      "wallAfterMs": 747,
+      "wallBefore2Ms": 675,
       "addedLatencyMs": 0
     },
     {
@@ -196,9 +196,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 485,
-      "wallAfterMs": 450,
-      "wallBefore2Ms": 518,
+      "wallBeforeMs": 615,
+      "wallAfterMs": 631,
+      "wallBefore2Ms": 599,
       "addedLatencyMs": 0
     },
     {
@@ -244,9 +244,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 804,
-      "wallAfterMs": 754,
-      "wallBefore2Ms": 736,
+      "wallBeforeMs": 1118,
+      "wallAfterMs": 1086,
+      "wallBefore2Ms": 1050,
       "addedLatencyMs": 0
     },
     {
@@ -292,9 +292,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 900,
-      "wallAfterMs": 908,
-      "wallBefore2Ms": 921,
+      "wallBeforeMs": 1547,
+      "wallAfterMs": 1304,
+      "wallBefore2Ms": 1331,
       "addedLatencyMs": 0
     },
     {
@@ -324,9 +324,9 @@
       "applied": 0,
       "appliedCorrect": 0,
       "records": [],
-      "wallBeforeMs": 383,
-      "wallAfterMs": 351,
-      "wallBefore2Ms": 354,
+      "wallBeforeMs": 492,
+      "wallAfterMs": 504,
+      "wallBefore2Ms": 522,
       "addedLatencyMs": 0
     },
     {
@@ -385,10 +385,10 @@
           "reason": "verifier_low_confidence"
         }
       ],
-      "wallBeforeMs": 4258,
-      "wallAfterMs": 4358,
-      "wallBefore2Ms": 4165,
-      "addedLatencyMs": 193
+      "wallBeforeMs": 6026,
+      "wallAfterMs": 5575,
+      "wallBefore2Ms": 5535,
+      "addedLatencyMs": 40
     }
   ]
 }

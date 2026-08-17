@@ -12,6 +12,7 @@ import { extractJSON } from "./json-repair";
 import { extractWithAI } from "./ai-client";
 import { buildExtractionPrompt } from "./prompt-builder";
 import { normalizeDynamicFields, normalizeFields } from "./normalizer";
+import { applyDynamicSafetyGate } from "./dynamic-gate";
 import { fieldSchemaForDynamicField } from "./dynamic";
 import { groundExtraction } from "./grounding";
 
@@ -59,7 +60,8 @@ export async function extractDocument(
   const candidates = candidatesFromAICall(
     input.profile,
     aiCall,
-    input.extractionMode
+    input.extractionMode,
+    input.sourceText
   );
 
   if (opts.grounded === false) return candidates;
@@ -85,12 +87,16 @@ export async function extractDocument(
 export function candidatesFromAICall(
   profile: ExtractionProfile,
   aiCall: { content: string; model?: string; provider?: string },
-  extractionMode: ExtractionMode = "legacy"
+  extractionMode: ExtractionMode = "legacy",
+  sourceText?: string
 ): ExtractionResult {
   const raw: RawExtraction = parseRaw(aiCall.content);
   const dynamic = extractionMode === "dynamic";
+  const gatedRaw = dynamic
+    ? applyDynamicSafetyGate(raw, sourceText)
+    : raw;
   const normalizedMap = dynamic
-    ? normalizeDynamicFields(profile, raw)
+    ? normalizeDynamicFields(profile, gatedRaw)
     : normalizeFields(profile, raw);
 
   return {
