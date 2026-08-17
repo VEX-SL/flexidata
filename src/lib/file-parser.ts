@@ -213,7 +213,7 @@ async function extractExcelText(buffer: Buffer): Promise<string> {
 async function extractImageText(buffer: Buffer): Promise<ParseResult> {
   try {
     const ocr = await withOcrTimeout(
-      recognizeMainThread(buffer, "ara+eng")
+      recognizeMainThread(buffer, "ara+eng", { verifyNumerics: true })
     );
     return { text: ocr.text?.trim() || "[No text found in image]", ocr };
   } catch (err) {

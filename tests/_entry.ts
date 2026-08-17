@@ -13,6 +13,7 @@ import "./grounding-evidence.test.ts";
 import "./entity-cleaner.test.ts";
 import "./arabic-ocr.test.ts";
 import "./arabic-corpus.test.ts";
+import "./numeric-verify.test.ts";
 import "./layout-geometry.test.ts";
 import "./layout-models.test.ts";
 import "./layout-spatial-index.test.ts";

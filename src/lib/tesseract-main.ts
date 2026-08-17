@@ -33,6 +33,8 @@ import {
 } from "@/lib/ocr/preprocess";
 import type { RawImage } from "@/lib/ocr/preprocess";
 import type { OcrPreset } from "@/lib/ocr/preprocess";
+import type { RegionReader, RegionRead } from "@/lib/ocr/numeric-verify";
+import { verifyNumericCandidates } from "@/lib/ocr/numeric-verify";
 
 // Resolve the CJS require for the emscripten core + wasm-feature-detect.
 // Must stay opaque to Turbopack: a statically-resolvable require (createRequire)
@@ -213,6 +215,13 @@ export interface RecognizeOptions {
   preset?: OcrPreset;
   /** Run image preprocessing before recognition (default true). */
   preprocess?: boolean;
+  /**
+   * Secondary numeric verification (opt-in): invalid or low-confidence numeric
+   * fields are re-read from the winning image with a constrained engine
+   * configuration (digits whitelist, PSM 7). Never changes the pipeline
+   * contract — the report is attached to `doc.meta.numericVerifications`.
+   */
+  verifyNumerics?: boolean;
 }
 
 function isImageDataInput(input: OcrInput): input is { data: ArrayLike<number>; width: number; height: number } {
@@ -245,7 +254,8 @@ export async function recognizeMainThread(
   };
 
   const primary = await prepareImage(input, preset, doPreprocess);
-  const doc = await attempt(primary.buf, primary.exif);
+  let doc = await attempt(primary.buf, primary.exif);
+  let winning = primary;
 
   // Preprocessing must never serve worse input than the untouched image:
   // when it produced garbage or only mediocre confidence, retry with the raw
@@ -253,7 +263,25 @@ export async function recognizeMainThread(
   if (doPreprocess && (isPoorResult(doc) || isMediocreResult(doc))) {
     const raw = await prepareImage(input, preset, false);
     const rawDoc = await attempt(raw.buf, raw.exif);
-    if (isBetterThan(rawDoc, doc)) return rawDoc;
+    if (isBetterThan(rawDoc, doc)) {
+      doc = rawDoc;
+      winning = raw;
+    }
+  }
+
+  // Opt-in secondary numeric verification: crops and re-reads bbox regions of
+  // the winning image only, within a hard budget, and only records decisions.
+  if (opts.verifyNumerics) {
+    try {
+      const out = await verifyNumericCandidates(doc, {
+        buffer: winning.buf,
+        exif: winning.exif,
+        reread: rereadNumericRegion,
+      });
+      doc = out.doc;
+    } catch {
+      // Verification is additive observability — never fail OCR because of it.
+    }
   }
   return doc;
 }
@@ -498,3 +526,60 @@ function meanConf(doc: OcrDocument): number | undefined {
 function mean(xs: number[]): number {
   return xs.reduce((s, n) => s + n, 0) / xs.length;
 }
+
+// ─── Secondary numeric verification (region re-read) ───────────────────────
+
+let verifyApi: { mod: any; api: any } | null = null;
+
+/**
+ * Dedicated eng-only TessBaseAPI for verification re-reads. Kept separate from
+ * the recognition api so per-call configuration (PSM 7, digit whitelists)
+ * never leaks into the main recognition settings. `eng` traineddata is always
+ * loaded already (the main api loads it via "ara+eng"), so this is cheap.
+ */
+async function getVerifyApi(): Promise<{ mod: any; api: any }> {
+  if (!verifyApi) {
+    const mod = await getTesseractModule();
+    await ensureLangsLoaded(mod, "eng");
+    const api = new mod.TessBaseAPI();
+    const status = api.Init(null, "eng", 3 /* OEM.DEFAULT */);
+    if (status === -1) throw new Error("tesseract verify init failed for \"eng\"");
+    configureApi(api);
+    verifyApi = { mod, api };
+  }
+  return verifyApi;
+}
+
+/**
+ * One constrained re-read of a cropped region: single-line PSM, digits
+ * whitelist (empty = unrestricted for the independent second read). Returns
+ * null when the read produced no usable confidence — callers treat that as
+ * "verification unusable", never as a signal to replace anything.
+ */
+const rereadNumericRegion: RegionReader = async (
+  cropPng: Buffer,
+  whitelist: string
+): Promise<RegionRead | null> => {
+  const { mod, api } = await getVerifyApi();
+  try {
+    api.SetVariable("tessedit_pageseg_mode", "7"); // PSM.SINGLE_LINE
+    api.SetVariable("tessedit_char_whitelist", whitelist);
+  } catch {
+    // optional variable on this build
+  }
+  setImage(mod, api, cropPng, 1); // crop is already orientation-normalized
+  api.Recognize(null);
+
+  const text = (api.GetUTF8Text() || "").trim();
+  const walked = readWordConfidences(api);
+  let confidence: number | undefined;
+  if (walked && walked.length > 0) {
+    const confs = walked
+      .map((w) => w.confidence)
+      .filter((c): c is number => typeof c === "number");
+    if (confs.length > 0) confidence = mean(confs);
+  }
+  if (confidence === undefined) confidence = pageMeanConfidence(api);
+  if (confidence === undefined || !text) return null;
+  return { text, confidence };
+};

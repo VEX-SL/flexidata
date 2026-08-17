@@ -262,6 +262,11 @@ export interface OcrDocument {
    * emscripten core, so this page-level signal is the fallback.
    */
   confidence?: number;
+  /**
+   * Optional additive observability payload (e.g. the numeric-verification
+   * report). JSON-safe; never required by existing consumers.
+   */
+  meta?: Record<string, unknown>;
 }
 
 // ─── Classification ───────────────────────────────────────────────────────

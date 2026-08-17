@@ -1,0 +1,394 @@
+{
+  "generated": "2026-08-17T10:43:33.151Z",
+  "results": [
+    {
+      "id": "en-clean",
+      "label": "English receipt (clean)",
+      "numericGT": [
+        {
+          "key": "38.40",
+          "label": "total 38.40"
+        },
+        {
+          "key": "50.00",
+          "label": "cash 50.00"
+        },
+        {
+          "key": "11.60",
+          "label": "change 11.60"
+        }
+      ],
+      "beforeText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "afterText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "before2Text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "noise": false,
+      "correctBefore": 3,
+      "correctAfter": 3,
+      "incorrectBefore": 0,
+      "incorrectAfter": 0,
+      "changedCorrectly": 0,
+      "changedIncorrectly": 0,
+      "regressions": [],
+      "correctedKeys": [],
+      "ambiguous": 0,
+      "triggered": 0,
+      "rejectedReplacement": 0,
+      "applied": 0,
+      "appliedCorrect": 0,
+      "records": [],
+      "wallBeforeMs": 1141,
+      "wallAfterMs": 711,
+      "wallBefore2Ms": 882,
+      "addedLatencyMs": 0
+    },
+    {
+      "id": "en-lowcontrast",
+      "label": "English receipt (low contrast)",
+      "numericGT": [
+        {
+          "key": "38.40",
+          "label": "total 38.40"
+        },
+        {
+          "key": "50.00",
+          "label": "cash 50.00"
+        },
+        {
+          "key": "11.60",
+          "label": "change 11.60"
+        }
+      ],
+      "beforeText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "afterText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "before2Text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "noise": false,
+      "correctBefore": 3,
+      "correctAfter": 3,
+      "incorrectBefore": 0,
+      "incorrectAfter": 0,
+      "changedCorrectly": 0,
+      "changedIncorrectly": 0,
+      "regressions": [],
+      "correctedKeys": [],
+      "ambiguous": 0,
+      "triggered": 0,
+      "rejectedReplacement": 0,
+      "applied": 0,
+      "appliedCorrect": 0,
+      "records": [],
+      "wallBeforeMs": 599,
+      "wallAfterMs": 572,
+      "wallBefore2Ms": 565,
+      "addedLatencyMs": 0
+    },
+    {
+      "id": "en-rot90",
+      "label": "English receipt (90° rotated)",
+      "numericGT": [
+        {
+          "key": "38.40",
+          "label": "total 38.40"
+        },
+        {
+          "key": "50.00",
+          "label": "cash 50.00"
+        },
+        {
+          "key": "11.60",
+          "label": "change 11.60"
+        }
+      ],
+      "beforeText": "AL RABIH SUPERMAR\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 11 7.00",
+      "afterText": "AL RABIH SUPERMAR\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 11 7.00",
+      "before2Text": "AL RABIH SUPERMAR\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 11 7.00",
+      "noise": false,
+      "correctBefore": 0,
+      "correctAfter": 0,
+      "incorrectBefore": 3,
+      "incorrectAfter": 3,
+      "changedCorrectly": 0,
+      "changedIncorrectly": 0,
+      "regressions": [],
+      "correctedKeys": [],
+      "ambiguous": 0,
+      "triggered": 0,
+      "rejectedReplacement": 0,
+      "applied": 0,
+      "appliedCorrect": 0,
+      "records": [],
+      "wallBeforeMs": 470,
+      "wallAfterMs": 454,
+      "wallBefore2Ms": 486,
+      "addedLatencyMs": 0
+    },
+    {
+      "id": "en-slant2",
+      "label": "English receipt (2° slanted)",
+      "numericGT": [
+        {
+          "key": "38.40",
+          "label": "total 38.40"
+        },
+        {
+          "key": "50.00",
+          "label": "cash 50.00"
+        },
+        {
+          "key": "11.60",
+          "label": "change 11.60"
+        }
+      ],
+      "beforeText": "AL RABIH SUPERMARFK\nRiyadh, KSA Te. 011-555-1212\nDate: 2025.01.15 15:42\nSugar 1kg 6.50\nMilk 11 7.00",
+      "afterText": "AL RABIH SUPERMARFK\nRiyadh, KSA Te. 011-555-1212\nDate: 2025.01.15 15:42\nSugar 1kg 6.50\nMilk 11 7.00",
+      "before2Text": "AL RABIH SUPERMARFK\nRiyadh, KSA Te. 011-555-1212\nDate: 2025.01.15 15:42\nSugar 1kg 6.50\nMilk 11 7.00",
+      "noise": false,
+      "correctBefore": 0,
+      "correctAfter": 0,
+      "incorrectBefore": 3,
+      "incorrectAfter": 3,
+      "changedCorrectly": 0,
+      "changedIncorrectly": 0,
+      "regressions": [],
+      "correctedKeys": [],
+      "ambiguous": 0,
+      "triggered": 0,
+      "rejectedReplacement": 0,
+      "applied": 0,
+      "appliedCorrect": 0,
+      "records": [],
+      "wallBeforeMs": 491,
+      "wallAfterMs": 484,
+      "wallBefore2Ms": 481,
+      "addedLatencyMs": 0
+    },
+    {
+      "id": "scan-blur",
+      "label": "English receipt (blurred scan)",
+      "numericGT": [
+        {
+          "key": "38.40",
+          "label": "total 38.40"
+        },
+        {
+          "key": "50.00",
+          "label": "cash 50.00"
+        },
+        {
+          "key": "11.60",
+          "label": "change 11.60"
+        }
+      ],
+      "beforeText": "AL RABIH SUPERMARKET",
+      "afterText": "AL RABIH SUPERMARKET",
+      "before2Text": "AL RABIH SUPERMARKET",
+      "noise": false,
+      "correctBefore": 0,
+      "correctAfter": 0,
+      "incorrectBefore": 3,
+      "incorrectAfter": 3,
+      "changedCorrectly": 0,
+      "changedIncorrectly": 0,
+      "regressions": [],
+      "correctedKeys": [],
+      "ambiguous": 0,
+      "triggered": 0,
+      "rejectedReplacement": 0,
+      "applied": 0,
+      "appliedCorrect": 0,
+      "records": [],
+      "wallBeforeMs": 485,
+      "wallAfterMs": 450,
+      "wallBefore2Ms": 518,
+      "addedLatencyMs": 0
+    },
+    {
+      "id": "invoice-clean",
+      "label": "Service invoice (clean)",
+      "numericGT": [
+        {
+          "key": "INV-2026-014",
+          "label": "invoice number"
+        },
+        {
+          "key": "2026-02-14",
+          "label": "issue date"
+        },
+        {
+          "key": "155.25",
+          "label": "total 155.25"
+        },
+        {
+          "key": "150.00",
+          "label": "subtotal 150.00"
+        },
+        {
+          "key": "5.25",
+          "label": "VAT 5.25"
+        }
+      ],
+      "beforeText": "ACME CONSULTING\n16 Business Park Rd, Riyadh KSA VAT 3111234567\nINVOICE INV-2026-014\nIssue date: 2026-02-14\nDue date: 2026-03-14\nBill to: KIM & SONS TRADING\n150.00\n150.00\n5.25\n155.25\nWeb audit retainer\nSubtotal\nVAT 3.5%\nTOTAL DUE\nPayment: Bank transfer SA1234567890",
+      "afterText": "ACME CONSULTING\n16 Business Park Rd, Riyadh KSA VAT 3111234567\nINVOICE INV-2026-014\nIssue date: 2026-02-14\nDue date: 2026-03-14\nBill to: KIM & SONS TRADING\n150.00\n150.00\n5.25\n155.25\nWeb audit retainer\nSubtotal\nVAT 3.5%\nTOTAL DUE\nPayment: Bank transfer SA1234567890",
+      "before2Text": "ACME CONSULTING\n16 Business Park Rd, Riyadh KSA VAT 3111234567\nINVOICE INV-2026-014\nIssue date: 2026-02-14\nDue date: 2026-03-14\nBill to: KIM & SONS TRADING\n150.00\n150.00\n5.25\n155.25\nWeb audit retainer\nSubtotal\nVAT 3.5%\nTOTAL DUE\nPayment: Bank transfer SA1234567890",
+      "noise": false,
+      "correctBefore": 5,
+      "correctAfter": 5,
+      "incorrectBefore": 0,
+      "incorrectAfter": 0,
+      "changedCorrectly": 0,
+      "changedIncorrectly": 0,
+      "regressions": [],
+      "correctedKeys": [],
+      "ambiguous": 0,
+      "triggered": 0,
+      "rejectedReplacement": 0,
+      "applied": 0,
+      "appliedCorrect": 0,
+      "records": [],
+      "wallBeforeMs": 804,
+      "wallAfterMs": 754,
+      "wallBefore2Ms": 736,
+      "addedLatencyMs": 0
+    },
+    {
+      "id": "contract-1pg",
+      "label": "Service agreement (1 page)",
+      "numericGT": [
+        {
+          "key": "CT-2025-881",
+          "label": "contract number"
+        },
+        {
+          "key": "2025-03-01",
+          "label": "effective date"
+        },
+        {
+          "key": "2026-03-01",
+          "label": "expiry"
+        },
+        {
+          "key": "1,200",
+          "label": "monthly fee"
+        },
+        {
+          "key": "14,400",
+          "label": "total value"
+        }
+      ],
+      "beforeText": "SERVICE AGREEMENT\nAgreement No: CT-2025-881\nBetween NOVATEL GLOBAL and KIM & SONS TRADING\nEffective date: 2025-03-01\nTerm: 12 months Expiry: 2026-03-01\nMonthly fee: SAR 1,200\nTotal contract value: SAR 14,400\nPayable in advance to NOVATEL GLOBAL\nSigned in Riyadh on 2025-02-20",
+      "afterText": "SERVICE AGREEMENT\nAgreement No: CT-2025-881\nBetween NOVATEL GLOBAL and KIM & SONS TRADING\nEffective date: 2025-03-01\nTerm: 12 months Expiry: 2026-03-01\nMonthly fee: SAR 1,200\nTotal contract value: SAR 14,400\nPayable in advance to NOVATEL GLOBAL\nSigned in Riyadh on 2025-02-20",
+      "before2Text": "SERVICE AGREEMENT\nAgreement No: CT-2025-881\nBetween NOVATEL GLOBAL and KIM & SONS TRADING\nEffective date: 2025-03-01\nTerm: 12 months Expiry: 2026-03-01\nMonthly fee: SAR 1,200\nTotal contract value: SAR 14,400\nPayable in advance to NOVATEL GLOBAL\nSigned in Riyadh on 2025-02-20",
+      "noise": false,
+      "correctBefore": 5,
+      "correctAfter": 5,
+      "incorrectBefore": 0,
+      "incorrectAfter": 0,
+      "changedCorrectly": 0,
+      "changedIncorrectly": 0,
+      "regressions": [],
+      "correctedKeys": [],
+      "ambiguous": 0,
+      "triggered": 0,
+      "rejectedReplacement": 0,
+      "applied": 0,
+      "appliedCorrect": 0,
+      "records": [],
+      "wallBeforeMs": 900,
+      "wallAfterMs": 908,
+      "wallBefore2Ms": 921,
+      "addedLatencyMs": 0
+    },
+    {
+      "id": "ar-thermal",
+      "label": "Arabic thermal receipt",
+      "numericGT": [
+        {
+          "key": "45.50",
+          "label": "total 45.50"
+        }
+      ],
+      "beforeText": "متجر الرحيم التجاري\nتاريخ: 15-01-2025\nسلعه: JJ) 5كج\nالمبلغ: 45.50 رس\nالاجمالي: 45.50 رس",
+      "afterText": "متجر الرحيم التجاري\nتاريخ: 15-01-2025\nسلعه: JJ) 5كج\nالمبلغ: 45.50 رس\nالاجمالي: 45.50 رس",
+      "before2Text": "متجر الرحيم التجاري\nتاريخ: 15-01-2025\nسلعه: JJ) 5كج\nالمبلغ: 45.50 رس\nالاجمالي: 45.50 رس",
+      "noise": false,
+      "correctBefore": 1,
+      "correctAfter": 1,
+      "incorrectBefore": 0,
+      "incorrectAfter": 0,
+      "changedCorrectly": 0,
+      "changedIncorrectly": 0,
+      "regressions": [],
+      "correctedKeys": [],
+      "ambiguous": 0,
+      "triggered": 0,
+      "rejectedReplacement": 0,
+      "applied": 0,
+      "appliedCorrect": 0,
+      "records": [],
+      "wallBeforeMs": 383,
+      "wallAfterMs": 351,
+      "wallBefore2Ms": 354,
+      "addedLatencyMs": 0
+    },
+    {
+      "id": "real-superpay",
+      "label": "Real SuperPay receipt photo (prod)",
+      "numericGT": [
+        {
+          "key": "68.38",
+          "label": "amount 68.38"
+        },
+        {
+          "key": "391003452",
+          "label": "account 391003452"
+        },
+        {
+          "key": "2013438351",
+          "label": "ref 2013438351"
+        },
+        {
+          "key": "02-07-2026",
+          "label": "date 02-07-2026"
+        }
+      ],
+      "beforeText": "60 SuperPay eX\n15468 ذا\nZahra Aman\nقوري\ngh\n607021830113216] : رقم انعمليه\n18:30:12 02-07-2026 : تاريخ انتوقت\n391003452 : رقم الحساب\n2013438351 : انرقم المرجقي\nعمليه ناجحه\nرقم العميل : 0640833767\nMobile Number : معلومات اضافيه\n(0123456788); Hostinger;Description\noe a : il\nx PURCHASE\nالمبلغ المطلوب : 68.38\n68.38 : ISI plat\nعند far التبكه تمد يستغرق فيد العمليه 24 ساعه",
+      "afterText": "60 SuperPay eX\n15468 ذا\nZahra Aman\nقوري\ngh\n607021830113216] : رقم انعمليه\n18:30:12 02-07-2026 : تاريخ انتوقت\n391003452 : رقم الحساب\n2013438351 : انرقم المرجقي\nعمليه ناجحه\nرقم العميل : 0640833767\nMobile Number : معلومات اضافيه\n(0123456788); Hostinger;Description\noe a : il\nx PURCHASE\nالمبلغ المطلوب : 68.38\n68.38 : ISI plat\nعند far التبكه تمد يستغرق فيد العمليه 24 ساعه",
+      "before2Text": "60 SuperPay eX\n15468 ذا\nZahra Aman\nقوري\ngh\n607021830113216] : رقم انعمليه\n18:30:12 02-07-2026 : تاريخ انتوقت\n391003452 : رقم الحساب\n2013438351 : انرقم المرجقي\nعمليه ناجحه\nرقم العميل : 0640833767\nMobile Number : معلومات اضافيه\n(0123456788); Hostinger;Description\noe a : il\nx PURCHASE\nالمبلغ المطلوب : 68.38\n68.38 : ISI plat\nعند far التبكه تمد يستغرق فيد العمليه 24 ساعه",
+      "noise": false,
+      "correctBefore": 4,
+      "correctAfter": 4,
+      "incorrectBefore": 0,
+      "incorrectAfter": 0,
+      "changedCorrectly": 0,
+      "changedIncorrectly": 0,
+      "regressions": [],
+      "correctedKeys": [],
+      "ambiguous": 0,
+      "triggered": 1,
+      "rejectedReplacement": 1,
+      "applied": 0,
+      "appliedCorrect": 0,
+      "records": [
+        {
+          "kind": "number",
+          "bbox": {
+            "x": 283,
+            "y": 456,
+            "width": 295,
+            "height": 29
+          },
+          "primaryValue": "607021830113216]",
+          "primaryConfidence": 0.10922409057617187,
+          "verifiedValue": "6870218301132167",
+          "verifiedConfidence": 0.3026239013671875,
+          "doubleReadAgreed": false,
+          "decision": "keep_primary",
+          "reason": "verifier_low_confidence"
+        }
+      ],
+      "wallBeforeMs": 4258,
+      "wallAfterMs": 4358,
+      "wallBefore2Ms": 4165,
+      "addedLatencyMs": 193
+    }
+  ]
+}
