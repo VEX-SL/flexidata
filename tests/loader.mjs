@@ -58,6 +58,11 @@ function findFile(base) {
 }
 
 export async function resolve(specifier, context, nextResolve) {
+  if (specifier === "next/server") {
+    const stub = pathResolve(ROOT, "tests", "stubs", "next-server.ts");
+    return { shortCircuit: true, url: pathToFileURL(stub).href };
+  }
+
   if (specifier.startsWith("@/")) {
     const rest = specifier.slice(2);
     if (
