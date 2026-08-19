@@ -64,5 +64,7 @@ import "./service-lifecycle.test.ts";
 import "./recall-recovery.test.ts";
 import "./paddle-rescue.test.ts";
 import "../src/lib/extraction/__tests__/grounding.test.ts";
+import "../src/lib/extraction/__tests__/transformer.test.ts";
+import "../src/lib/extraction/__tests__/grounding.test.ts";
 
 await run();
