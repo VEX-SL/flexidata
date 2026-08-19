@@ -1,0 +1,8 @@
+# FlexiData PaddleOCR sidecar — Python >= 3.12, CPU-only
+fastapi>=0.115,<1
+uvicorn>=0.30,<1
+paddleocr>=3.7,<4
+paddlex>=3.7,<4
+onnxruntime>=1.20
+Pillow>=10
+numpy>=1.26,<3

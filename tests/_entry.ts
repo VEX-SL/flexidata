@@ -62,5 +62,6 @@ import "./provider-manager.test.ts";
 import "./provider-timeout.test.ts";
 import "./service-lifecycle.test.ts";
 import "./recall-recovery.test.ts";
+import "./paddle-rescue.test.ts";
 
 await run();

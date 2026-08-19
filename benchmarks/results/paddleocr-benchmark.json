@@ -1,0 +1,302 @@
+{
+  "generated": "2026-08-17T16:36:14",
+  "tesseract_failures": 8,
+  "paddle_fixes": 3,
+  "both_fail": 5,
+  "tesseract_better": 1,
+  "both_ok": 20,
+  "precision": 0.375,
+  "recall": 0.375,
+  "init_ms": 11499,
+  "model_size_mb": 503.7,
+  "cases": [
+    {
+      "fixture": "en-clean",
+      "field": "Total",
+      "gt": "38.40",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-clean",
+      "field": "Cash",
+      "gt": "50.00",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-clean",
+      "field": "Change",
+      "gt": "11.60",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-lowcontrast",
+      "field": "Total",
+      "gt": "38.40",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-lowcontrast",
+      "field": "Cash",
+      "gt": "50.00",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-lowcontrast",
+      "field": "Change",
+      "gt": "11.60",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-rot90",
+      "field": "Total",
+      "gt": "38.40",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-rot90",
+      "field": "Cash",
+      "gt": "50.00",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-rot90",
+      "field": "Change",
+      "gt": "11.60",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-slant2",
+      "field": "Total",
+      "gt": "38.40",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-slant2",
+      "field": "Cash",
+      "gt": "50.00",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "en-slant2",
+      "field": "Change",
+      "gt": "11.60",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "scan-blur",
+      "field": "Total",
+      "gt": "38.40",
+      "tess_found": false,
+      "paddle_found": true,
+      "classification": "PADDLE_FIXES"
+    },
+    {
+      "fixture": "scan-blur",
+      "field": "Cash",
+      "gt": "50.00",
+      "tess_found": false,
+      "paddle_found": true,
+      "classification": "PADDLE_FIXES"
+    },
+    {
+      "fixture": "scan-blur",
+      "field": "Change",
+      "gt": "11.60",
+      "tess_found": false,
+      "paddle_found": true,
+      "classification": "PADDLE_FIXES"
+    },
+    {
+      "fixture": "invoice-clean",
+      "field": "Invoice Number",
+      "gt": "INV-2026-014",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "invoice-clean",
+      "field": "Total",
+      "gt": "155.25",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "invoice-clean",
+      "field": "Subtotal",
+      "gt": "150.00",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "invoice-clean",
+      "field": "VAT",
+      "gt": "5.25",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "contract-1pg",
+      "field": "Contract Number",
+      "gt": "CT-2025-881",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "contract-1pg",
+      "field": "Monthly Fee",
+      "gt": "1,200",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "contract-1pg",
+      "field": "Total Value",
+      "gt": "14,400",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    },
+    {
+      "fixture": "ar-thermal",
+      "field": "Total Amount",
+      "gt": "عدد السعر",
+      "tess_found": false,
+      "paddle_found": false,
+      "classification": "BOTH_FAIL"
+    },
+    {
+      "fixture": "real-superpay",
+      "field": "Transaction Number",
+      "gt": "607021830113216",
+      "tess_found": true,
+      "paddle_found": false,
+      "classification": "TESSERACT_BETTER"
+    },
+    {
+      "fixture": "real-superpay",
+      "field": "Transaction Date",
+      "gt": "20250118",
+      "tess_found": false,
+      "paddle_found": false,
+      "classification": "BOTH_FAIL"
+    },
+    {
+      "fixture": "real-superpay",
+      "field": "Reference Number",
+      "gt": "1343786620",
+      "tess_found": false,
+      "paddle_found": false,
+      "classification": "BOTH_FAIL"
+    },
+    {
+      "fixture": "real-superpay",
+      "field": "Account Number",
+      "gt": "5890043307984222",
+      "tess_found": false,
+      "paddle_found": false,
+      "classification": "BOTH_FAIL"
+    },
+    {
+      "fixture": "real-superpay",
+      "field": "Customer Number",
+      "gt": "5890043307984222",
+      "tess_found": false,
+      "paddle_found": false,
+      "classification": "BOTH_FAIL"
+    },
+    {
+      "fixture": "real-superpay",
+      "field": "Amount Due",
+      "gt": "68.38",
+      "tess_found": true,
+      "paddle_found": true,
+      "classification": "BOTH_OK"
+    }
+  ],
+  "fixture_results": {
+    "en-clean": {
+      "tess_ms": 2096,
+      "paddle_ms": 5243,
+      "paddle_n_lines": 16,
+      "paddle_conf": 0.999
+    },
+    "en-lowcontrast": {
+      "tess_ms": 906,
+      "paddle_ms": 4717,
+      "paddle_n_lines": 16,
+      "paddle_conf": 0.999
+    },
+    "en-rot90": {
+      "tess_ms": 882,
+      "paddle_ms": 4692,
+      "paddle_n_lines": 16,
+      "paddle_conf": 0.993
+    },
+    "en-slant2": {
+      "tess_ms": 1042,
+      "paddle_ms": 4740,
+      "paddle_n_lines": 16,
+      "paddle_conf": 0.995
+    },
+    "scan-blur": {
+      "tess_ms": 838,
+      "paddle_ms": 4700,
+      "paddle_n_lines": 16,
+      "paddle_conf": 0.996
+    },
+    "invoice-clean": {
+      "tess_ms": 1080,
+      "paddle_ms": 7733,
+      "paddle_n_lines": 15,
+      "paddle_conf": 0.998
+    },
+    "contract-1pg": {
+      "tess_ms": 1250,
+      "paddle_ms": 7473,
+      "paddle_n_lines": 9,
+      "paddle_conf": 0.996
+    },
+    "ar-thermal": {
+      "tess_ms": 464,
+      "paddle_ms": 2148,
+      "paddle_n_lines": 5,
+      "paddle_conf": 0.893
+    },
+    "real-superpay": {
+      "tess_ms": 6162,
+      "paddle_ms": 11344,
+      "paddle_n_lines": 14,
+      "paddle_conf": 0.881
+    }
+  }
+}

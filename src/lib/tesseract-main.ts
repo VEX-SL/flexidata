@@ -40,6 +40,7 @@ import {
   OCR_TIMEOUT_MS,
   type RecallRecoveryRecord,
 } from "@/lib/ocr/recall";
+import { runPaddleRescue, type PaddleRescueRecord } from "@/lib/ocr/paddle-rescue";
 
 // Resolve the CJS require for the emscripten core + wasm-feature-detect.
 // Must stay opaque to Turbopack: a statically-resolvable require (createRequire)
@@ -242,6 +243,16 @@ export interface RecognizeOptions {
    * Multi-page callers (PDF) use this to cap total recovery spend.
    */
   recoveryBudgetMs?: number;
+  /**
+   * Gated PaddleOCR rescue (opt-in, additive): when recall recovery detected
+   * a silently-collapsed document AND numeric evidence is missing or
+   * suspicious, up to 3 regions are re-read by an external PaddleOCR service
+   * (PADDLE_OCR_URL). Accepted readings only replace invalid/ambiguous
+   * candidates (valid primaries are never touched) or insert missing
+   * "LABEL value" lines with high confidence. Never fails the request — the
+   * decision is attached to `doc.meta.paddleRescue`.
+   */
+  rescuePaddle?: boolean;
 }
 
 function isImageDataInput(input: OcrInput): input is { data: ArrayLike<number>; width: number; height: number } {
@@ -347,6 +358,32 @@ export async function recognizeMainThread(
       doc = out.doc;
     } catch {
       // Verification is additive observability — never fail OCR because of it.
+    }
+  }
+
+  // Opt-in gated PaddleOCR rescue: only fires when recall recovery detected a
+  // collapse AND the document still lacks/suspicious numeric values; re-reads
+  // up to 3 regions via the external service inside the remaining OCR timeout
+  // budget. Additive — the decision is attached to doc.meta.paddleRescue.
+  if (opts.rescuePaddle) {
+    try {
+      const elapsedBeforePaddle = Date.now() - startedAt;
+      const out = await runPaddleRescue(doc, {
+        buffer: winning.buf,
+        exif: winning.exif,
+        engine: langs.includes("ara") ? "paddleocr-ar" : "paddleocr-en",
+        budgetMs: Math.max(0, OCR_TIMEOUT_MS - elapsedBeforePaddle),
+      });
+      doc = out.doc;
+      const record: PaddleRescueRecord = out.record;
+      if (record.triggered || record.skippedReason !== undefined) {
+        doc = {
+          ...doc,
+          meta: { ...(doc.meta ?? {}), paddleRescue: record },
+        };
+      }
+    } catch {
+      // Rescue is additive observability — never fail OCR because of it.
     }
   }
   return doc;

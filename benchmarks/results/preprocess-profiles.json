@@ -1,0 +1,1659 @@
+{
+  "generated": "2026-08-17T13:15:15.254Z",
+  "results": [
+    {
+      "profile": "Current",
+      "fixture": "en-clean",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 170,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 170,
+      "meanConf": 1,
+      "runtimeMs": 1549,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Contrast",
+      "fixture": "en-clean",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 170,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 170,
+      "meanConf": 1,
+      "runtimeMs": 754,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Deblur",
+      "fixture": "en-clean",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 168,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 168,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 168,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 168,
+      "meanConf": 1,
+      "runtimeMs": 959,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 9 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Threshold",
+      "fixture": "en-clean",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 170,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 170,
+      "meanConf": 1,
+      "runtimeMs": 648,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Current",
+      "fixture": "en-lowcontrast",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 170,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 170,
+      "meanConf": 1,
+      "runtimeMs": 816,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Contrast",
+      "fixture": "en-lowcontrast",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 170,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 170,
+      "meanConf": 1,
+      "runtimeMs": 611,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Deblur",
+      "fixture": "en-lowcontrast",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 170,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 170,
+      "meanConf": 1,
+      "runtimeMs": 918,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Threshold",
+      "fixture": "en-lowcontrast",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 168,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 168,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 168,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 168,
+      "meanConf": 1,
+      "runtimeMs": 766,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 9 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Current",
+      "fixture": "en-rot90",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 170,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 170,
+      "meanConf": 1,
+      "runtimeMs": 943,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Contrast",
+      "fixture": "en-rot90",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 164,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 164,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 164,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 164,
+      "meanConf": 1,
+      "runtimeMs": 689,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\n38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Deblur",
+      "fixture": "en-rot90",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 168,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 168,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 168,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 168,
+      "meanConf": 1,
+      "runtimeMs": 910,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 9 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Threshold",
+      "fixture": "en-rot90",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.020833333333333332,
+          "editDist": 170,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.006944444444444444,
+      "meanEditDist": 170,
+      "meanConf": 1,
+      "runtimeMs": 704,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 11 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Current",
+      "fixture": "en-slant2",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 170,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 170,
+      "meanConf": 1,
+      "runtimeMs": 879,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011.555.1212\nDate: 2025-01-15 15.42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Contrast",
+      "fixture": "en-slant2",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 149,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 147,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02564102564102564,
+          "editDist": 147,
+          "conf": 0
+        }
+      ],
+      "exactHits": 1,
+      "totalFields": 3,
+      "meanDigitAcc": 0.008547008547008546,
+      "meanEditDist": 147.66666666666666,
+      "meanConf": 0.6,
+      "runtimeMs": 626,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555.1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nChange 11.60\nThank you for shopping",
+      "gtHits": 3,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Deblur",
+      "fixture": "en-slant2",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 175,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 175,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.02127659574468085,
+          "editDist": 175,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.0070921985815602835,
+      "meanEditDist": 175,
+      "meanConf": 1,
+      "runtimeMs": 1427,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011.555.1212\nDate: 2025-01-15 15:42\nا\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 9 24.90\nممست\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Threshold",
+      "fixture": "en-slant2",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0.02,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": true,
+          "digitAcc": 0.02,
+          "editDist": 170,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": true,
+          "digitAcc": 0.04,
+          "editDist": 170,
+          "conf": 0
+        }
+      ],
+      "exactHits": 3,
+      "totalFields": 3,
+      "meanDigitAcc": 0.02666666666666667,
+      "meanEditDist": 170,
+      "meanConf": 1,
+      "runtimeMs": 708,
+      "text": "AL RABIH SUPERMARKET\nRiyadh, KSA 766: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24,90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "gtHits": 5,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Current",
+      "fixture": "scan-blur",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 20,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 20,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 20,
+          "conf": 0
+        }
+      ],
+      "exactHits": 0,
+      "totalFields": 3,
+      "meanDigitAcc": 0,
+      "meanEditDist": 20,
+      "meanConf": 0.4,
+      "runtimeMs": 583,
+      "text": "AL RABIH SUPERMARKET",
+      "gtHits": 2,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Contrast",
+      "fixture": "scan-blur",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 79,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 78,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": false,
+          "digitAcc": 0.043478260869565216,
+          "editDist": 78,
+          "conf": 0
+        }
+      ],
+      "exactHits": 0,
+      "totalFields": 3,
+      "meanDigitAcc": 0.014492753623188406,
+      "meanEditDist": 78.33333333333333,
+      "meanConf": 0.4,
+      "runtimeMs": 714,
+      "text": "AL RABIH SUPERMARKET\nRiyadh KSA Tet 011-885-1212\nSugar 1و 6350\n00 7 م\nRice و5 2490",
+      "gtHits": 2,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Deblur",
+      "fixture": "scan-blur",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 20,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 20,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 20,
+          "conf": 0
+        }
+      ],
+      "exactHits": 0,
+      "totalFields": 3,
+      "meanDigitAcc": 0,
+      "meanEditDist": 20,
+      "meanConf": 0.4,
+      "runtimeMs": 530,
+      "text": "AL RABIH SUPERMARKET",
+      "gtHits": 2,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Threshold",
+      "fixture": "scan-blur",
+      "fields": [
+        {
+          "field": "38.40",
+          "label": "Total",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 5,
+          "conf": 0
+        },
+        {
+          "field": "50.00",
+          "label": "Cash",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 5,
+          "conf": 0
+        },
+        {
+          "field": "11.60",
+          "label": "Change",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 5,
+          "conf": 0
+        }
+      ],
+      "exactHits": 0,
+      "totalFields": 3,
+      "meanDigitAcc": 0,
+      "meanEditDist": 5,
+      "meanConf": 0,
+      "runtimeMs": 214,
+      "text": "",
+      "gtHits": 0,
+      "gtTotal": 5
+    },
+    {
+      "profile": "Current",
+      "fixture": "invoice-clean",
+      "fields": [
+        {
+          "field": "INV-2026-014",
+          "label": "Invoice Number",
+          "found": true,
+          "digitAcc": null,
+          "editDist": 252,
+          "conf": 0
+        },
+        {
+          "field": "2026-02-14",
+          "label": "Issue Date",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 254,
+          "conf": 0
+        },
+        {
+          "field": "155.25",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0.015384615384615385,
+          "editDist": 258,
+          "conf": 0
+        },
+        {
+          "field": "150.00",
+          "label": "Subtotal",
+          "found": true,
+          "digitAcc": 0.015384615384615385,
+          "editDist": 258,
+          "conf": 0
+        },
+        {
+          "field": "5.25",
+          "label": "VAT",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 260,
+          "conf": 0
+        }
+      ],
+      "exactHits": 5,
+      "totalFields": 5,
+      "meanDigitAcc": 0.007692307692307693,
+      "meanEditDist": 256.4,
+      "meanConf": 1,
+      "runtimeMs": 949,
+      "text": "ACME CONSULTING\n16 Business Park Rd, Riyadh KSA VAT 3111234567\nINVOICE INV-2026-014\nIssue date: 2026-02-14\nDue date: 2026-03-14\nBill to: KIM & SONS TRADING\n150.00\n150.00\n5.25\n155.25\nWeb audit retainer\nSubtotal\nVAT 3.5%\nTOTAL DUE\nPayment: Bank transfer SA1234567890",
+      "gtHits": 7,
+      "gtTotal": 7
+    },
+    {
+      "profile": "Contrast",
+      "fixture": "invoice-clean",
+      "fields": [
+        {
+          "field": "INV-2026-014",
+          "label": "Invoice Number",
+          "found": true,
+          "digitAcc": null,
+          "editDist": 252,
+          "conf": 0
+        },
+        {
+          "field": "2026-02-14",
+          "label": "Issue Date",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 254,
+          "conf": 0
+        },
+        {
+          "field": "155.25",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0.015384615384615385,
+          "editDist": 258,
+          "conf": 0
+        },
+        {
+          "field": "150.00",
+          "label": "Subtotal",
+          "found": true,
+          "digitAcc": 0.015384615384615385,
+          "editDist": 258,
+          "conf": 0
+        },
+        {
+          "field": "5.25",
+          "label": "VAT",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 260,
+          "conf": 0
+        }
+      ],
+      "exactHits": 5,
+      "totalFields": 5,
+      "meanDigitAcc": 0.007692307692307693,
+      "meanEditDist": 256.4,
+      "meanConf": 1,
+      "runtimeMs": 867,
+      "text": "ACME CONSULTING\n16 Business Park Rd, Riyadh KSA VAT 3111234567\nINVOICE INV-2026-014\nIssue date: 2026-02-14\nDue date: 2026-03-14\nBill to: KIM & SONS TRADING\nWeb audit retainer 150.00\nSubtotal 150.00\nVAT 3.5% 5.25\nTOTAL DUE 155.25\nPayment: Bank transfer SA1234567890",
+      "gtHits": 7,
+      "gtTotal": 7
+    },
+    {
+      "profile": "Deblur",
+      "fixture": "invoice-clean",
+      "fields": [
+        {
+          "field": "INV-2026-014",
+          "label": "Invoice Number",
+          "found": true,
+          "digitAcc": null,
+          "editDist": 252,
+          "conf": 0
+        },
+        {
+          "field": "2026-02-14",
+          "label": "Issue Date",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 254,
+          "conf": 0
+        },
+        {
+          "field": "155.25",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0.015384615384615385,
+          "editDist": 258,
+          "conf": 0
+        },
+        {
+          "field": "150.00",
+          "label": "Subtotal",
+          "found": true,
+          "digitAcc": 0.015384615384615385,
+          "editDist": 258,
+          "conf": 0
+        },
+        {
+          "field": "5.25",
+          "label": "VAT",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 260,
+          "conf": 0
+        }
+      ],
+      "exactHits": 5,
+      "totalFields": 5,
+      "meanDigitAcc": 0.007692307692307693,
+      "meanEditDist": 256.4,
+      "meanConf": 1,
+      "runtimeMs": 1169,
+      "text": "ACME CONSULTING\n16 Business Park Rd, Riyadh KSA VAT 3111234567\nINVOICE INV-2026-014\nIssue date: 2026-02-14\nDue date: 2026-03-14\nBill to: KIM & SONS TRADING\nWeb audit retainer 150.00\nSubtotal 150.00\nVAT 3.5% 5.25\nTOTAL DUE 155.25\nPayment: Bank transfer SA1234567890",
+      "gtHits": 7,
+      "gtTotal": 7
+    },
+    {
+      "profile": "Threshold",
+      "fixture": "invoice-clean",
+      "fields": [
+        {
+          "field": "INV-2026-014",
+          "label": "Invoice Number",
+          "found": true,
+          "digitAcc": null,
+          "editDist": 252,
+          "conf": 0
+        },
+        {
+          "field": "2026-02-14",
+          "label": "Issue Date",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 254,
+          "conf": 0
+        },
+        {
+          "field": "155.25",
+          "label": "Total",
+          "found": true,
+          "digitAcc": 0.015384615384615385,
+          "editDist": 258,
+          "conf": 0
+        },
+        {
+          "field": "150.00",
+          "label": "Subtotal",
+          "found": true,
+          "digitAcc": 0.015384615384615385,
+          "editDist": 258,
+          "conf": 0
+        },
+        {
+          "field": "5.25",
+          "label": "VAT",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 260,
+          "conf": 0
+        }
+      ],
+      "exactHits": 5,
+      "totalFields": 5,
+      "meanDigitAcc": 0.007692307692307693,
+      "meanEditDist": 256.4,
+      "meanConf": 1,
+      "runtimeMs": 854,
+      "text": "ACME CONSULTING\n16 Business Park Rd, Riyadh KSA VAT 3111234567\nINVOICE INV-2026-014\nIssue date: 2026-02-14\nDue date: 2026-03-14\nBill to: KIM & SONS TRADING\nWeb audit retainer 150.00\nSubtotal 150.00\nVAT 3.5% 5.25\nTOTAL DUE 155.25\nPayment: Bank transfer SA1234567890",
+      "gtHits": 7,
+      "gtTotal": 7
+    },
+    {
+      "profile": "Current",
+      "fixture": "contract-1pg",
+      "fields": [
+        {
+          "field": "CT-2025-881",
+          "label": "Contract Number",
+          "found": true,
+          "digitAcc": null,
+          "editDist": 264,
+          "conf": 0
+        },
+        {
+          "field": "2025-03-01",
+          "label": "Effective Date",
+          "found": true,
+          "digitAcc": 0.09523809523809523,
+          "editDist": 265,
+          "conf": 0
+        },
+        {
+          "field": "2026-03-01",
+          "label": "Expiry Date",
+          "found": true,
+          "digitAcc": 0.07142857142857142,
+          "editDist": 265,
+          "conf": 0
+        },
+        {
+          "field": "1,200",
+          "label": "Monthly Fee",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 270,
+          "conf": 0
+        },
+        {
+          "field": "14,400",
+          "label": "Total Value",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 269,
+          "conf": 0
+        }
+      ],
+      "exactHits": 5,
+      "totalFields": 5,
+      "meanDigitAcc": 0.041666666666666664,
+      "meanEditDist": 266.6,
+      "meanConf": 1,
+      "runtimeMs": 1273,
+      "text": "SERVICE AGREEMENT\nAgreement No: CT-2025-881\nBetween NOVATEL GLOBAL and KIM & SONS TRADING\nEffective date: 2025-03-01\nTerm: 12 months Expiry: 2026-03-01\nMonthly fee: SAR 1,200\nTotal contract value: SAR 14,400\nPayable in advance to NOVATEL GLOBAL\nSigned in Riyadh on 2025-02-20",
+      "gtHits": 7,
+      "gtTotal": 7
+    },
+    {
+      "profile": "Contrast",
+      "fixture": "contract-1pg",
+      "fields": [
+        {
+          "field": "CT-2025-881",
+          "label": "Contract Number",
+          "found": true,
+          "digitAcc": null,
+          "editDist": 264,
+          "conf": 0
+        },
+        {
+          "field": "2025-03-01",
+          "label": "Effective Date",
+          "found": true,
+          "digitAcc": 0.09523809523809523,
+          "editDist": 265,
+          "conf": 0
+        },
+        {
+          "field": "2026-03-01",
+          "label": "Expiry Date",
+          "found": true,
+          "digitAcc": 0.07142857142857142,
+          "editDist": 265,
+          "conf": 0
+        },
+        {
+          "field": "1,200",
+          "label": "Monthly Fee",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 270,
+          "conf": 0
+        },
+        {
+          "field": "14,400",
+          "label": "Total Value",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 269,
+          "conf": 0
+        }
+      ],
+      "exactHits": 5,
+      "totalFields": 5,
+      "meanDigitAcc": 0.041666666666666664,
+      "meanEditDist": 266.6,
+      "meanConf": 1,
+      "runtimeMs": 940,
+      "text": "SERVICE AGREEMENT\nAgreement No: CT-2025-881\nBetween NOVATEL GLOBAL and KIM & SONS TRADING\nEffective date: 2025-03-01\nTerm: 12 months Expiry: 2026-03-01\nMonthly fee: SAR 1,200\nTotal contract value: SAR 14,400\nPayable in advance to NOVATEL GLOBAL\nSigned in Riyadh on 2025-02-20",
+      "gtHits": 7,
+      "gtTotal": 7
+    },
+    {
+      "profile": "Deblur",
+      "fixture": "contract-1pg",
+      "fields": [
+        {
+          "field": "CT-2025-881",
+          "label": "Contract Number",
+          "found": true,
+          "digitAcc": null,
+          "editDist": 264,
+          "conf": 0
+        },
+        {
+          "field": "2025-03-01",
+          "label": "Effective Date",
+          "found": true,
+          "digitAcc": 0.09523809523809523,
+          "editDist": 265,
+          "conf": 0
+        },
+        {
+          "field": "2026-03-01",
+          "label": "Expiry Date",
+          "found": true,
+          "digitAcc": 0.07142857142857142,
+          "editDist": 265,
+          "conf": 0
+        },
+        {
+          "field": "1,200",
+          "label": "Monthly Fee",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 270,
+          "conf": 0
+        },
+        {
+          "field": "14,400",
+          "label": "Total Value",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 269,
+          "conf": 0
+        }
+      ],
+      "exactHits": 5,
+      "totalFields": 5,
+      "meanDigitAcc": 0.041666666666666664,
+      "meanEditDist": 266.6,
+      "meanConf": 1,
+      "runtimeMs": 1162,
+      "text": "SERVICE AGREEMENT\nAgreement No: CT-2025-881\nBetween NOVATEL GLOBAL and KIM & SONS TRADING\nEffective date: 2025-03-01\nTerm: 12 months Expiry: 2026-03-01\nMonthly fee: SAR 1,200\nTotal contract value: SAR 14,400\nPayable in advance to NOVATEL GLOBAL\nSigned in Riyadh on 2025-02-20",
+      "gtHits": 7,
+      "gtTotal": 7
+    },
+    {
+      "profile": "Threshold",
+      "fixture": "contract-1pg",
+      "fields": [
+        {
+          "field": "CT-2025-881",
+          "label": "Contract Number",
+          "found": true,
+          "digitAcc": null,
+          "editDist": 264,
+          "conf": 0
+        },
+        {
+          "field": "2025-03-01",
+          "label": "Effective Date",
+          "found": true,
+          "digitAcc": 0.09523809523809523,
+          "editDist": 265,
+          "conf": 0
+        },
+        {
+          "field": "2026-03-01",
+          "label": "Expiry Date",
+          "found": true,
+          "digitAcc": 0.07142857142857142,
+          "editDist": 265,
+          "conf": 0
+        },
+        {
+          "field": "1,200",
+          "label": "Monthly Fee",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 270,
+          "conf": 0
+        },
+        {
+          "field": "14,400",
+          "label": "Total Value",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 269,
+          "conf": 0
+        }
+      ],
+      "exactHits": 5,
+      "totalFields": 5,
+      "meanDigitAcc": 0.041666666666666664,
+      "meanEditDist": 266.6,
+      "meanConf": 1,
+      "runtimeMs": 907,
+      "text": "SERVICE AGREEMENT\nAgreement No: CT-2025-881\nBetween NOVATEL GLOBAL and KIM & SONS TRADING\nEffective date: 2025-03-01\nTerm: 12 months Expiry: 2026-03-01\nMonthly fee: SAR 1,200\nTotal contract value: SAR 14,400\nPayable in advance to NOVATEL GLOBAL\nSigned in Riyadh on 2025-02-20",
+      "gtHits": 7,
+      "gtTotal": 7
+    },
+    {
+      "profile": "Current",
+      "fixture": "ar-thermal",
+      "fields": [
+        {
+          "field": "٣٨",
+          "label": "Amount (Arabic digits)",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 87,
+          "conf": 0
+        }
+      ],
+      "exactHits": 0,
+      "totalFields": 1,
+      "meanDigitAcc": 0,
+      "meanEditDist": 87,
+      "meanConf": 0.6666666666666666,
+      "runtimeMs": 443,
+      "text": "متجر الرحيم التجاري\nتاريخ: 15-01-2025\nسلعه: JJ) 5كج\nالمبلغ: 45.50 رس\nالاجمالي: 45.50 رس",
+      "gtHits": 2,
+      "gtTotal": 3
+    },
+    {
+      "profile": "Contrast",
+      "fixture": "ar-thermal",
+      "fields": [
+        {
+          "field": "٣٨",
+          "label": "Amount (Arabic digits)",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 87,
+          "conf": 0
+        }
+      ],
+      "exactHits": 0,
+      "totalFields": 1,
+      "meanDigitAcc": 0,
+      "meanEditDist": 87,
+      "meanConf": 0.6666666666666666,
+      "runtimeMs": 301,
+      "text": "متجر الرحيم التجاري\nتاريخ: 15-01-2025\nسلعه: ارز 5كج\nالمبلغ: 45.50 رس\nالاجمالي: 45.50 رس",
+      "gtHits": 2,
+      "gtTotal": 3
+    },
+    {
+      "profile": "Deblur",
+      "fixture": "ar-thermal",
+      "fields": [
+        {
+          "field": "٣٨",
+          "label": "Amount (Arabic digits)",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 87,
+          "conf": 0
+        }
+      ],
+      "exactHits": 0,
+      "totalFields": 1,
+      "meanDigitAcc": 0,
+      "meanEditDist": 87,
+      "meanConf": 0.6666666666666666,
+      "runtimeMs": 465,
+      "text": "متجر الرحيم التجاري\nتاريخ: 15-01-2025\nسلعه: JJ) 5كج\nالمبلغ: 45.50 رس\nالاجمالي: 45.50 رس",
+      "gtHits": 2,
+      "gtTotal": 3
+    },
+    {
+      "profile": "Threshold",
+      "fixture": "ar-thermal",
+      "fields": [
+        {
+          "field": "٣٨",
+          "label": "Amount (Arabic digits)",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 87,
+          "conf": 0
+        }
+      ],
+      "exactHits": 0,
+      "totalFields": 1,
+      "meanDigitAcc": 0,
+      "meanEditDist": 87,
+      "meanConf": 0.6666666666666666,
+      "runtimeMs": 373,
+      "text": "متجر الرحيم التجاري\nتاريخ: 15-01-2025\nسلعه: ارز 5كج\nالمبلغ: 45.50 رس\nالاجمالي: 45.50 رس",
+      "gtHits": 2,
+      "gtTotal": 3
+    },
+    {
+      "profile": "Current",
+      "fixture": "real-superpay",
+      "fields": [
+        {
+          "field": "607021830113216",
+          "label": "Transaction Number",
+          "found": true,
+          "digitAcc": 0.047058823529411764,
+          "editDist": 353,
+          "conf": 0
+        },
+        {
+          "field": "20250118",
+          "label": "Transaction Date",
+          "found": false,
+          "digitAcc": 0.023529411764705882,
+          "editDist": 360,
+          "conf": 0
+        },
+        {
+          "field": "1343786620",
+          "label": "Reference Number",
+          "found": false,
+          "digitAcc": 0.011764705882352941,
+          "editDist": 359,
+          "conf": 0
+        },
+        {
+          "field": "5890043307984222",
+          "label": "Account Number",
+          "found": false,
+          "digitAcc": 0.023529411764705882,
+          "editDist": 355,
+          "conf": 0
+        },
+        {
+          "field": "5890043307984222",
+          "label": "Customer Number",
+          "found": false,
+          "digitAcc": 0.023529411764705882,
+          "editDist": 355,
+          "conf": 0
+        },
+        {
+          "field": "68.38",
+          "label": "Amount Due",
+          "found": true,
+          "digitAcc": 0.011764705882352941,
+          "editDist": 363,
+          "conf": 0
+        }
+      ],
+      "exactHits": 2,
+      "totalFields": 6,
+      "meanDigitAcc": 0.023529411764705882,
+      "meanEditDist": 357.5,
+      "meanConf": 1,
+      "runtimeMs": 5743,
+      "text": "60 SuperPay eX\n15468 ذا\nZahra Aman\nقوري\ngh\n607021830113216] : رقم انعمليه\n18:30:12 02-07-2026 : تاريخ انتوقت\n391003452 : رقم الحساب\n2013438351 : انرقم المرجقي\nعمليه ناجحه\nرقم العميل : 0640833767\nMobile Number : معلومات اضافيه\n(0123456788); Hostinger;Description\noe a : il\nx PURCHASE\nالمبلغ المطلوب : 68.38\n68.38 : ISI plat\nعند far التبكه تمد يستغرق فيد العمليه 24 ساعه",
+      "gtHits": 6,
+      "gtTotal": 6
+    },
+    {
+      "profile": "Contrast",
+      "fixture": "real-superpay",
+      "fields": [
+        {
+          "field": "607021830113216",
+          "label": "Transaction Number",
+          "found": false,
+          "digitAcc": 0.037037037037037035,
+          "editDist": 306,
+          "conf": 0
+        },
+        {
+          "field": "20250118",
+          "label": "Transaction Date",
+          "found": false,
+          "digitAcc": 0.024691358024691357,
+          "editDist": 313,
+          "conf": 0
+        },
+        {
+          "field": "1343786620",
+          "label": "Reference Number",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 312,
+          "conf": 0
+        },
+        {
+          "field": "5890043307984222",
+          "label": "Account Number",
+          "found": false,
+          "digitAcc": 0.012345679012345678,
+          "editDist": 308,
+          "conf": 0
+        },
+        {
+          "field": "5890043307984222",
+          "label": "Customer Number",
+          "found": false,
+          "digitAcc": 0.012345679012345678,
+          "editDist": 308,
+          "conf": 0
+        },
+        {
+          "field": "68.38",
+          "label": "Amount Due",
+          "found": false,
+          "digitAcc": 0.012345679012345678,
+          "editDist": 317,
+          "conf": 0
+        }
+      ],
+      "exactHits": 0,
+      "totalFields": 6,
+      "meanDigitAcc": 0.016460905349794237,
+      "meanEditDist": 310.6666666666667,
+      "meanConf": 0.8333333333333334,
+      "runtimeMs": 3857,
+      "text": "60 SuperPay\nكه\n15468 ©\nZahra Aman\nقوري باي\nرقم انعمليه : [587021838113215\nتاريخ انوقت : 02-07-2026 18:30:12\nرقم الحساب : 391003452\nالرقم المرجعي © 2013438351\nعمليه ناجحه\nرقم العميل : 9640833767\nمعلومات اضافيه : Mobile Number\nHostinger;Description ;)0123456788(\nالمبلغ الكلي : 68.98\nعند EAT hat قد يستفرق تنفد العليه 04\nGe\n",
+      "gtHits": 5,
+      "gtTotal": 6
+    },
+    {
+      "profile": "Deblur",
+      "fixture": "real-superpay",
+      "fields": [
+        {
+          "field": "607021830113216",
+          "label": "Transaction Number",
+          "found": false,
+          "digitAcc": 0.0297029702970297,
+          "editDist": 424,
+          "conf": 0
+        },
+        {
+          "field": "20250118",
+          "label": "Transaction Date",
+          "found": false,
+          "digitAcc": 0.0297029702970297,
+          "editDist": 431,
+          "conf": 0
+        },
+        {
+          "field": "1343786620",
+          "label": "Reference Number",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 430,
+          "conf": 0
+        },
+        {
+          "field": "5890043307984222",
+          "label": "Account Number",
+          "found": false,
+          "digitAcc": 0.0297029702970297,
+          "editDist": 426,
+          "conf": 0
+        },
+        {
+          "field": "5890043307984222",
+          "label": "Customer Number",
+          "found": false,
+          "digitAcc": 0.0297029702970297,
+          "editDist": 426,
+          "conf": 0
+        },
+        {
+          "field": "68.38",
+          "label": "Amount Due",
+          "found": true,
+          "digitAcc": 0.0297029702970297,
+          "editDist": 434,
+          "conf": 0
+        }
+      ],
+      "exactHits": 1,
+      "totalFields": 6,
+      "meanDigitAcc": 0.02475247524752475,
+      "meanEditDist": 428.5,
+      "meanConf": 0.5,
+      "runtimeMs": 6680,
+      "text": "Zahra Aman\ngh ged\nرقم «awl : 68780218381132157\n18:30:12 02-07-2026 : تاريخ الوقت\nرقم الحساب : 391803452\nالرقم المرجعي : 2013430351\nعمليه ناجحه\n8640833767 : رقم العميل\nMoblle Number : معلومات اضافيه\n(0123456788); 108110081 06807101100\nal\n4 x PURCHASE\nالمطلوب : 68.38\nel |\nalo\nالعلي : 68.38 |\nala\nعند تعطل الشدبكه مهد يستغرق تنغيذ العمليه 24 ساعه\nخلننا ال عن عبد عد جد <» تا\n——- خا عل ته عه اا ان يا بن د داح جر كب حب جد - -\nol 'N » vy ءوددم",
+      "gtHits": 3,
+      "gtTotal": 6
+    },
+    {
+      "profile": "Threshold",
+      "fixture": "real-superpay",
+      "fields": [
+        {
+          "field": "607021830113216",
+          "label": "Transaction Number",
+          "found": false,
+          "digitAcc": 0.023529411764705882,
+          "editDist": 356,
+          "conf": 0
+        },
+        {
+          "field": "20250118",
+          "label": "Transaction Date",
+          "found": false,
+          "digitAcc": 0,
+          "editDist": 363,
+          "conf": 0
+        },
+        {
+          "field": "1343786620",
+          "label": "Reference Number",
+          "found": false,
+          "digitAcc": 0.011764705882352941,
+          "editDist": 361,
+          "conf": 0
+        },
+        {
+          "field": "5890043307984222",
+          "label": "Account Number",
+          "found": false,
+          "digitAcc": 0.023529411764705882,
+          "editDist": 356,
+          "conf": 0
+        },
+        {
+          "field": "5890043307984222",
+          "label": "Customer Number",
+          "found": false,
+          "digitAcc": 0.023529411764705882,
+          "editDist": 356,
+          "conf": 0
+        },
+        {
+          "field": "68.38",
+          "label": "Amount Due",
+          "found": true,
+          "digitAcc": 0,
+          "editDist": 365,
+          "conf": 0
+        }
+      ],
+      "exactHits": 1,
+      "totalFields": 6,
+      "meanDigitAcc": 0.013725490196078431,
+      "meanEditDist": 359.5,
+      "meanConf": 0.16666666666666666,
+      "runtimeMs": 3004,
+      "text": "09 8 uperPay 0\n© Qe 15468\nZab ra Aman.\nهوري\ngh\nرقم العمليه : B@Te218301132167 00\nتاريخ الوقت : 02-07-2028 30:12 18\nرقم الحساب ; 391003462\nLi\nالرقم المرجعي : 3430361 ED 2\nرقم العميل 9640833767 8\nمعلومات AE Nobile Number : blo]\n: 1\nfn\" PURCHASE\nالميلغ المطلوب : 38 8a. 1\nالميلق LI : 68.38 0\nعند Bill bat قد يستفرق تنشد المثليه 84\nbode\n(ar22456760) i Hostinger; Desoription",
+      "gtHits": 1,
+      "gtTotal": 6
+    }
+  ],
+  "summary": [
+    {
+      "name": "Current",
+      "totalExact": 24,
+      "totalFields": 32,
+      "avgDigit": 0.011250797827769042,
+      "avgEdit": 185.27777777777777,
+      "avgConf": 0.8962962962962963,
+      "avgRuntime": 1464.2222222222222,
+      "totalGtHits": 44,
+      "totalGtTotal": 48
+    },
+    {
+      "name": "Contrast",
+      "totalExact": 20,
+      "totalFields": 32,
+      "avgDigit": 0.01223735973596071,
+      "avgEdit": 183.40740740740742,
+      "avgConf": 0.8333333333333334,
+      "avgRuntime": 1039.888888888889,
+      "totalGtHits": 41,
+      "totalGtTotal": 48
+    },
+    {
+      "name": "Deblur",
+      "totalExact": 23,
+      "totalFields": 32,
+      "avgDigit": 0.011386693770304471,
+      "avgEdit": 193.27777777777777,
+      "avgConf": 0.8407407407407408,
+      "avgRuntime": 1580,
+      "totalGtHits": 41,
+      "totalGtTotal": 48
+    },
+    {
+      "name": "Threshold",
+      "totalExact": 23,
+      "totalFields": 32,
+      "avgDigit": 0.012319996981031608,
+      "avgEdit": 183.61111111111111,
+      "avgConf": 0.7592592592592593,
+      "avgRuntime": 908.6666666666666,
+      "totalGtHits": 37,
+      "totalGtTotal": 48
+    }
+  ],
+  "regressions": [
+    {
+      "fixture": "en-slant2",
+      "profile": "Contrast",
+      "field": "Total",
+      "currentFound": true,
+      "profileFound": false
+    },
+    {
+      "fixture": "en-slant2",
+      "profile": "Contrast",
+      "field": "Cash",
+      "currentFound": true,
+      "profileFound": false
+    },
+    {
+      "fixture": "real-superpay",
+      "profile": "Contrast",
+      "field": "Transaction Number",
+      "currentFound": true,
+      "profileFound": false
+    },
+    {
+      "fixture": "real-superpay",
+      "profile": "Contrast",
+      "field": "Amount Due",
+      "currentFound": true,
+      "profileFound": false
+    },
+    {
+      "fixture": "real-superpay",
+      "profile": "Deblur",
+      "field": "Transaction Number",
+      "currentFound": true,
+      "profileFound": false
+    },
+    {
+      "fixture": "real-superpay",
+      "profile": "Threshold",
+      "field": "Transaction Number",
+      "currentFound": true,
+      "profileFound": false
+    }
+  ]
+}

@@ -232,6 +232,7 @@ async function extractImageText(buffer: Buffer): Promise<ParseResult> {
       recognizeMainThread(buffer, "ara+eng", {
         verifyNumerics: true,
         recoverRecall: true,
+        rescuePaddle: true,
       })
     );
     return { text: ocr.text?.trim() || "[No text found in image]", ocr };

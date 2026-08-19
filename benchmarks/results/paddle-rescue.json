@@ -1,0 +1,243 @@
+{
+  "generated": "2026-08-17T20:22:26.093Z",
+  "mode": "real service: http://127.0.0.1:8000/v1/ocr",
+  "results": [
+    {
+      "id": "en-clean",
+      "label": "English receipt (clean)",
+      "beforeHits": 5,
+      "afterHits": 5,
+      "total": 5,
+      "beforeText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "afterText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "linesBefore": 10,
+      "linesAfter": 10,
+      "recallDetected": false,
+      "triggered": false,
+      "skippedReason": "recall_not_detected",
+      "regions": [],
+      "attempts": [],
+      "accepted": 0,
+      "requests": 0,
+      "addedLatencyMs": 0,
+      "ocrMs": 2215
+    },
+    {
+      "id": "en-lowcontrast",
+      "label": "English receipt (low contrast)",
+      "beforeHits": 5,
+      "afterHits": 5,
+      "total": 5,
+      "beforeText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "afterText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "linesBefore": 10,
+      "linesAfter": 10,
+      "recallDetected": false,
+      "triggered": false,
+      "skippedReason": "recall_not_detected",
+      "regions": [],
+      "attempts": [],
+      "accepted": 0,
+      "requests": 0,
+      "addedLatencyMs": 0,
+      "ocrMs": 1562
+    },
+    {
+      "id": "en-rot90",
+      "label": "English receipt (90° rotated)",
+      "beforeHits": 5,
+      "afterHits": 5,
+      "total": 5,
+      "beforeText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "afterText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011-555-1212\nDate: 2025-01-15 15:42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "linesBefore": 10,
+      "linesAfter": 10,
+      "recallDetected": false,
+      "triggered": false,
+      "skippedReason": "recall_not_detected",
+      "regions": [],
+      "attempts": [],
+      "accepted": 0,
+      "requests": 0,
+      "addedLatencyMs": 0,
+      "ocrMs": 2024
+    },
+    {
+      "id": "en-slant2",
+      "label": "English receipt (2° slanted)",
+      "beforeHits": 5,
+      "afterHits": 5,
+      "total": 5,
+      "beforeText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011.555.1212\nDate: 2025-01-15 15.42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "afterText": "AL RABIH SUPERMARKET\nRiyadh, KSA Tel: 011.555.1212\nDate: 2025-01-15 15.42\nSugar 1kg 6.50\nMilk 1L 7.00\nRice 5kg 24.90\nTOTAL 38.40\nCash 50.00\nChange 11.60\nThank you for shopping",
+      "linesBefore": 10,
+      "linesAfter": 10,
+      "recallDetected": false,
+      "triggered": false,
+      "skippedReason": "recall_not_detected",
+      "regions": [],
+      "attempts": [],
+      "accepted": 0,
+      "requests": 0,
+      "addedLatencyMs": 0,
+      "ocrMs": 1765
+    },
+    {
+      "id": "scan-blur",
+      "label": "English receipt (blurred scan)",
+      "beforeHits": 2,
+      "afterHits": 2,
+      "total": 5,
+      "beforeText": "AL RABIH SUPERMARKET\nRiyadh. KSA Tet 011-488-1212\nDate 20280118 1 2\nSugar و1\nT 00\nم\nRice و5\nne\nThane you tor shoggeng",
+      "afterText": "AL RABIH SUPERMARKET\nRiyadh. KSA Tet 011-488-1212\nDate 20280118 1 2\nSugar و1\nT 00\nم\nRice و5\nne\nThane you tor shoggeng",
+      "linesBefore": 9,
+      "linesAfter": 9,
+      "recallDetected": true,
+      "triggered": true,
+      "regions": [
+        {
+          "kind": "full_page"
+        },
+        {
+          "kind": "candidate",
+          "label": "20280118"
+        }
+      ],
+      "attempts": [
+        {
+          "region": "full_page",
+          "reason": "full_page",
+          "paddleTexts": 0,
+          "accepted": 0,
+          "rejected": [],
+          "latencyMs": 3023,
+          "error": "paddle_timeout"
+        },
+        {
+          "region": "candidate",
+          "reason": "20280118",
+          "paddleTexts": 1,
+          "accepted": 0,
+          "rejected": [
+            {
+              "value": "100٠٠0",
+              "reason": "paddle_low_conf"
+            }
+          ],
+          "latencyMs": 274
+        }
+      ],
+      "accepted": 0,
+      "requests": 2,
+      "addedLatencyMs": 1477,
+      "ocrMs": 5261
+    },
+    {
+      "id": "invoice-clean",
+      "label": "Service invoice (clean)",
+      "beforeHits": 7,
+      "afterHits": 7,
+      "total": 7,
+      "beforeText": "ACME CONSULTING\n16 Business Park Rd, Riyadh KSA VAT 3111234567\nINVOICE INV-2026-014\nIssue date: 2026-02-14\nDue date: 2026-03-14\nBill to: KIM & SONS TRADING\n150.00\n150.00\n5.25\n155.25\nWeb audit retainer\nSubtotal\nVAT 3.5%\nTOTAL DUE\nPayment: Bank transfer SA1234567890",
+      "afterText": "ACME CONSULTING\n16 Business Park Rd, Riyadh KSA VAT 3111234567\nINVOICE INV-2026-014\nIssue date: 2026-02-14\nDue date: 2026-03-14\nBill to: KIM & SONS TRADING\n150.00\n150.00\n5.25\n155.25\nWeb audit retainer\nSubtotal\nVAT 3.5%\nTOTAL DUE\nPayment: Bank transfer SA1234567890",
+      "linesBefore": 15,
+      "linesAfter": 15,
+      "recallDetected": false,
+      "triggered": false,
+      "skippedReason": "recall_not_detected",
+      "regions": [],
+      "attempts": [],
+      "accepted": 0,
+      "requests": 0,
+      "addedLatencyMs": 61,
+      "ocrMs": 1202
+    },
+    {
+      "id": "contract-1pg",
+      "label": "Service agreement (1 page)",
+      "beforeHits": 7,
+      "afterHits": 7,
+      "total": 7,
+      "beforeText": "SERVICE AGREEMENT\nAgreement No: CT-2025-881\nBetween NOVATEL GLOBAL and KIM & SONS TRADING\nEffective date: 2025-03-01\nTerm: 12 months Expiry: 2026-03-01\nMonthly fee: SAR 1,200\nTotal contract value: SAR 14,400\nPayable in advance to NOVATEL GLOBAL\nSigned in Riyadh on 2025-02-20",
+      "afterText": "SERVICE AGREEMENT\nAgreement No: CT-2025-881\nBetween NOVATEL GLOBAL and KIM & SONS TRADING\nEffective date: 2025-03-01\nTerm: 12 months Expiry: 2026-03-01\nMonthly fee: SAR 1,200\nTotal contract value: SAR 14,400\nPayable in advance to NOVATEL GLOBAL\nSigned in Riyadh on 2025-02-20",
+      "linesBefore": 9,
+      "linesAfter": 9,
+      "recallDetected": false,
+      "triggered": false,
+      "skippedReason": "recall_not_detected",
+      "regions": [],
+      "attempts": [],
+      "accepted": 0,
+      "requests": 0,
+      "addedLatencyMs": 34,
+      "ocrMs": 1418
+    },
+    {
+      "id": "ar-thermal",
+      "label": "Arabic thermal receipt",
+      "beforeHits": 2,
+      "afterHits": 2,
+      "total": 3,
+      "beforeText": "متجر الرحيم التجاري\nتاريخ: 15-01-2025\nسلعه: JJ) 5كج\nالمبلغ: 45.50 رس\nالاجمالي: 45.50 رس",
+      "afterText": "متجر الرحيم التجاري\nتاريخ: 15-01-2025\nسلعه: JJ) 5كج\nالمبلغ: 45.50 رس\nالاجمالي: 45.50 رس",
+      "linesBefore": 5,
+      "linesAfter": 5,
+      "recallDetected": false,
+      "triggered": false,
+      "skippedReason": "recall_not_detected",
+      "regions": [],
+      "attempts": [],
+      "accepted": 0,
+      "requests": 0,
+      "addedLatencyMs": 35,
+      "ocrMs": 537
+    },
+    {
+      "id": "real-superpay",
+      "label": "Real SuperPay receipt photo (prod)",
+      "beforeHits": 6,
+      "afterHits": 6,
+      "total": 6,
+      "beforeText": "60 SuperPay eX\n15468 ذا\nZahra Aman\nقوري\ngh\n607021830113216] : رقم انعمليه\n18:30:12 02-07-2026 : تاريخ انتوقت\n391003452 : رقم الحساب\n2013438351 : انرقم المرجقي\nعمليه ناجحه\nرقم العميل : 0640833767\nMobile Number : معلومات اضافيه\n(0123456788); Hostinger;Description\noe a : il\nx PURCHASE\nالمبلغ المطلوب : 68.38\n68.38 : ISI plat\nعند far التبكه تمد يستغرق فيد العمليه 24 ساعه",
+      "afterText": "60 SuperPay eX\n15468 ذا\nZahra Aman\nقوري\ngh\n607021830113216] : رقم انعمليه\n18:30:12 02-07-2026 : تاريخ انتوقت\n391003452 : رقم الحساب\n2013438351 : انرقم المرجقي\nعمليه ناجحه\nرقم العميل : 0640833767\nMobile Number : معلومات اضافيه\n(0123456788); Hostinger;Description\noe a : il\nx PURCHASE\nالمبلغ المطلوب : 68.38\n68.38 : ISI plat\nعند far التبكه تمد يستغرق فيد العمليه 24 ساعه",
+      "linesBefore": 18,
+      "linesAfter": 18,
+      "recallDetected": false,
+      "triggered": false,
+      "skippedReason": "recall_not_detected",
+      "regions": [],
+      "attempts": [],
+      "accepted": 0,
+      "requests": 0,
+      "addedLatencyMs": 0,
+      "ocrMs": 6691
+    }
+  ],
+  "degradation": [
+    {
+      "name": "service unavailable",
+      "passed": true,
+      "detail": "reason=none error=paddle_unreachable lines=9 ms=2716"
+    },
+    {
+      "name": "malformed response",
+      "passed": true,
+      "detail": "error=paddle_unreachable lines=9 ms=2742"
+    },
+    {
+      "name": "empty response",
+      "passed": true,
+      "detail": "triggered=true lines=9 ms=3574"
+    },
+    {
+      "name": "no URL set",
+      "passed": true,
+      "detail": "reason=paddle_unavailable lines=9 ms=2544"
+    },
+    {
+      "name": "healthy fixture (en-clean): 0 requests",
+      "passed": true,
+      "detail": "requests=0 reason=recall_not_detected lines=10 ms=1057"
+    }
+  ]
+}
