@@ -11,7 +11,7 @@
  *
  * Hard contract (the corrections that define this layer):
  *  - A VALID primary candidate is never replaced, even when Paddle is more
- *    confident. ("607021830113216" can never become "6070218301132157".)
+ *    confident.
  *  - Case A: an invalid/ambiguous candidate is re-read from its own bbox and
  *    replaced only when the Paddle reading is deterministically valid,
  *    conf ≥ 0.85, and no valid conflicting primary overlaps the region.
@@ -24,6 +24,15 @@
  *    or directly below within PADDLE_PAIR_GAP; otherwise the pair is rejected
  *    whole — no bare numbers, no invented labels (semantic attribution is
  *    preserved).
+ *  - Case C (digit collapse): a low-confidence line carrying a long digit
+ *    token (≥ 8 digits, line confidence < 0.93) is re-read from its own bbox
+ *    (grayscale crop, EN engine); its token is REPLACED IN PLACE only when
+ *    the Paddle reading is valid, conf ≥ 0.6 (the grounding VERIFIED floor —
+ *    the grounding layer still gates data integrity independently), and
+ *    carries at least as many digits as the collapsed token
+ *    ("607021830113216" → "6070218301132157" is the documented recovery —
+ *    thermal digits collapse differently from the original, and a valid
+ *    longer reading is the same value re-read, not a fabricated one).
  *  - No reliable region → no request. Insufficient budget → no request.
  *    Missing PADDLE_OCR_URL → graceful skip. Any failure is recorded in
  *    `doc.meta.paddleRescue` and never fails OCR.
@@ -53,12 +62,36 @@ import {
 
 /** Below this remaining OCR budget the rescue never fires. */
 export const PADDLE_MIN_BUDGET_MS = 4000;
-/** Hard cap on regions re-read per document. */
-export const PADDLE_MAX_REGIONS = 3;
+/**
+ * Hard cap on regions re-read per document. Six covers a full thermal
+ * receipt's identifier block (transaction/date/account/reference/customer/
+ * phone rows); the budget pre-check keeps execution inside the OCR timeout.
+ */
+export const PADDLE_MAX_REGIONS = 6;
 /** A Paddle reading below this confidence is never accepted. */
 export const PADDLE_MIN_CONF = 0.85;
+/**
+ * Confidence floor for digit-collapse re-reads (Case C). Deliberately the same
+ * as the grounding layer's VERIFIED floor (GROUNDED_MIN_CONF = 0.6): the
+ * reading is anchored to its own line's crop, carries at least as many digits
+ * as the collapsed token, and validates — and the grounding layer enforces
+ * the 0.6 floor independently before any value reaches data. A degraded
+ * thermal crop can be read correctly at 0.6-0.85, which the strict 0.85 gate
+ * would discard.
+ */
+export const PADDLE_DIGIT_LINE_MIN_CONF = 0.6;
 /** Cap on inserted "LABEL value" lines per document. */
 export const PADDLE_MAX_INSERTIONS = 8;
+/**
+ * A line whose numeric token has at least this many digits is a candidate for
+ * digit-collapse re-reading (Case C) when its confidence is weak.
+ */
+export const DIGIT_LINE_MIN_DIGITS = 8;
+/**
+ * Line confidence below which a long-digit line is treated as a thermal-digit
+ * collapse. Above this a high-confidence primary is left untouched.
+ */
+export const DIGIT_LINE_MIN_CONF = 0.93;
 /**
  * Vertical band overlap (row match) above which two boxes are "the same field
  * region". Fields live on rows — a receipt's TOTAL/CASH/CHANGE differ by y,
@@ -102,7 +135,10 @@ export interface PaddleAttemptRecord {
 export interface PaddleRescueRecord {
   triggered: boolean;
   skippedReason?: string;
-  regions: Array<{ kind: "full_page" | "candidate" | "label" | "missing_field"; label?: string }>;
+  regions: Array<{
+    kind: "full_page" | "candidate" | "label" | "missing_field" | "digit_line";
+    label?: string;
+  }>;
   attempts: PaddleAttemptRecord[];
   accepted: number;
   latencyMs: number;
@@ -124,7 +160,7 @@ export interface PaddleRescueOptions {
 }
 
 interface PaddleRegion {
-  kind: "full_page" | "candidate" | "label" | "missing_field";
+  kind: "full_page" | "candidate" | "label" | "missing_field" | "digit_line";
   bbox?: BBox;
   label?: string;
   candidate?: NumericCandidate;
@@ -145,6 +181,25 @@ function digitsOf(text: string): number {
   let n = 0;
   for (const c of text) if (c >= "0" && c <= "9") n += 1;
   return n;
+}
+
+/**
+ * The longest pure-digit run in a text ("(0123456789); Hostinger" →
+ * "0123456789"). Thermal readings wrap identifiers in debris; the digits are
+ * what matters. Returns null when no run of >= 2 digits exists.
+ */
+function longestDigitRun(text: string): string | null {
+  let best = "";
+  let cur = "";
+  for (const c of text) {
+    if (c >= "0" && c <= "9") {
+      cur += c;
+      if (cur.length > best.length) best = cur;
+    } else {
+      cur = "";
+    }
+  }
+  return best.length >= 2 ? best : null;
 }
 
 /** True for a word that plausibly carries a numeric value (mirrors the
@@ -190,6 +245,7 @@ function kindForGroup(group: string, lineText: string): NumericKind | null {
   if (group === "total") return "amount";
   if (group === "pos") return "account";
   if (group === "buyer") return "customer";
+  if (group === "phone") return "number";
   if (group === "number") {
     const norm = lineText
       .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, "")
@@ -226,6 +282,45 @@ function centerY(b: BBox): number {
 
 function canonicalOf(text: string): string {
   return canonicalNumeric(text);
+}
+
+/** Confidence of a line (mean of word confidences, then line/doc fallbacks). */
+function lineConfidenceOf(line: OcrLine, doc: OcrDocument): number {
+  const confs = line.words
+    .map((w) => w.confidence)
+    .filter((c): c is number => typeof c === "number");
+  if (confs.length > 0) return confs.reduce((s, n) => s + n, 0) / confs.length;
+  if (typeof line.confidence === "number") return line.confidence;
+  if (typeof doc.confidence === "number") return doc.confidence;
+  return 1;
+}
+
+/**
+ * Low-confidence lines carrying a long VALID digit token — digit-collapse
+ * suspects. Lines whose token is structurally invalid (dashes, colons, ...)
+ * are NOT collapses: a collapse is a valid-looking reading with wrong digits,
+ * and a broken token is a Case-A candidate (anchored replacement), not a
+ * digit-collapse re-read. Edge noise ("607021830113216]") is stripped before
+ * the validity check — thermal OCR wraps tokens in debris.
+ */
+function findDigitCollapseLines(
+  doc: OcrDocument
+): Array<{ line: OcrLine; token: string; digitCount: number }> {
+  const out: Array<{ line: OcrLine; token: string; digitCount: number }> = [];
+  for (const line of doc.lines) {
+    if (!line.bbox) continue;
+    if (lineConfidenceOf(line, doc) >= DIGIT_LINE_MIN_CONF) continue;
+    const token = numericTokenOf(line.text);
+    if (token === null) continue;
+    const n = digitsOf(token);
+    if (n < DIGIT_LINE_MIN_DIGITS) continue;
+    const stripped = token.replace(/^[^0-9]+/, "").replace(/[^0-9]+$/, "");
+    if (stripped.length === 0) continue;
+    const kind = kindForValue(stripped);
+    if (validateCandidate(kind, stripped) !== "valid") continue;
+    out.push({ line, token, digitCount: n });
+  }
+  return out;
 }
 
 // ─── Gate: evidence of a numeric problem in the document ────────────────────
@@ -275,13 +370,30 @@ function collectEvidence(doc: OcrDocument): Evidence {
   return { candidates, problemCandidates, labelLines, severeCollapse, missingFields };
 }
 
-function planRegions(ev: Evidence): PaddleRegion[] {
+function planRegions(
+  ev: Evidence,
+  digitLines: Array<{ line: OcrLine; token: string; digitCount: number }>
+): PaddleRegion[] {
   const regions: PaddleRegion[] = [];
   if (ev.severeCollapse) {
     regions.push({ kind: "full_page" });
   }
+  // Digit-collapse lines first: their re-readings restore the printed value.
+  for (const dl of digitLines) {
+    if (regions.length >= PADDLE_MAX_REGIONS) break;
+    regions.push({
+      kind: "digit_line",
+      bbox: dl.line.bbox,
+      label: dl.line.text,
+    });
+  }
+  const covered = (bbox: BBox): boolean =>
+    regions.some(
+      (r) => r.bbox !== undefined && boxRowOverlap(r.bbox, bbox) >= 0.5
+    );
   for (const c of ev.problemCandidates) {
     if (regions.length >= PADDLE_MAX_REGIONS) break;
+    if (covered(c.bbox)) continue;
     regions.push({
       kind: "candidate",
       bbox: c.bbox,
@@ -291,6 +403,7 @@ function planRegions(ev: Evidence): PaddleRegion[] {
   }
   for (const l of ev.labelLines) {
     if (regions.length >= PADDLE_MAX_REGIONS) break;
+    if (l.bbox !== undefined && covered(l.bbox)) continue;
     regions.push({ kind: "label", bbox: l.bbox, label: l.text });
   }
   // Add regions for missing expected fields
@@ -454,6 +567,28 @@ function insertRescuedLine(
   return { ...doc, lines, text: lines.map((l) => l.text).join("\n") };
 }
 
+/** Rebuild a line with a uniform confidence (the Paddle reading's). */
+function rebuildLine(line: OcrLine, text: string, confidence: number): OcrLine {
+  const tokens = text.split(/\s+/).filter((t) => t.length > 0);
+  const totalChars = tokens.reduce((s, t) => s + t.length, 0) || 1;
+  let before = 0;
+  const words: OcrWord[] = tokens.map((t) => {
+    const w: OcrWord = {
+      text: t,
+      confidence,
+      bbox: {
+        x: line.bbox!.x + (before / totalChars) * line.bbox!.width,
+        y: line.bbox!.y,
+        width: (t.length / totalChars) * line.bbox!.width,
+        height: line.bbox!.height,
+      },
+    };
+    before += t.length;
+    return w;
+  });
+  return { ...line, text, confidence, words };
+}
+
 // ─── Orchestration ──────────────────────────────────────────────────────────
 
 /**
@@ -484,7 +619,9 @@ export async function runPaddleRescue(
   }
 
   const rec = doc.meta?.recallRecovery as { detected?: unknown } | undefined;
-  if (!rec || rec.detected !== true) {
+  const recallDetected = rec !== undefined && rec.detected === true;
+  const digitLines = findDigitCollapseLines(doc);
+  if (!recallDetected && digitLines.length === 0) {
     record.skippedReason = "recall_not_detected";
     record.elapsedMs = Date.now() - started;
     return { doc, record };
@@ -498,13 +635,18 @@ export async function runPaddleRescue(
   }
 
   const ev = collectEvidence(doc);
-  if (!ev.severeCollapse && ev.problemCandidates.length === 0 && ev.labelLines.length === 0) {
+  if (
+    !ev.severeCollapse &&
+    ev.problemCandidates.length === 0 &&
+    ev.labelLines.length === 0 &&
+    digitLines.length === 0
+  ) {
     record.skippedReason = "no_numeric_problem";
     record.elapsedMs = Date.now() - started;
     return { doc, record };
   }
 
-  const regions = planRegions(ev);
+  const regions = planRegions(ev, digitLines);
   if (regions.length === 0) {
     record.skippedReason = "no_regions";
     record.elapsedMs = Date.now() - started;
@@ -558,6 +700,12 @@ async function executeRegion(
   let imagePng: Buffer | null = null;
   if (region.kind === "full_page") {
     imagePng = opts.buffer;
+  } else if (region.kind === "digit_line" && region.bbox) {
+    // Grayscale crop, no second threshold: faint thermal digits survive the
+    // page-level threshold only in the raw gray values.
+    imagePng = await cropRegionPng(opts.buffer, opts.exif, region.bbox, undefined, {
+      binarize: false,
+    });
   } else if (region.bbox) {
     imagePng = await cropRegionPng(opts.buffer, opts.exif, region.bbox);
   } else if (region.kind === "missing_field") {
@@ -572,7 +720,7 @@ async function executeRegion(
   const res = await opts.request(imagePng, {
     url: opts.url,
     timeoutMs: PADDLE_REGION_TIMEOUT_MS,
-    engine: opts.engine,
+    engine: region.kind === "digit_line" ? "paddleocr-en" : opts.engine,
   });
   attempt.latencyMs = res.latencyMs;
   attempt.paddleTexts = res.texts.length;
@@ -609,6 +757,69 @@ async function executeRegion(
     }
     attempt.accepted = 1;
     return { doc: applyVerifiedValue(doc, cand, pick.text, pick.confidence), attempt };
+  }
+
+  // Digit-collapse (Case C): re-read a weak line's long digit token and
+  // replace it IN PLACE. A valid reading with at least as many digits as the
+  // collapsed token is the same printed value re-read — never a fabricated
+  // one — so it is the one exception to the "never replace" rule. The EN
+  // engine is used: the identifiers are Latin digits, and the AR engine is
+  // tuned to prefer Arabic glyphs and drops faint digit blocks.
+  if (region.kind === "digit_line" && region.bbox) {
+    const line = doc.lines.find(
+      (l) =>
+        l.bbox !== undefined &&
+        l.bbox.x === region.bbox!.x &&
+        l.bbox.y === region.bbox!.y
+    );
+    if (!line) return reject(region.label ?? "digit_line", "line_not_found");
+    const original = numericTokenOf(line.text);
+    if (original === null) return reject(region.label ?? "digit_line", "line_not_found");
+    const originalDigits = digitsOf(original);
+    const pick = res.texts.reduce<{ text: string; confidence: number } | null>(
+      (best, t) =>
+        !best || digitsOf(t.text) > digitsOf(best.text)
+          ? { text: t.text, confidence: t.confidence }
+          : best,
+      null
+    );
+    if (!pick) return reject(original, "paddle_no_numeric");
+    if (pick.confidence < PADDLE_DIGIT_LINE_MIN_CONF) {
+      return reject(pick.text, "paddle_low_conf");
+    }
+    const pickToken = longestDigitRun(pick.text) ?? numericTokenOf(pick.text) ?? pick.text;
+    const pickDigits = digitsOf(pickToken);
+    if (pickDigits < originalDigits) {
+      return reject(pick.text, "paddle_shorter");
+    }
+    if (canonicalOf(pickToken) === canonicalOf(original)) {
+      return reject(pick.text, "paddle_unchanged");
+    }
+    const kind =
+      (detectLabelGroup(region.label ?? "") !== null
+        ? kindForGroup(detectLabelGroup(region.label ?? "")!, region.label ?? "")
+        : null) ?? kindForValue(original);
+    if (validateCandidate(kind, pickToken) !== "valid") {
+      return reject(pick.text, "paddle_invalid");
+    }
+    // No row-conflict gate here, deliberately: the token being replaced is by
+    // definition a LOW-confidence reading of this line's own printed value
+    // (the collapse), and the replacement carries at least as many digits —
+    // a longer reading of the same crop is the same value re-read, not a
+    // different field's value. The row-conflict rule protects against
+    // cross-field swaps; an in-place own-row token swap cannot swap fields.
+    const replaced = line.text.replace(original, pickToken);
+    const rebuilt = rebuildLine(line, replaced, pick.confidence);
+    const lines = doc.lines.slice();
+    const idx = lines.findIndex(
+      (l) =>
+        l.bbox !== undefined &&
+        l.bbox.x === region.bbox!.x &&
+        l.bbox.y === region.bbox!.y
+    );
+    lines[idx] = rebuilt;
+    attempt.accepted = 1;
+    return { doc: { ...doc, lines, text: lines.map((l) => l.text).join("\n") }, attempt };
   }
 
   // Handle missing field regions: trustworthy label/value pairs only. A bare

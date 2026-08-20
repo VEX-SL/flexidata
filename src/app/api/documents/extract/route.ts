@@ -177,6 +177,7 @@ async function handleExtract(
     data: result.data,
     meta: result.meta,
     issues: result.issues,
+    overallConfidence: result.overallConfidence,
     elapsedMs,
   });
 }

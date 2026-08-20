@@ -54,13 +54,20 @@ export interface FinalExtractionResult {
   meta: Record<string, GroundedFieldMeta>;
   /** Explicit list of every rejected field with its reasons and raw reading. */
   issues: GroundingIssue[];
+  /**
+   * Calibrated document-level confidence (0..1): the mean of per-field
+   * confidence — a VERIFIED field contributes its reading confidence, an
+   * UNCERTAIN field a flat 0.35, a MISSING field 0. Rounded to 2 decimals, so
+   * a document with unresolved fields scores visibly lower than a clean one.
+   */
+  overallConfidence: number;
 }
 
 /** Stable default reasons for a field with no recorded reason. */
 const DEFAULT_MISSING_REASON = "no value found in document";
 const DEFAULT_UNCERTAIN_REASON = "value lacks trustworthy spatial attribution";
-
-// ─── Public API ─────────────────────────────────────────────────────────────
+/** Confidence contribution of an UNCERTAIN field (attribution not trustworthy). */
+const UNCERTAIN_CONFIDENCE = 0.35;
 
 /**
  * Transform a GroundedDocument into the final extraction result. Only
@@ -71,19 +78,27 @@ export function toFinalExtractionResult(g: GroundedDocument): FinalExtractionRes
   const data: Record<string, unknown> = {};
   const meta: Record<string, GroundedFieldMeta> = {};
   const issues: GroundingIssue[] = [];
+  let confidenceSum = 0;
 
   for (const field of g.fields) {
     meta[field.key] = fieldMeta(field);
 
     if (field.state === "VERIFIED") {
       data[field.key] = field.value;
+      confidenceSum += field.attribution?.confidence ?? 1;
       continue;
     }
 
+    confidenceSum += field.state === "UNCERTAIN" ? UNCERTAIN_CONFIDENCE : 0;
     issues.push(fieldIssue(field));
   }
 
-  return { data, meta, issues };
+  const overallConfidence =
+    g.fields.length === 0
+      ? 0
+      : Math.round((confidenceSum / g.fields.length) * 100) / 100;
+
+  return { data, meta, issues, overallConfidence };
 }
 
 function fieldMeta(field: GroundedField): GroundedFieldMeta {

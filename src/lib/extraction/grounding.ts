@@ -36,7 +36,6 @@ import {
 } from "@/lib/pipeline/extractor/label-lexicon";
 import {
   PADDLE_PAIR_GAP,
-  PADDLE_SAME_LINE_TOL,
 } from "@/lib/ocr/paddle-rescue";
 import { canonicalNumeric } from "@/lib/ocr/numeric-verify";
 
@@ -44,6 +43,15 @@ import { canonicalNumeric } from "@/lib/ocr/numeric-verify";
 
 /** Below this reading confidence an aligned field is never VERIFIED. */
 export const GROUNDED_MIN_CONF = 0.6;
+
+/**
+ * Vertical tolerance for the side-by-side tier. Arabic labels and Latin
+ * numerals on the same printed line often have visibly different x-heights,
+ * so their boxes' vertical centers can drift further apart than a pure
+ * same-font comparison would allow; this constant is intentionally wider than
+ * the strict OCR same-line tolerance.
+ */
+export const GROUNDED_SAME_LINE_TOL = 24;
 
 // ─── Public types ───────────────────────────────────────────────────────────
 
@@ -66,6 +74,11 @@ export interface GroundedFieldInput {
   label?: string;
   /** Expected extraction value for the field, when known. */
   expectedValue?: string | number;
+  /**
+   * Expected digit count of the value. When absent, it is derived from a pure
+   * digit expectedValue of 8+ digits (fixed-width identifiers on receipts).
+   */
+  expectedLength?: number;
 }
 
 export interface GroundedAttribution {
@@ -114,6 +127,16 @@ function digitsOf(text: string): number {
   return n;
 }
 
+/**
+ * Strip stray non-numeric envelope characters from a token's edges — "]", ")",
+ * "(", ":" and similar debris that thermal/bidi OCR glues to identifiers
+ * ("607021830113216]", "(0123456788)"). Interior characters are untouched so a
+ * genuinely corrupted token stays recognizable as invalid.
+ */
+function cleanNumericToken(token: string): string {
+  return token.replace(/^[^0-9.,\-]+|[^0-9.,\-]+$/g, "");
+}
+
 /** The token carrying the most digits (mirrors the rescue layer's rule). */
 function findNumericToken(text: string): string | null {
   const tokens = text.split(/\s+/).filter((t) => t.length > 0);
@@ -126,11 +149,48 @@ function findNumericToken(text: string): string | null {
       bestDigits = d;
     }
   }
-  return best;
+  return best !== null ? cleanNumericToken(best) : null;
+}
+
+/**
+ * The expected digit count for the field: the explicit expectedLength, or —
+ * when the expected value is a pure digit string of 8+ digits — its length
+ * (thermal receipts print identifiers like transaction/reference numbers with
+ * a fixed width, so a token with a different digit count can never be that
+ * value; this is the guard that keeps a 5-digit hotline number from being
+ * misattributed to a 16-digit transaction field).
+ */
+export function expectedLengthOf(input: GroundedFieldInput): number | undefined {
+  if (
+    typeof input.expectedLength === "number" &&
+    Number.isInteger(input.expectedLength) &&
+    input.expectedLength > 0
+  ) {
+    return input.expectedLength;
+  }
+  if (input.expectedValue !== undefined) {
+    const exp = String(input.expectedValue);
+    if (/^[0-9]+$/.test(exp) && exp.length >= 8) return exp.length;
+  }
+  return undefined;
 }
 
 function centerY(b: BBox): number {
   return b.y + b.height / 2;
+}
+
+/**
+ * Do two boxes sit on the same visual line? Tolerant of mixed Arabic/Latin
+ * x-heights: boxes whose centers fall within GROUNDED_SAME_LINE_TOL count, and
+ * boxes whose vertical spans overlap by at least half the shorter box's height
+ * also count (a short Arabic label drawn at the top of a tall digit box).
+ */
+function sameVisualLine(a: BBox, b: BBox): boolean {
+  if (Math.abs(centerY(a) - centerY(b)) <= GROUNDED_SAME_LINE_TOL) return true;
+  const top = Math.max(a.y, b.y);
+  const bottom = Math.min(a.y + a.height, b.y + b.height);
+  const overlap = Math.max(0, bottom - top);
+  return overlap >= 0.5 * Math.min(a.height, b.height);
 }
 
 function meanWordConfidence(line: OcrLine, doc: OcrDocument): number {
@@ -252,6 +312,10 @@ function alignField(
 ): AlignmentCandidate | null {
   const candidates: Array<AlignmentCandidate & { score: number }> = [];
   const expected = input.expectedValue !== undefined ? String(input.expectedValue) : undefined;
+  const expectedLen = expectedLengthOf(input);
+
+  const lengthValid = (token: string): boolean =>
+    expectedLen === undefined || digitsOf(token) === expectedLen;
 
   for (let i = 0; i < doc.lines.length; i++) {
     const labelLine = doc.lines[i];
@@ -259,7 +323,7 @@ function alignField(
 
     // 1. Inline label+value on one line ("TOTAL 38.40").
     const inline = findNumericToken(labelLine.text);
-    if (inline !== null) {
+    if (inline !== null && lengthValid(inline)) {
       candidates.push({
         label: labelLine.text,
         labelLine: i,
@@ -276,9 +340,9 @@ function alignField(
     for (let j = 0; j < doc.lines.length; j++) {
       const other = doc.lines[j];
       if (j === i || !other.bbox) continue;
-      if (Math.abs(centerY(labelLine.bbox) - centerY(other.bbox)) > PADDLE_SAME_LINE_TOL) continue;
+      if (!sameVisualLine(labelLine.bbox, other.bbox)) continue;
       const value = findNumericToken(other.text);
-      if (value === null) continue;
+      if (value === null || !lengthValid(value)) continue;
       candidates.push({
         label: labelLine.text,
         labelLine: i,
@@ -298,7 +362,7 @@ function alignField(
       const gap = other.bbox.y - (labelLine.bbox.y + labelLine.bbox.height);
       if (gap < 0 || gap > PADDLE_PAIR_GAP) continue;
       const value = findNumericToken(other.text);
-      if (value === null) continue;
+      if (value === null || !lengthValid(value)) continue;
       candidates.push({
         label: labelLine.text,
         labelLine: i,
@@ -328,11 +392,16 @@ function tierScore(tier: AlignmentKind, value: string, expected?: string): numbe
 
 function locateBareValue(
   doc: OcrDocument,
-  expected: string
+  expected: string,
+  expectedLen?: number
 ): { value: string; line: number; bbox?: BBox } | null {
   for (let i = 0; i < doc.lines.length; i++) {
     const token = findNumericToken(doc.lines[i].text);
-    if (token !== null && valuesMatch(expected, token)) {
+    if (
+      token !== null &&
+      (expectedLen === undefined || digitsOf(token) === expectedLen) &&
+      valuesMatch(expected, token)
+    ) {
       return { value: token, line: i, bbox: doc.lines[i].bbox };
     }
   }
@@ -348,11 +417,12 @@ function classifyField(
   const expected = input.expectedValue !== undefined ? String(input.expectedValue) : undefined;
   const aligned = alignField(doc, input, tokens);
   const labelLines = doc.lines.filter((l) => l.bbox !== undefined && lineHasLabel(l, tokens)).length;
+  const expectedLen = expectedLengthOf(input);
 
   if (aligned === null) {
     // No trustworthy spatial attribution.
     if (expected !== undefined) {
-      const bare = locateBareValue(doc, expected);
+      const bare = locateBareValue(doc, expected, expectedLen);
       if (bare !== null) {
         const reason = labelLines > 0 ? "label_value_gap_too_large" : "value_without_label";
         return {
@@ -362,6 +432,9 @@ function classifyField(
           reasons: [reason],
         };
       }
+    }
+    if (labelLines > 0 && expectedLen !== undefined) {
+      return { key: input.key, state: "MISSING", reasons: ["no_valid_length_value"] };
     }
     return { key: input.key, state: "MISSING", reasons: [] };
   }

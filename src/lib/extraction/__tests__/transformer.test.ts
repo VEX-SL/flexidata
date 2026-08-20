@@ -196,3 +196,40 @@ test("multi-field receipt grounds correctly end to end", () => {
   equal(out.data.change, "11.60");
   equal(out.issues.length, 0, "no issues when everything is verified");
 });
+
+// ─── 10. overallConfidence calibration ──────────────────────────────────────
+
+test("overallConfidence: all VERIFIED fields score from reading confidences", () => {
+  const out = ground(
+    [
+      line("TOTAL 38.40", 100, 1.0, { wordConfs: [1.0, 1.0] }),
+      line("Cash 50.00", 140, 1.0, { wordConfs: [1.0, 1.0] }),
+    ],
+    [
+      { key: "total_amount", type: "currency", expectedValue: "38.40" },
+      { key: "cash", label: "Cash", type: "currency", expectedValue: "50.00" },
+    ]
+  );
+  equal(out.overallConfidence, 1.0);
+});
+
+test("overallConfidence: UNCERTAIN and MISSING fields drag the score down", () => {
+  const out = ground(
+    [
+      line("TOTAL 38.40", 100, 1.0, { wordConfs: [1.0, 1.0] }),
+      line("38.40", 60, 0.95, { sourceLine: 1 }),
+    ],
+    [
+      { key: "total_amount", type: "currency", expectedValue: "38.40" },
+      { key: "cash", label: "Cash", type: "currency", expectedValue: "38.40" },
+      { key: "change", label: "Change", type: "currency", expectedValue: "11.60" },
+    ]
+  );
+  equal(out.overallConfidence, 0.45, "(1.0 + 0.35 + 0) / 3");
+  ok(out.overallConfidence < 0.5, "unresolved fields never score above half");
+});
+
+test("overallConfidence: empty schema scores 0", () => {
+  const out = ground([], []);
+  equal(out.overallConfidence, 0);
+});

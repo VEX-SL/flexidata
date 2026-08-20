@@ -563,15 +563,18 @@ function subImage(
 
 /**
  * Crop the region (bbox + padding) from the winning image, upscale small
- * regions, binarize with Otsu (a different threshold path than the page-level
- * adaptive threshold, so the re-read is independent), and encode as PNG.
+ * regions, optionally binarize with Otsu (a different threshold path than the
+ * page-level adaptive threshold, so the re-read is independent), and encode as
+ * PNG. `binarize: false` keeps the grayscale crop — faint thermal digits can
+ * be erased by a second threshold pass on top of the page-level one.
  * Returns null when the crop is unusable.
  */
 export async function cropRegionPng(
   buffer: Buffer,
   exif: number,
   bbox: BBox,
-  pad = REGION_PADDING
+  pad = REGION_PADDING,
+  opts: { binarize?: boolean } = {}
 ): Promise<Buffer | null> {
   try {
     let img = await decodeToRgba(buffer);
@@ -592,7 +595,11 @@ export async function cropRegionPng(
     // Otsu binarization: ink = 0, paper = 255. Expand to RGBA — canvasFromImage
     // interprets the array as RGBA, and a 1-channel buffer would render as
     // transparent black (G/B/A = 0), which Tesseract cannot read.
-    const gray = toGray(crop);
+    let gray = toGray(crop);
+    if (opts.binarize === false) {
+      const plain: RawImage = rgbaFromGray(crop.width, crop.height, gray);
+      return Buffer.from(canvasFromImage(plain).toBuffer("image/png"));
+    }
     const th = otsuThreshold(gray);
     const bin = new Uint8ClampedArray(crop.width * crop.height);
     for (let i = 0; i < gray.length; i++) bin[i] = gray[i] <= th ? 0 : 255;

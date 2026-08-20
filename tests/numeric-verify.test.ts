@@ -91,10 +91,12 @@ test("detection: standalone long digit token on an unlabeled line", () => {
 test("detection: RTL visual-order 'value : label' line is caught by colon adjacency", () => {
   // Arabic repair could not reorder this line, so the number leads; the " : "
   // separator marks the value position structurally (no label assumption).
+  // The thermal "انعمليه" variant is a known label-group word, so the line is
+  // anchored as a transaction candidate.
   const doc = docOf(line("607021830113216] : رقم انعمليه"));
   const cands = detectNumericCandidates(doc, 6);
   equal(cands.length, 1);
-  equal(cands[0].kind, "number");
+  equal(cands[0].kind, "transaction");
   equal(cands[0].primaryText, "607021830113216]");
 });
 

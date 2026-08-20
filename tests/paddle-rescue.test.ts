@@ -114,7 +114,14 @@ function rescueRecord(doc: OcrDocument): PaddleRescueRecord | undefined {
 
 test("healthy doc (recall not detected) → skipped, zero requests", async () => {
   const { request, calls } = countingRequest([]);
-  const doc = makeProblemDoc(false);
+  const doc = makeDoc(
+    [
+      { text: "TOTAL 38.40", conf: 0.95, y: 20 },
+      { text: "Cash 50.00", conf: 0.95, y: 54 },
+      { text: "Change 11.60", conf: 0.95, y: 88 },
+    ],
+    false
+  );
   const out = await runPaddleRescue(doc, {
     buffer: makePng([10, 50]),
     exif: 1,
@@ -173,9 +180,44 @@ test("missing PADDLE_OCR_URL → graceful skip, zero requests", async () => {
 
 // ─── 2. Primary protection: a valid primary is never replaced ───────────────
 
-test("valid primary stays even when Paddle reads a conflicting value (607021830113216 never becomes 6070218301132157)", async () => {
+test("digit collapse (Case C): weak long-digit line is re-read and its token replaced in place", async () => {
+  const { request } = countingRequest([{ text: "6070218301132157", confidence: 1.0 }]);
+  const doc = makeDoc(
+    [
+      { text: "Transaction 607021830113216", conf: 0.7, y: 20 },
+      { text: "Ref 1343786620", conf: 0.95, y: 54 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 88 },
+      { text: "hello", conf: 0.7, y: 122 },
+      { text: "world", conf: 0.7, y: 156 },
+      { text: "thank you", conf: 0.7, y: 190 },
+    ]
+  );
+  const out = await runPaddleRescue(doc, {
+    buffer: makePng([10, 50]),
+    exif: 1,
+    engine: "paddleocr-ar",
+    budgetMs: 20_000,
+    url: "http://mock",
+    request,
+  });
+  equal(out.record.accepted, 1, "the collapsed token was replaced by the valid re-reading");
+  equal(out.record.attempts[0].region, "digit_line");
+  includes(out.doc.text, "Transaction 6070218301132157", "the valid longer reading wins (documented Case C recovery)");
+  ok(!out.doc.text.includes("607021830113216"), "collapsed digits gone");
+});
+
+test("high-confidence valid primary is never replaced, even when Paddle disagrees", async () => {
   const { request, calls } = countingRequest([{ text: "6070218301132157", confidence: 1.0 }]);
-  const doc = makeProblemDoc();
+  const doc = makeDoc(
+    [
+      { text: "Ref 1343786620]", conf: 0.8, y: 20 },
+      { text: "Transaction 607021830113216", conf: 0.95, y: 54 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 88 },
+      { text: "hello", conf: 0.7, y: 122 },
+      { text: "world", conf: 0.7, y: 156 },
+      { text: "thank you", conf: 0.7, y: 190 },
+    ]
+  );
   const out = await runPaddleRescue(doc, {
     buffer: makePng([10, 50]),
     exif: 1,
@@ -197,8 +239,8 @@ test("invalid primary + deterministic-valid Paddle reading → anchored accept",
   const doc = makeDoc(
     [
       { text: "Tel: 011488-1212", conf: 0.7, y: 20 },
-      { text: "Ref 607021830113216", conf: 0.9, y: 54 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 88 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 54 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 88 },
       { text: "hello", conf: 0.7, y: 122 },
       { text: "world", conf: 0.7, y: 156 },
       { text: "thank you", conf: 0.7, y: 190 },
@@ -222,14 +264,14 @@ test("Case A: Paddle reading invalid → rejected, primary kept", async () => {
   const doc = makeDoc(
     [
       { text: "Tel: 011488-1212", conf: 0.7, y: 20 },
-      { text: "Ref 607021830113216", conf: 0.9, y: 54 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 88 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 54 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 88 },
       { text: "hello", conf: 0.7, y: 122 },
       { text: "world", conf: 0.7, y: 156 },
       { text: "thank you", conf: 0.7, y: 190 },
     ]
   );
-  const { request } = countingRequest([{ text: "0l1-488-1212", confidence: 0.99 }]);
+  const { request } = countingRequest([{ text: "0l14881212", confidence: 0.99 }]);
   const out = await runPaddleRescue(doc, {
     buffer: makePng([10, 50]),
     exif: 1,
@@ -248,9 +290,9 @@ test("Case A: Paddle reading invalid → rejected, primary kept", async () => {
 test("Case B: label line without value + Paddle reading → line inserted", async () => {
   const doc = makeDoc(
     [
-      { text: "Ref 607021830113216", conf: 0.9, y: 20 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 54 },
-      { text: "Code 1343786620", conf: 0.9, y: 88 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 20 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 54 },
+      { text: "Code 1343786620", conf: 0.95, y: 88 },
       { text: "TOTAL", conf: 0.7, y: 150 },
       { text: "hello", conf: 0.7, y: 190 },
       { text: "world", conf: 0.7, y: 224 },
@@ -273,10 +315,10 @@ test("Case B: label line without value + Paddle reading → line inserted", asyn
 test("Case B: value already present in the doc → rejected, no duplicate", async () => {
   const doc = makeDoc(
     [
-      { text: "Ref 607021830113216", conf: 0.9, y: 20 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 54 },
-      { text: "Code 1343786620", conf: 0.9, y: 88 },
-      { text: "TOTAL 38.40", conf: 0.9, y: 122 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 20 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 54 },
+      { text: "Code 1343786620", conf: 0.95, y: 88 },
+      { text: "TOTAL 38.40", conf: 0.95, y: 122 },
       { text: "CASH", conf: 0.7, y: 156 },
       { text: "hello", conf: 0.7, y: 190 },
     ]
@@ -299,9 +341,9 @@ test("Case B: value already present in the doc → rejected, no duplicate", asyn
 test("all candidates valid, no label gaps, no collapse → no_numeric_problem", async () => {
   const doc = makeDoc(
     [
-      { text: "Ref 607021830113216", conf: 0.9, y: 20 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 54 },
-      { text: "Code 1343786620", conf: 0.9, y: 88 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 20 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 54 },
+      { text: "Code 1343786620", conf: 0.95, y: 88 },
       { text: "hello", conf: 0.7, y: 122 },
       { text: "world", conf: 0.7, y: 156 },
       { text: "thank you", conf: 0.7, y: 190 },
@@ -325,10 +367,10 @@ test("all candidates valid, no label gaps, no collapse → no_numeric_problem", 
 test("Paddle reading conflicting with a valid Tesseract primary in the same region → rejected, primary kept", async () => {
   const doc = makeDoc(
     [
-      { text: "TOTAL 38.40", conf: 0.9, y: 20 },
+      { text: "TOTAL 38.40", conf: 0.95, y: 20 },
       { text: "CASH", conf: 0.7, y: 20 },
-      { text: "Ref 607021830113216", conf: 0.9, y: 90 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 124 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 90 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 124 },
       { text: "hello", conf: 0.7, y: 158 },
       { text: "world", conf: 0.7, y: 192 },
     ]
@@ -373,7 +415,7 @@ test("Paddle timeout → graceful attempt error, document untouched", async () =
 
 test("low-confidence Paddle reading → rejected", async () => {
   const doc = makeProblemDoc();
-  const { request } = countingRequest([{ text: "1343786620", confidence: 0.6 }]);
+  const { request } = countingRequest([{ text: "1343786620", confidence: 0.55 }]);
   const out = await runPaddleRescue(doc, {
     buffer: makePng([10, 50]),
     exif: 1,
@@ -387,9 +429,9 @@ test("low-confidence Paddle reading → rejected", async () => {
   includes(out.doc.text, "Ref 1343786620]", "primary kept");
 });
 
-// ─── 8. Region budget: at most 3 regions ────────────────────────────────────
+// ─── 8. Region budget: capped by PADDLE_MAX_REGIONS ─────────────────────────
 
-test("more problem candidates than the region cap → at most 3 requests", async () => {
+test("more problem candidates than the region cap → at most PADDLE_MAX_REGIONS requests", async () => {
   const doc = makeDoc(
     [
       { text: "A 011488-1212", conf: 0.7, y: 20 },
@@ -397,7 +439,8 @@ test("more problem candidates than the region cap → at most 3 requests", async
       { text: "C 011488-1214", conf: 0.7, y: 88 },
       { text: "D 011488-1215", conf: 0.7, y: 122 },
       { text: "E 011488-1216", conf: 0.7, y: 156 },
-      { text: "hello world", conf: 0.7, y: 190 },
+      { text: "F 011488-1217", conf: 0.7, y: 190 },
+      { text: "hello world", conf: 0.7, y: 224 },
     ]
   );
   const { request, calls } = countingRequest([{ text: "0114881212", confidence: 1.0 }]);
@@ -418,9 +461,9 @@ test("more problem candidates than the region cap → at most 3 requests", async
 test("Case B: label and value lines too far apart → pair rejected, no fabricated label", async () => {
   const doc = makeDoc(
     [
-      { text: "Ref 607021830113216", conf: 0.9, y: 20 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 54 },
-      { text: "Code 1343786620", conf: 0.9, y: 88 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 20 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 54 },
+      { text: "Code 1343786620", conf: 0.95, y: 88 },
       { text: "TOTAL", conf: 0.7, y: 150 },
       { text: "hello", conf: 0.7, y: 190 },
       { text: "world", conf: 0.7, y: 224 },
@@ -450,9 +493,9 @@ test("Case B: label and value lines too far apart → pair rejected, no fabricat
 test("missing_field: bare standalone numeric reading → rejected, never inserted", async () => {
   const doc = makeDoc(
     [
-      { text: "Ref 607021830113216", conf: 0.9, y: 20 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 54 },
-      { text: "Code 1343786620", conf: 0.9, y: 88 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 20 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 54 },
+      { text: "Code 1343786620", conf: 0.95, y: 88 },
       { text: "TOTAL", conf: 0.7, y: 150 },
       { text: "hello", conf: 0.7, y: 190 },
       { text: "world", conf: 0.7, y: 224 },
@@ -481,9 +524,9 @@ test("missing_field: bare standalone numeric reading → rejected, never inserte
 test("missing_field: distant label/value pair → rejected, no fabrication", async () => {
   const doc = makeDoc(
     [
-      { text: "Ref 607021830113216", conf: 0.9, y: 20 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 54 },
-      { text: "Code 1343786620", conf: 0.9, y: 88 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 20 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 54 },
+      { text: "Code 1343786620", conf: 0.95, y: 88 },
       { text: "TOTAL", conf: 0.7, y: 150 },
       { text: "hello", conf: 0.7, y: 190 },
       { text: "world", conf: 0.7, y: 224 },
@@ -513,9 +556,9 @@ test("missing_field: distant label/value pair → rejected, no fabrication", asy
 test("missing_field: adjacent trustworthy pair → accepted with its label", async () => {
   const doc = makeDoc(
     [
-      { text: "Ref 607021830113216", conf: 0.9, y: 20 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 54 },
-      { text: "Code 1343786620", conf: 0.9, y: 88 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 20 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 54 },
+      { text: "Code 1343786620", conf: 0.95, y: 88 },
       { text: "TOTAL", conf: 0.7, y: 150 },
       { text: "hello", conf: 0.7, y: 190 },
       { text: "world", conf: 0.7, y: 224 },
@@ -540,9 +583,9 @@ test("missing_field: adjacent trustworthy pair → accepted with its label", asy
 test("Case B: adjacent label + value lines merge into one recovered line", async () => {
   const doc = makeDoc(
     [
-      { text: "Ref 607021830113216", conf: 0.9, y: 20 },
-      { text: "Num 5890043307984222", conf: 0.9, y: 54 },
-      { text: "Code 1343786620", conf: 0.9, y: 88 },
+      { text: "Ref 607021830113216", conf: 0.95, y: 20 },
+      { text: "Num 5890043307984222", conf: 0.95, y: 54 },
+      { text: "Code 1343786620", conf: 0.95, y: 88 },
       { text: "TOTAL", conf: 0.7, y: 150 },
       { text: "hello", conf: 0.7, y: 190 },
       { text: "world", conf: 0.7, y: 224 },

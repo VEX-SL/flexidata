@@ -26,6 +26,7 @@ export const LABEL_GROUPS: LabelGroupDef[] = [
       "المعاملة",
       "التمليه",
       "رقم العملية",
+      "انعمليه",
       "رقم المعاملة",
       "reference",
       "ref no",
@@ -34,6 +35,20 @@ export const LABEL_GROUPS: LabelGroupDef[] = [
       "receipt no",
       "invoice no",
       "serial",
+    ],
+  },
+  {
+    group: "phone",
+    words: [
+      "mobile number",
+      "mobile",
+      "phone",
+      "tel",
+      "هاتف",
+      "الجوال",
+      "جوال",
+      "الموبايل",
+      "موبايل",
     ],
   },
   {
@@ -129,6 +144,7 @@ function defaultGroupForField(key: string): string | null {
   if (key === "payment_method") return "payment";
   if (key === "pos_number" || key === "terminal_id") return "pos";
   if (key === "merchant_tax_id" || key === "seller_tax_id" || key === "buyer_tax_id") return "tax";
+  if (key.startsWith("mobile") || key.includes("phone")) return "phone";
   if (key.endsWith("_date") || key === "date" || key === "due_date") return "date";
   if (key.endsWith("_number") || key === "number" || key.endsWith("_no")) return "number";
   return null;

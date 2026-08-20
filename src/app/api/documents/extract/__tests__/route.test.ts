@@ -26,6 +26,7 @@ function makeStub() {
           },
         },
         issues: [],
+        overallConfidence: 0.99,
       },
       grounded: {} as never,
       elapsedMs: 42,
@@ -58,11 +59,13 @@ test("route: PNG image with a schema returns verified fields with 200", async ()
     data: Record<string, unknown>;
     meta: Record<string, unknown>;
     issues: unknown[];
+    overallConfidence: number;
     elapsedMs: number;
   };
   equal(body.data.total_amount, "38.40");
   equal((body.meta.total_amount as { state: string }).state, "VERIFIED");
   equal(body.issues.length, 0);
+  equal(body.overallConfidence, 0.99);
   equal(body.elapsedMs, 42);
   equal(calls.length, 1);
   ok(calls[0].buffer.equals(PNG_BYTES), "pipeline received the raw PNG bytes");
