@@ -18,6 +18,7 @@
 import type { OcrDocument, OcrLine, OcrWord } from "@/lib/pipeline/types";
 import { unionBoxes } from "@/lib/pipeline/geometry";
 import { assessOcrLineQuality } from "@/lib/pipeline/text-quality";
+import { normalizeArabicNumerals } from "@/lib/ocr/arabic-numerals";
 import { repairLineWords, type RepairChange, type RepairToken } from "./repair";
 import { reconstructWords } from "./reconstruct";
 
@@ -48,7 +49,7 @@ export function postProcessOcr(
 
     for (const rt of repairedTokenLines) {
       let words: OcrWord[] = rt.map((t) => ({
-        text: t.text,
+        text: normalizeArabicNumerals(t.text),
         confidence: t.confidence,
         bbox: t.bbox,
       }));

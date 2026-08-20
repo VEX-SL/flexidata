@@ -62,7 +62,7 @@ test("inline rescue line 'TOTAL 38.40' is VERIFIED with paddle_rescue attributio
 
 // ─── 2. Tesseract label + adjacent value on rows below → VERIFIED ───────────
 
-test("Tesseract 'Cash' with '50.00' directly below is VERIFIED (adjacent_below, tesseract)", () => {
+test("Tesseract 'Cash' with '50.00' directly below is VERIFIED (column_below, tesseract)", () => {
   const doc = docOf([
     line("Cash", 100, 0.95, { sourceLine: 0 }),
     line("50.00", 126, 0.9, { sourceLine: 1 }),
@@ -71,7 +71,7 @@ test("Tesseract 'Cash' with '50.00' directly below is VERIFIED (adjacent_below, 
   const f = byKey(out, "cash");
   equal(f.state, "VERIFIED");
   equal(f.value, "50.00");
-  equal(f.attribution!.alignment, "adjacent_below");
+  equal(f.attribution!.alignment, "column_below", "value directly below its label on the x-axis");
   equal(f.attribution!.source, "tesseract");
 });
 
@@ -231,7 +231,7 @@ test("label line 'Sugar 1kg' carries no numeric value inline", () => {
   const out = groundDocument(doc, [{ key: "items", label: "Sugar 1kg", expectedValue: "6.50" }]);
   const f = byKey(out, "items");
   equal(f.state, "VERIFIED");
-  equal(f.attribution!.alignment, "adjacent_below");
+  equal(f.attribution!.alignment, "column_below", "value sits directly beneath the label on the x-axis");
 });
 
 function notEqual<T>(actual: T, expected: T, msg?: string): void {

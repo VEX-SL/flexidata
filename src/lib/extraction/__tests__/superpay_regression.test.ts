@@ -122,7 +122,7 @@ test("superpay: thermal digit collapse is healed and all five identifiers verify
     equal(txn.attribution!.source, "paddle_rescue");
     equal(out.result.meta.reference_number.attribution!.source, "paddle_rescue");
     equal(out.result.meta.customer_number.attribution!.source, "paddle_rescue");
-    equal(out.result.meta.mobile_number.attribution!.alignment, "adjacent_below");
+    equal(out.result.meta.mobile_number.attribution!.alignment, "column_below", "mobile value sits directly beneath its label on the x-axis");
   } finally {
     await server.close();
   }

@@ -99,12 +99,50 @@ export const LABEL_GROUPS: LabelGroupDef[] = [
       "العلى",
       "الاجمالي المستحق",
       "المستحق",
+      "إجمالي الفاتورة",
+      "اجمالي الفاتوره",
+      "الصافي",
+      "الصافى",
+      "المبلغ النهائي",
+      "المبلغ النهائى",
       "grand total",
       "total",
       "amount due",
       "balance",
       "المبلغ الاجمالي",
     ],
+  },
+  {
+    group: "subtotal",
+    words: [
+      "الإجمالي الفرعي",
+      "الاجمالي الفرعي",
+      "المجموع الفرعي",
+      "المجموع الفرعى",
+      "المبلغ قبل الضريبة",
+      "المبلغ قبل الضريبه",
+      "subtotal",
+    ],
+  },
+  {
+    group: "price",
+    words: [
+      "السعر",
+      "سعر الوحدة",
+      "سعر الوحده",
+      "سعر القطعة",
+      "سعر القطعه",
+      "unit price",
+      "price",
+    ],
+  },
+  {
+    group: "quantity",
+    words: ["الكمية", "الكميه", "العدد", "quantity"],
+  },
+  {
+    group: "item_name",
+    words: ["الصنف", "اسم الصنف", "البيان", "الوصف", "البند"],
   },
   {
     group: "currency",
@@ -138,6 +176,10 @@ function defaultGroupForField(key: string): string | null {
   if (key === "line_items" || key === "items") return "items";
   if (key === "currency") return "currency";
   if (key === "total_amount" || key === "amount_due") return "total";
+  if (key === "subtotal") return "subtotal";
+  if (key === "unit_price" || key === "price" || key === "item_price") return "price";
+  if (key === "quantity" || key === "qty") return "quantity";
+  if (key === "item_name" || key === "item" || key === "item_description") return "item_name";
   if (key === "tax_amount" || key === "tax_rate") return "tax";
   if (key === "merchant_name" || key === "seller_name" || key === "vendor_name") return "merchant";
   if (key === "customer_name" || key === "buyer_name") return "buyer";

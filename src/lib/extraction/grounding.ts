@@ -28,8 +28,10 @@ import type {
   FieldType,
   OcrDocument,
   OcrLine,
+  OcrWord,
 } from "@/lib/pipeline/types";
 import { normalizeText } from "@/lib/pipeline/ocr";
+import { normalizeArabicNumerals } from "@/lib/ocr/arabic-numerals";
 import {
   LABEL_GROUPS,
   labelGroupForField,
@@ -53,6 +55,17 @@ export const GROUNDED_MIN_CONF = 0.6;
  */
 export const GROUNDED_SAME_LINE_TOL = 24;
 
+/**
+ * Table-column alignment contract. A value sits in a table column when its
+ * box shares significant horizontal (x-axis) overlap with the column header's
+ * word box and lies directly beneath it. The gap tolerance is wider than the
+ * side-by-side PADDLE_PAIR_GAP because table cells can be several rows below
+ * their header; the x-overlap requirement is what keeps a distant value in
+ * the same column from being attributed to a neighboring header.
+ */
+export const COLUMN_X_OVERLAP_MIN = 0.35;
+export const COLUMN_PAIR_MAX_GAP = 120;
+
 // ─── Public types ───────────────────────────────────────────────────────────
 
 export type GroundedState = "VERIFIED" | "UNCERTAIN" | "MISSING";
@@ -61,7 +74,11 @@ export type GroundedState = "VERIFIED" | "UNCERTAIN" | "MISSING";
 export type GroundedSource = "tesseract" | "paddle_rescue";
 
 /** How the label and its value are spatially related. */
-export type AlignmentKind = "inline_label" | "same_line" | "adjacent_below";
+export type AlignmentKind =
+  | "inline_label"
+  | "same_line"
+  | "column_below"
+  | "adjacent_below";
 
 export interface GroundedFieldInput {
   /** Field key, snake_case (schema key). */
@@ -116,7 +133,20 @@ export interface GroundedField {
 export interface GroundedDocument {
   doc: OcrDocument;
   fields: GroundedField[];
-  summary: { verified: number; uncertain: number; missing: number; total: number };
+  summary: {
+    verified: number;
+    uncertain: number;
+    missing: number;
+    total: number;
+    /**
+     * Share of schema fields whose printed label tokens appear somewhere in
+     * the document (0..1). This is the structural-overlap signal used by the
+     * transformer's schema-fit gate: a document that contains none of the
+     * requested schema's labels is likely the wrong document type, and
+     * confidence must be penalized accordingly.
+     */
+    labelCoverage: number;
+  };
 }
 
 // ─── Small deterministic helpers ────────────────────────────────────────────
@@ -150,6 +180,67 @@ function findNumericToken(text: string): string | null {
     }
   }
   return best !== null ? cleanNumericToken(best) : null;
+}
+
+/**
+ * Word-level numeric reading for the table-column tier. Unlike the
+ * line-level `findNumericToken` (which needs 2+ digits so "Sugar 1kg" never
+ * reads as a value), a table cell may legitimately be a single digit (الكمية
+ * = "2"); the numeric-ratio guard keeps glued letter+digit tokens ("1kg",
+ * "رقم2013") out, and the caller's x-overlap requirement keeps the reading in
+ * its own column.
+ */
+function numericWordCandidates(line: OcrLine): Array<{ text: string; bbox: BBox }> {
+  const out: Array<{ text: string; bbox: BBox }> = [];
+  for (const w of line.words) {
+    if (!w.bbox) continue;
+    const t = normalizeArabicNumerals(w.text);
+    if (!t) continue;
+    let digits = 0;
+    let numericish = 0;
+    for (const c of t) {
+      if (c >= "0" && c <= "9") {
+        digits += 1;
+        numericish += 1;
+      } else if (/[.,:/-]/.test(c)) {
+        numericish += 1;
+      }
+    }
+    if (digits === 0) continue;
+    if (numericish / t.length < 0.6) continue;
+    const text = cleanNumericToken(t);
+    if (!text) continue;
+    out.push({ text, bbox: w.bbox });
+  }
+  return out;
+}
+
+/**
+ * Word boxes inside a label line that actually carry the label token. A table
+ * header line often prints several column headers ("الصنف الكمية السعر
+ * الإجمالي") on ONE OCR line, so the column anchor must be the header WORD's
+ * box — never the whole line box (which spans every column).
+ */
+function labelWordAnchors(line: OcrLine, tokens: string[]): BBox[] {
+  const anchors: BBox[] = [];
+  for (const w of line.words) {
+    if (!w.bbox) continue;
+    const norm = normalizeText(w.text);
+    if (tokens.some((t) => norm.includes(normalizeText(t)))) {
+      anchors.push(w.bbox);
+    }
+  }
+  return anchors;
+}
+
+/** Share of [a.x, a.x+a.width] ∩ [b.x, b.x+b.width] over the narrower box. */
+function xOverlapRatio(a: BBox, b: BBox): number {
+  const overlap = Math.max(
+    0,
+    Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
+  );
+  if (overlap <= 0) return 0;
+  return overlap / Math.max(1, Math.min(a.width, b.width));
 }
 
 /**
@@ -295,15 +386,17 @@ interface AlignmentCandidate {
 const TIER: Record<AlignmentKind, number> = {
   inline_label: 30,
   same_line: 20,
+  column_below: 15,
   adjacent_below: 10,
 };
 
 /**
  * The core spatial engine. For every label line of the field it tries, in
  * order of trust, to attach a value: inline on the same line, side-by-side on
- * the same visual line, then directly below within PADDLE_PAIR_GAP. Candidates
- * are ranked by expected-value match first, then alignment tier, then reading
- * confidence, and the strongest one wins.
+ * the same visual line, directly below within the same column (table
+ * headers), then directly below within PADDLE_PAIR_GAP. Candidates are ranked
+ * by expected-value match first, then alignment tier, then reading confidence,
+ * and the strongest one wins.
  */
 function alignField(
   doc: OcrDocument,
@@ -355,7 +448,38 @@ function alignField(
       });
     }
 
-    // 3. Directly below within PADDLE_PAIR_GAP.
+    // 3. Table columns: a value word below the header whose box overlaps the
+    //    header WORD's box on the x-axis (الكمية column → quantity cells).
+    //    Word-level, so a multi-column row ("قمح 2 25.00 50.00") attributes
+    //    each cell to its own header instead of grabbing the row's most
+    //    digit-dense token.
+    const anchors = labelWordAnchors(labelLine, tokens);
+    if (anchors.length > 0) {
+      for (let j = 0; j < doc.lines.length; j++) {
+        const other = doc.lines[j];
+        if (j === i || !other.bbox) continue;
+        const gap = other.bbox.y - (labelLine.bbox.y + labelLine.bbox.height);
+        if (gap < 0 || gap > COLUMN_PAIR_MAX_GAP) continue;
+        for (const cell of numericWordCandidates(other)) {
+          if (!lengthValid(cell.text)) continue;
+          if (!anchors.some((a) => xOverlapRatio(a, cell.bbox) >= COLUMN_X_OVERLAP_MIN)) {
+            continue;
+          }
+          candidates.push({
+            label: labelLine.text,
+            labelLine: i,
+            labelBBox: labelLine.bbox,
+            value: cell.text,
+            valueLine: j,
+            valueBBox: cell.bbox,
+            alignment: "column_below",
+            score: tierScore("column_below", cell.text, expected),
+          });
+        }
+      }
+    }
+
+    // 4. Directly below within PADDLE_PAIR_GAP.
     for (let j = 0; j < doc.lines.length; j++) {
       const other = doc.lines[j];
       if (j === i || !other.bbox) continue;
@@ -379,8 +503,15 @@ function alignField(
   candidates.sort((a, b) => b.score - a.score || b.alignment.localeCompare(a.alignment));
   const best = candidates[0];
   if (!best) return null;
-  const { score, ...candidate } = best;
-  return candidate;
+  return {
+    label: best.label,
+    labelLine: best.labelLine,
+    labelBBox: best.labelBBox,
+    value: best.value,
+    valueLine: best.valueLine,
+    valueBBox: best.valueBBox,
+    alignment: best.alignment,
+  };
 }
 
 function tierScore(tier: AlignmentKind, value: string, expected?: string): number {
@@ -482,6 +613,51 @@ function classifyField(
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 /**
+ * Normalize every numeral in a document to ASCII digits (Eastern Arabic and
+ * Persian families → 0-9) while preserving all spatial coordinates. Applied at
+ * the grounding boundary so grounding, verification and lexicon logic always
+ * operate on a standardized surface, regardless of which OCR stack produced
+ * the document (Tesseract, Paddle rescue insertions, or text-only input).
+ */
+export function normalizeDocumentNumerals(doc: OcrDocument): OcrDocument {
+  const lines: OcrLine[] = doc.lines.map((line) => {
+    let words: OcrWord[] = line.words;
+    let changed = false;
+    if (line.words.some((w) => w.text !== normalizeArabicNumerals(w.text))) {
+      words = line.words.map((w) => {
+        const text = normalizeArabicNumerals(w.text);
+        return text === w.text ? w : { ...w, text };
+      });
+      changed = true;
+    }
+    if (!changed) return line;
+    const text = words.map((w) => w.text).join(" ");
+    return { ...line, words, text, originalText: line.originalText ?? line.text };
+  });
+  return { ...doc, lines, text: lines.map((l) => l.text).join("\n") };
+}
+
+/**
+ * Share of schema fields whose label tokens appear in the document — the
+ * structural-overlap signal behind the transformer's schema-fit gate. Fields
+ * whose label group/words cannot be found at all count as uncovered.
+ */
+export function fieldLabelCoverage(
+  doc: OcrDocument,
+  fields: GroundedFieldInput[]
+): number {
+  if (fields.length === 0) return 1;
+  let covered = 0;
+  for (const input of fields) {
+    const tokens = labelTokensFor(input);
+    if (tokens.length > 0 && doc.lines.some((l) => lineHasLabel(l, tokens))) {
+      covered += 1;
+    }
+  }
+  return covered / fields.length;
+}
+
+/**
  * Ground every schema field against the final OCR document (Tesseract + accepted
  * Paddle rescues). Each field gets an explicit state plus its spatial
  * attribution. A field is VERIFIED only when its value is anchored to a printed
@@ -492,18 +668,23 @@ export function groundDocument(
   doc: OcrDocument,
   fields: GroundedFieldInput[]
 ): GroundedDocument {
-  const rescue = rescueOf(doc);
+  const normalized = normalizeDocumentNumerals(doc);
+  const rescue = rescueOf(normalized);
   const grounded: GroundedField[] = fields.map((input) => {
     const tokens = labelTokensFor(input);
-    return classifyField(doc, input, tokens, rescue);
+    return classifyField(normalized, input, tokens, rescue);
   });
   const counts = { verified: 0, uncertain: 0, missing: 0 };
   for (const f of grounded) {
     counts[f.state.toLowerCase() as keyof typeof counts] += 1;
   }
   return {
-    doc,
+    doc: normalized,
     fields: grounded,
-    summary: { ...counts, total: grounded.length },
+    summary: {
+      ...counts,
+      total: grounded.length,
+      labelCoverage: fieldLabelCoverage(normalized, fields),
+    },
   };
 }

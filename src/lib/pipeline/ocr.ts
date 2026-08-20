@@ -1,4 +1,5 @@
 import type { OcrDocument, OcrLine, OcrWord } from "./types";
+import { normalizeArabicNumerals } from "@/lib/ocr/arabic-numerals";
 
 /**
  * Build a neutral OcrDocument from a plain text string (no word-level OCR
@@ -45,7 +46,5 @@ export function normalizeText(s: string): string {
 
 /** Map Arabic-Indic (٠١٢٣٤٥٦٧٨٩) and Arabic (۰۱۲۳۴۵۶۷۸۹) digits to Latin. */
 export function unifyDigits(s: string): string {
-  return s
-    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
-    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  return normalizeArabicNumerals(s);
 }
