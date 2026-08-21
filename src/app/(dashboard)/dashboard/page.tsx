@@ -10,12 +10,10 @@ import {
   Bot,
   Plus,
   Sparkles,
-  ArrowRight,
   Zap,
   FolderOpen,
   Search,
   Bell,
-  MoreHorizontal,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -23,17 +21,15 @@ import {
   FileImage,
   FileCode,
   File,
-  TrendingUp,
   Activity,
   X,
   ChevronRight,
   BarChart3,
-  Users,
-  Flame,
   Settings,
   LogOut,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import { createClient } from "@/lib/supabase/client";
 
 interface Agent {
   id: string;
@@ -50,7 +46,14 @@ interface AgentFile {
   file_type: string;
   status: string;
   created_at: string;
-  size?: number;
+}
+
+interface ActivityItem {
+  type: "upload" | "chat";
+  text: string;
+  agent: string | null;
+  status?: string;
+  created_at: string;
 }
 
 function getFileIcon(type: string) {
@@ -71,13 +74,6 @@ function getFileColor(type: string) {
   return { bg: "bg-slate-500/10", color: "text-slate-500", border: "border-slate-500/20" };
 }
 
-function formatFileSize(bytes?: number) {
-  if (!bytes) return "";
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-}
-
 function timeAgo(date: string) {
   const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
   if (seconds < 60) return "Just now";
@@ -90,6 +86,52 @@ function timeAgo(date: string) {
   return new Date(date).toLocaleDateString();
 }
 
+function ActivityFeed({ items, loading }: { items: ActivityItem[]; loading: boolean }) {
+  const { t } = useTranslation();
+  if (loading) {
+    return (
+      <div style={{ display: "flex", justifyContent: "center", padding: "1.25rem 0" }}>
+        <Loader2 size={18} className="animate-spin" style={{ color: "#6366F1" }} />
+      </div>
+    );
+  }
+  if (items.length === 0) {
+    return (
+      <p style={{ textAlign: "center", color: "var(--color-muted-foreground)", fontSize: "0.8rem", padding: "1rem 0" }}>
+        {t("dashboard.noActivity")}
+      </p>
+    );
+  }
+  return (
+    <>
+      {items.map((item, i) => (
+        <div key={i} className="fd-activity-item">
+          <div
+            className="fd-activity-dot"
+            style={{
+              background: item.type === "upload" ? "#6366F1" : "#F59E0B"
+            }}
+          />
+          <div className="fd-activity-content">
+            <p className="fd-activity-text">
+              {item.type === "upload"
+                ? t("dashboard.activityUploaded", { file: item.text })
+                : item.text
+                  ? t("dashboard.activityChat", { title: item.text })
+                  : t("dashboard.activityChatNew")}
+            </p>
+            <div className="fd-activity-meta">
+              {item.agent && <span>{item.agent}</span>}
+              {item.agent && <span>·</span>}
+              <span>{timeAgo(item.created_at)}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 export default function DashboardPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -98,18 +140,64 @@ export default function DashboardPage() {
   const [showCreateAgent, setShowCreateAgent] = useState(false);
   const [newAgentName, setNewAgentName] = useState("");
   const [creating, setCreating] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "recent" | "activity">("overview");
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter();
   const { t } = useTranslation();
+  const supabase = createClient();
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      setUserEmail(user.email || "");
+      const metaName = (user.user_metadata?.name as string) || "";
+      if (metaName) setUserName(metaName);
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name, avatar_url")
+          .eq("id", user.id)
+          .single();
+        if (profile) {
+          if (!metaName && profile.name) setUserName(profile.name);
+          setAvatarUrl(profile.avatar_url || null);
+        }
+      } catch { }
+    });
+  }, [supabase]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/activity");
+        if (res.ok && !cancelled) setActivity(await res.json());
+      } catch { }
+      finally { if (!cancelled) setActivityLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    setUserMenuOpen(false);
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
+
+  const displayName = userName || userEmail.split("@")[0];
+  const userInitial = (displayName.trim()[0] || "U").toUpperCase();
 
   const totalFiles = agents.reduce((sum, a) => sum + (a.files_count || 0), 0);
   const totalChats = agents.reduce((sum, a) => sum + (a.chats_count || 0), 0);
@@ -184,15 +272,11 @@ export default function DashboardPage() {
   }
 
   const selectedAgent = agents.find((a) => a.id === selectedAgentId);
+  const q = searchQuery.trim().toLowerCase();
+  const filteredAgents = q ? agents.filter((a) => a.name.toLowerCase().includes(q)) : agents;
   const filteredFiles = files.filter(f =>
     f.file_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const recentActivity = [
-    { type: "upload", text: "Uploaded quarterly-report.pdf", time: "2m ago", agent: "Finance Agent" },
-    { type: "chat", text: "New conversation started", time: "15m ago", agent: "Support Bot" },
-    { type: "index", text: "3 files indexed successfully", time: "1h ago", agent: "Research Agent" },
-  ];
 
   return (
     <>
@@ -298,6 +382,7 @@ export default function DashboardPage() {
       }
       
       .fd-avatar {
+        position: relative;
         width: 34px;
         height: 34px;
         border-radius: 9px;
@@ -305,12 +390,14 @@ export default function DashboardPage() {
         display: flex;
         align-items: center;
         justify-content: center;
+        overflow: hidden;
         color: #fff;
         font-weight: 600;
         font-size: 0.8rem;
         cursor: pointer;
         border: 2px solid var(--color-border);
         transition: all 0.15s;
+        user-select: none;
       }
       .fd-avatar:hover {
         border-color: rgba(99,102,241,0.4);
@@ -985,7 +1072,7 @@ export default function DashboardPage() {
             <Search size={15} />
             <input
               type="text"
-              placeholder="Search agents, files..."
+              placeholder={t("dashboard.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -998,36 +1085,46 @@ export default function DashboardPage() {
                 onClick={() => { setNotificationsOpen(!notificationsOpen); setUserMenuOpen(false); }}
               >
                 <Bell size={16} />
-                <span style={{
-                  position: 'absolute', top: 6, right: 6,
-                  width: 7, height: 7, borderRadius: '50%',
-                  background: '#EF4444', border: '2px solid var(--color-card)'
-                }} />
               </button>
               {notificationsOpen && (
                 <div className="fd-dropdown" style={{ width: 260, right: -10 }}>
                   <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>Notifications</span>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>{t("dashboard.notifications")}</span>
                   </div>
                   <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-muted-foreground)', fontSize: '0.8rem' }}>
-                    No new notifications
+                    {t("dashboard.noNotifications")}
                   </div>
                 </div>
               )}
             </div>
 
             <div style={{ position: 'relative' }}>
-              <div className="fd-avatar" onClick={() => { setUserMenuOpen(!userMenuOpen); setNotificationsOpen(false); }}>
-                U
+              <div className="fd-avatar" onClick={() => { setUserMenuOpen(!userMenuOpen); setNotificationsOpen(false); }} title={displayName}>
+                {avatarUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={avatarUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: 7 }} />
+                ) : (
+                  userInitial
+                )}
               </div>
               {userMenuOpen && (
                 <div className="fd-dropdown">
-                  <button className="fd-dropdown-item" onClick={() => router.push("/settings")}>
-                    <Settings size={14} /> Settings
+                  <div style={{ padding: '0.5rem 0.65rem', borderBottom: '1px solid var(--color-border)', marginBottom: '0.3rem' }}>
+                    <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {displayName}
+                    </p>
+                    {userEmail && (
+                      <p style={{ margin: '0.1rem 0 0', fontSize: '0.72rem', color: 'var(--color-muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {userEmail}
+                      </p>
+                    )}
+                  </div>
+                  <button className="fd-dropdown-item" onClick={() => { setUserMenuOpen(false); router.push("/settings"); }}>
+                    <Settings size={14} /> {t("nav.settings")}
                   </button>
                   <div className="fd-dropdown-divider" />
-                  <button className="fd-dropdown-item danger" onClick={() => { }}>
-                    <LogOut size={14} /> Sign out
+                  <button className="fd-dropdown-item danger" onClick={handleSignOut} disabled={signingOut}>
+                    {signingOut ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />} {t("nav.signOut")}
                   </button>
                 </div>
               )}
@@ -1050,19 +1147,19 @@ export default function DashboardPage() {
               className={`fd-tab ${activeTab === 'overview' ? 'active' : ''}`}
               onClick={() => setActiveTab('overview')}
             >
-              Overview
+              {t("dashboard.overview")}
             </button>
             <button
               className={`fd-tab ${activeTab === 'recent' ? 'active' : ''}`}
               onClick={() => setActiveTab('recent')}
             >
-              Recent Files
+              {t("dashboard.recentFiles")}
             </button>
             <button
               className={`fd-tab ${activeTab === 'activity' ? 'active' : ''}`}
               onClick={() => setActiveTab('activity')}
             >
-              Activity
+              {t("dashboard.activity")}
             </button>
           </div>
 
@@ -1073,9 +1170,6 @@ export default function DashboardPage() {
                 <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))' }}>
                   <Bot size={17} style={{ color: '#6366F1' }} />
                 </div>
-                <span className="fd-stat-badge" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366F1' }}>
-                  <Flame size={10} /> Active
-                </span>
               </div>
               <div className="fd-stat-value">{agents.length}</div>
               <div className="fd-stat-label">{t("dashboard.agents")}</div>
@@ -1086,9 +1180,6 @@ export default function DashboardPage() {
                 <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.06))' }}>
                   <FolderOpen size={17} style={{ color: '#22C55E' }} />
                 </div>
-                <span className="fd-stat-badge" style={{ background: 'rgba(34,197,94,0.1)', color: '#22C55E' }}>
-                  <TrendingUp size={10} /> +{totalFiles > 0 ? totalFiles : 0}
-                </span>
               </div>
               <div className="fd-stat-value">{totalFiles}</div>
               <div className="fd-stat-label">{t("dashboard.files")}</div>
@@ -1099,9 +1190,6 @@ export default function DashboardPage() {
                 <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))' }}>
                   <MessageSquare size={17} style={{ color: '#F59E0B' }} />
                 </div>
-                <span className="fd-stat-badge" style={{ background: 'rgba(245,158,11,0.1)', color: '#F59E0B' }}>
-                  <Activity size={10} /> Live
-                </span>
               </div>
               <div className="fd-stat-value">{totalChats}</div>
               <div className="fd-stat-label">{t("dashboard.allChats")}</div>
@@ -1117,57 +1205,65 @@ export default function DashboardPage() {
                   <div className="fd-section-header">
                     <h2 className="fd-section-title">
                       <Bot size={16} style={{ color: '#6366F1' }} />
-                      Your Agents
+                      {t("dashboard.yourAgents")}
                     </h2>
                     <button className="fd-section-link" onClick={() => router.push("/agents")}>
-                      View all <ChevronRight size={14} />
+                      {t("dashboard.viewAll")} <ChevronRight size={14} />
                     </button>
                   </div>
 
                   {agents.length > 0 ? (
-                    <div className="fd-agent-grid">
-                      {agents.map((agent) => (
-                        <button
-                          key={agent.id}
-                          className={`fd-agent-card ${agent.id === selectedAgentId ? 'active' : ''}`}
-                          onClick={() => setSelectedAgentId(agent.id)}
-                        >
-                          <div className="fd-agent-card-header">
-                            <div className="fd-agent-avatar">
-                              <Bot size={18} style={{ color: '#6366F1' }} />
+                    filteredAgents.length > 0 ? (
+                      <div className="fd-agent-grid">
+                        {filteredAgents.map((agent) => (
+                          <button
+                            key={agent.id}
+                            className={`fd-agent-card ${agent.id === selectedAgentId ? 'active' : ''}`}
+                            onClick={() => setSelectedAgentId(agent.id)}
+                          >
+                            <div className="fd-agent-card-header">
+                              <div className="fd-agent-avatar">
+                                <Bot size={18} style={{ color: '#6366F1' }} />
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <h3>{agent.name}</h3>
+                                <p>{agent.description?.trim() || t("dashboard.aiDocumentAgent")}</p>
+                              </div>
                             </div>
-                            <div style={{ minWidth: 0 }}>
-                              <h3>{agent.name}</h3>
-                              <p>AI Document Agent</p>
+                            <div className="fd-agent-stats">
+                              <span className="fd-agent-stat">
+                                <FolderOpen size={12} /> {agent.files_count} files
+                              </span>
+                              <span className="fd-agent-stat">
+                                <MessageSquare size={12} /> {agent.chats_count} chats
+                              </span>
                             </div>
-                          </div>
-                          <div className="fd-agent-stats">
-                            <span className="fd-agent-stat">
-                              <FolderOpen size={12} /> {agent.files_count} files
-                            </span>
-                            <span className="fd-agent-stat">
-                              <MessageSquare size={12} /> {agent.chats_count} chats
-                            </span>
-                          </div>
-                        </button>
-                      ))}
-                      <button
-                        className="fd-agent-card"
-                        onClick={() => setShowCreateAgent(true)}
-                        style={{
-                          borderStyle: 'dashed',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.5rem',
-                          color: 'var(--color-muted-foreground)',
-                          fontWeight: 600,
-                          fontSize: '0.85rem'
-                        }}
-                      >
-                        <Plus size={18} /> Create Agent
-                      </button>
-                    </div>
+                          </button>
+                        ))}
+                        {!q && (
+                          <button
+                            className="fd-agent-card"
+                            onClick={() => setShowCreateAgent(true)}
+                            style={{
+                              borderStyle: 'dashed',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.5rem',
+                              color: 'var(--color-muted-foreground)',
+                              fontWeight: 600,
+                              fontSize: '0.85rem'
+                            }}
+                          >
+                            <Plus size={18} /> {t("dashboard.createAgent")}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <p style={{ color: 'var(--color-muted-foreground)', fontSize: '0.85rem', padding: '1rem 0' }}>
+                        {t("dashboard.noResults", { query: searchQuery })}
+                      </p>
+                    )
                   ) : (
                     <div className="fd-empty">
                       <div className="fd-empty-icon">
@@ -1210,16 +1306,16 @@ export default function DashboardPage() {
                     {uploading ? (
                       <div className="flex flex-col items-center">
                         <Loader2 size={24} className="animate-spin" style={{ color: '#6366F1', marginBottom: '0.6rem' }} />
-                        <h3>Uploading...</h3>
-                        <p>Processing your document</p>
+                        <h3>{t("dashboard.uploadingFile")}</h3>
+                        <p>{t("dashboard.processingDoc")}</p>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center">
                         <div className="fd-upload-icon">
                           <Upload size={22} style={{ color: '#6366F1' }} />
                         </div>
-                        <h3>Drop files here or click to upload</h3>
-                        <p>PDF, Word, Excel, Images, Code — up to 50MB</p>
+                        <h3>{t("dashboard.dropFiles")}</h3>
+                        <p>{t("dashboard.dropFilesSub")}</p>
                       </div>
                     )}
                   </div>
@@ -1233,8 +1329,8 @@ export default function DashboardPage() {
                         <FolderOpen size={17} style={{ color: '#6366F1' }} />
                       </div>
                       <div>
-                        <h4>Manage Files</h4>
-                        <p>View and organize documents</p>
+                        <h4>{t("dashboard.manageFiles")}</h4>
+                        <p>{t("dashboard.manageFilesSub")}</p>
                       </div>
                     </button>
                     <button className="fd-action" onClick={() => router.push(`/agents/${selectedAgentId}/chat`)}>
@@ -1242,8 +1338,8 @@ export default function DashboardPage() {
                         <Zap size={17} style={{ color: '#F59E0B' }} />
                       </div>
                       <div>
-                        <h4>Start Chat</h4>
-                        <p>Talk with your AI agent</p>
+                        <h4>{t("dashboard.startChat")}</h4>
+                        <p>{t("dashboard.startChatSub")}</p>
                       </div>
                     </button>
                   </div>
@@ -1255,27 +1351,10 @@ export default function DashboardPage() {
                 <div className="fd-card fd-animate" style={{ animationDelay: '0.2s' }}>
                   <h3 className="fd-card-title">
                     <Activity size={15} style={{ color: '#F59E0B' }} />
-                    Recent Activity
+                    {t("dashboard.recentActivity")}
                   </h3>
                   <div className="fd-activity">
-                    {recentActivity.map((item, i) => (
-                      <div key={i} className="fd-activity-item">
-                        <div
-                          className="fd-activity-dot"
-                          style={{
-                            background: item.type === 'upload' ? '#6366F1' : item.type === 'chat' ? '#F59E0B' : '#22C55E'
-                          }}
-                        />
-                        <div className="fd-activity-content">
-                          <p className="fd-activity-text">{item.text}</p>
-                          <div className="fd-activity-meta">
-                            <span>{item.agent}</span>
-                            <span>·</span>
-                            <span>{item.time}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                    <ActivityFeed items={activity} loading={activityLoading} />
                   </div>
                 </div>
 
@@ -1284,7 +1363,7 @@ export default function DashboardPage() {
                     <div className="fd-section-header" style={{ marginBottom: '0.75rem' }}>
                       <h3 className="fd-card-title" style={{ margin: 0 }}>
                         <FileText size={15} style={{ color: '#6366F1' }} />
-                        Latest Files
+                        {t("dashboard.latestFiles")}
                       </h3>
                     </div>
                     <div className="fd-file-list">
@@ -1298,8 +1377,6 @@ export default function DashboardPage() {
                             <div className="fd-file-info">
                               <p className="fd-file-name">{file.file_name}</p>
                               <div className="fd-file-meta">
-                                <span>{formatFileSize(file.size)}</span>
-                                <span>·</span>
                                 <span>{timeAgo(file.created_at)}</span>
                               </div>
                             </div>
@@ -1318,7 +1395,7 @@ export default function DashboardPage() {
                         style={{ marginTop: '0.75rem', width: '100%', justifyContent: 'center' }}
                         onClick={() => router.push(`/agents/${selectedAgentId}`)}
                       >
-                        View all {filteredFiles.length} files <ChevronRight size={14} />
+                        {t("dashboard.viewAllFiles", { count: filteredFiles.length })} <ChevronRight size={14} />
                       </button>
                     )}
                   </div>
@@ -1341,8 +1418,6 @@ export default function DashboardPage() {
                         <div className="fd-file-info">
                           <p className="fd-file-name">{file.file_name}</p>
                           <div className="fd-file-meta">
-                            <span>{formatFileSize(file.size)}</span>
-                            <span>·</span>
                             <span>{timeAgo(file.created_at)}</span>
                           </div>
                         </div>
@@ -1352,9 +1427,6 @@ export default function DashboardPage() {
                           {file.status === 'error' && <AlertCircle size={9} />}
                           {file.status}
                         </span>
-                        <button className="fd-icon-btn" style={{ width: 32, height: 32 }}>
-                          <MoreHorizontal size={14} />
-                        </button>
                       </div>
                     );
                   })}
@@ -1362,7 +1434,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="fd-empty">
                   <p style={{ color: 'var(--color-muted-foreground)', fontSize: '0.9rem' }}>
-                    {searchQuery ? `No files match "${searchQuery}"` : "No files uploaded yet"}
+                    {searchQuery ? t("dashboard.noResults", { query: searchQuery }) : t("dashboard.noFiles")}
                   </p>
                 </div>
               )}
@@ -1373,33 +1445,18 @@ export default function DashboardPage() {
             <div className="fd-card fd-animate" style={{ animationDelay: '0.15s', maxWidth: 640 }}>
               <h3 className="fd-card-title">
                 <BarChart3 size={15} style={{ color: '#6366F1' }} />
-                Activity Log
+                {t("dashboard.recentActivity")}
               </h3>
               <div className="fd-activity">
-                {recentActivity.map((item, i) => (
-                  <div key={i} className="fd-activity-item">
-                    <div
-                      className="fd-activity-dot"
-                      style={{
-                        background: item.type === 'upload' ? '#6366F1' : item.type === 'chat' ? '#F59E0B' : '#22C55E'
-                      }}
-                    />
+                <ActivityFeed items={activity} loading={activityLoading} />
+                {!activityLoading && activity.length > 0 && (
+                  <div className="fd-activity-item" style={{ opacity: 0.5 }}>
+                    <div className="fd-activity-dot" style={{ background: 'var(--color-border)' }} />
                     <div className="fd-activity-content">
-                      <p className="fd-activity-text">{item.text}</p>
-                      <div className="fd-activity-meta">
-                        <span>{item.agent}</span>
-                        <span>·</span>
-                        <span>{item.time}</span>
-                      </div>
+                      <p className="fd-activity-text">{t("dashboard.endOfActivity")}</p>
                     </div>
                   </div>
-                ))}
-                <div className="fd-activity-item" style={{ opacity: 0.5 }}>
-                  <div className="fd-activity-dot" style={{ background: 'var(--color-border)' }} />
-                  <div className="fd-activity-content">
-                    <p className="fd-activity-text">End of recent activity</p>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           )}
@@ -1410,7 +1467,7 @@ export default function DashboardPage() {
           <div className="fd-modal-bg" onClick={() => setShowCreateAgent(false)}>
             <div className="fd-modal" onClick={(e) => e.stopPropagation()}>
               <div className="fd-modal-header">
-                <h3>Create New Agent</h3>
+                <h3>{t("dashboard.createAgentTitle")}</h3>
                 <button className="fd-modal-close" onClick={() => setShowCreateAgent(false)}>
                   <X size={15} />
                 </button>
