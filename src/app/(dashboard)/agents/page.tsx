@@ -102,6 +102,10 @@ export default function AgentsPage() {
         box-shadow: 0 16px 40px rgba(99,102,241,.08);
         border-color: rgba(129,140,248,.25);
       }
+      .fd-agents-card-actions-top {
+        position: absolute; top: .8rem; right: .8rem; z-index: 3;
+        display: flex; gap: .4rem;
+      }
       .fd-agents-card-icon {
         width: 46px; height: 46px; border-radius: 13px;
         display: flex; align-items: center; justify-content: center;
@@ -249,29 +253,30 @@ export default function AgentsPage() {
                 {/* Top gradient accent */}
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${ICON_COLORS[gradIdx]}40, ${ICON_COLORS[gradIdx]}15)`, borderRadius: '16px 16px 0 0' }} />
 
-                <div className="flex items-start justify-between" onClick={() => router.push(`/agents/${agent.id}`)}>
+                <div className="fd-agents-card-actions-top">
+                  {agent.share_token && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); copyShareLink(agent.share_token!); }}
+                      style={{ padding: 6, borderRadius: 8, background: 'var(--color-muted)', border: 'none', cursor: 'pointer', color: copiedLink === agent.share_token ? '#22C55E' : 'var(--color-muted-foreground)', display: 'flex', transition: 'color .2s' }}
+                      title="Copy share link"
+                    >
+                      {copiedLink === agent.share_token ? <Check size={13} /> : <Copy size={13} />}
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(agent.id); }}
+                    style={{ padding: 6, borderRadius: 8, background: 'var(--color-muted)', border: 'none', cursor: 'pointer', color: 'var(--color-muted-foreground)', display: 'flex', transition: 'color .2s' }}
+                    onMouseEnter={(ev) => ev.currentTarget.style.color = '#EF4444'}
+                    onMouseLeave={(ev) => ev.currentTarget.style.color = 'var(--color-muted-foreground)'}
+                    title="Delete agent"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+
+                <div onClick={() => router.push(`/agents/${agent.id}`)}>
                   <div className="fd-agents-card-icon" style={{ background: GRADIENTS[gradIdx] }}>
                     <Bot size={20} style={{ color: ICON_COLORS[gradIdx] }} />
-                  </div>
-                  <div className="flex gap-1" style={{ opacity: 0 }} onMouseEnter={(e) => (e.currentTarget.parentElement!.style.opacity = '1')} onFocus={(e) => (e.currentTarget.parentElement!.style.opacity = '1')}>
-                    {agent.share_token && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); copyShareLink(agent.share_token!); }}
-                        style={{ padding: 6, borderRadius: 8, background: 'var(--color-muted)', border: 'none', cursor: 'pointer', color: copiedLink === agent.share_token ? '#22C55E' : 'var(--color-muted-foreground)', display: 'flex', transition: 'color .2s' }}
-                        title="Copy share link"
-                      >
-                        {copiedLink === agent.share_token ? <Check size={13} /> : <Copy size={13} />}
-                      </button>
-                    )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(agent.id); }}
-                      style={{ padding: 6, borderRadius: 8, background: 'var(--color-muted)', border: 'none', cursor: 'pointer', color: 'var(--color-muted-foreground)', display: 'flex', transition: 'color .2s' }}
-                      onMouseEnter={(ev) => ev.currentTarget.style.color = '#EF4444'}
-                      onMouseLeave={(ev) => ev.currentTarget.style.color = 'var(--color-muted-foreground)'}
-                      title="Delete agent"
-                    >
-                      <Trash2 size={13} />
-                    </button>
                   </div>
                 </div>
 

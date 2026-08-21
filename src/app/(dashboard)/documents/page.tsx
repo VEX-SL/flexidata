@@ -15,6 +15,7 @@ import {
   Trash2,
   History,
   ScanText,
+  ScanSearch,
   Sparkles,
   ShieldCheck,
   Clipboard,
@@ -28,6 +29,7 @@ import {
   type FieldDTO,
 } from "@/lib/hooks/use-documents";
 import { downloadBlob } from "@/lib/download";
+import DocumentInspector, { type InspectorField } from "@/components/inspector/DocumentInspector";
 
 const RUNNING = new Set(["queued", "classifying", "extracting", "validating"]);
 const EXPORT_FORMATS = ["json", "csv"] as const;
@@ -855,7 +857,49 @@ function ReviewWorkspace(props: ReviewProps) {
     schema?.fields.find((f) => f.key === key)?.label ??
     byKey.get(key)?.label ??
     humanize(key);
-  const [view, setView] = useState<"fields" | "preview">("fields");
+  const [view, setView] = useState<"fields" | "preview" | "inspector">("fields");
+  const [fileIsImage, setFileIsImage] = useState(false);
+
+  // The review's file URLs are extension-less (/api/files/{id}), so image
+  // detection cannot rely on the URL. Probe the served content type instead.
+  useEffect(() => {
+    let cancelled = false;
+    const url = job.fileUrl;
+    if (!url) return;
+    fetch(url, { method: "HEAD" })
+      .then((r) => {
+        if (!cancelled) {
+          setFileIsImage((r.headers.get("content-type") ?? "").startsWith("image/"));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFileIsImage(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [job.id, job.fileUrl]);
+
+  const isImage =
+    fileIsImage ||
+    (!!job.fileUrl && /\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(job.fileUrl));
+  const inspectorFields: InspectorField[] = fields.map((f) => ({
+    key: f.key,
+    label: fieldLabel(f.key),
+    value: displayValue(f.value),
+    confidence: f.confidence,
+    evidence:
+      f.evidence
+        ?.filter((e) => typeof e.lineIndex === "number")
+        .map((e) => ({ lineIndex: e.lineIndex, quote: e.quote })) ?? [],
+  }));
+  const inspectorLabels = {
+    verified: t("documents.inspector.verified"),
+    uncertain: t("documents.inspector.uncertain"),
+    missing: t("documents.inspector.missing"),
+    noBox: t("documents.inspector.noBox"),
+    hint: t("documents.inspector.hint"),
+  };
 
   const groups: Array<{ label: string; fields: FieldDTO[] }> = [];
   if (schema?.groups?.length) {
@@ -924,6 +968,15 @@ function ReviewWorkspace(props: ReviewProps) {
             <ScanText size={13} style={{ verticalAlign: "text-bottom", marginRight: 4 }} />
             {t("documents.preview.title")}
           </button>
+          {isImage && (
+            <button
+              className={`fd-doc-tab ${view === "inspector" ? "active" : ""}`}
+              onClick={() => setView("inspector")}
+            >
+              <ScanSearch size={13} style={{ verticalAlign: "text-bottom", marginRight: 4 }} />
+              {t("documents.inspector.title")}
+            </button>
+          )}
         </div>
 
         {/* Validation banner */}
@@ -972,9 +1025,20 @@ function ReviewWorkspace(props: ReviewProps) {
           </div>
         )}
 
-        {/* Field groups / OCR preview */}
-        {view === "preview" ? (
-          <OcrPreview job={job} t={t} />
+        {/* Field groups / OCR preview / Inspector */}
+        {view === "inspector" ? (
+          isImage ? (
+            <DocumentInspector
+              imageUrl={job.fileUrl!}
+              fields={inspectorFields}
+              ocr={job.ocr}
+              labels={inspectorLabels}
+            />
+          ) : (
+            <OcrPreview job={job} t={t} isImage={isImage} />
+          )
+        ) : view === "preview" ? (
+          <OcrPreview job={job} t={t} isImage={isImage} />
         ) : groups.length === 0 ? (
           <div className="text-center py-6 text-sm text-muted-foreground">{t("common.error")}</div>
         ) : (
@@ -1054,13 +1118,16 @@ function ReviewWorkspace(props: ReviewProps) {
 function OcrPreview({
   job,
   t,
+  isImage: isImageProp,
 }: {
   job: JobDTO;
   t: (key: string) => string;
+  isImage?: boolean;
 }) {
   const ocr = job.ocr;
   const isImage =
-    !!job.fileUrl && /\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(job.fileUrl);
+    isImageProp ??
+    (!!job.fileUrl && /\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(job.fileUrl));
   const lines = ocr?.lines?.length ? ocr.lines : null;
 
   const evidenceLines = new Set<number>();

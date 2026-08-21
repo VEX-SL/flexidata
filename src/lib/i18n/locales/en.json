@@ -117,6 +117,14 @@
       "evidenceLine": "Line cited as evidence for an extracted field",
       "evidenceLegend": "Evidence for an extracted field",
       "uncertainLegend": "Uncertain OCR (confidence < 60%)"
+    },
+    "inspector": {
+      "title": "Inspector",
+      "verified": "Verified",
+      "uncertain": "Uncertain",
+      "missing": "Missing",
+      "noBox": "no region on image",
+      "hint": "Hover or click a region to inspect the matching field"
     }
   },
   "chat": {

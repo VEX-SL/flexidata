@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { statSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve as pathResolve } from "node:path";
@@ -31,6 +32,16 @@ export async function load(url, context, nextLoad) {
     }
     return { ...real, source };
   }
+
+  // Node's type stripping does not accept the `.tsx` extension (even for
+  // JSX-free files). Load such files ourselves and hand the source back as
+  // plain strippable TypeScript so JSX-free test/component logic runs.
+  if (url.endsWith(".tsx")) {
+    const file = fileURLToPath(url);
+    const source = await readFile(file, "utf8");
+    return { format: "module-typescript", source, shortCircuit: true };
+  }
+
   return nextLoad(url, context);
 }
 

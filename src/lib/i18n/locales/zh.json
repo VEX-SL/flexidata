@@ -84,6 +84,14 @@
       "rule": "规则",
       "user": "手动",
       "verified": "已验证"
+    },
+    "inspector": {
+      "title": "检查器",
+      "verified": "已验证",
+      "uncertain": "不确定",
+      "missing": "缺失",
+      "noBox": "图像上无区域",
+      "hint": "悬停或点击区域以检查对应的字段"
     }
   },
   "chat": {

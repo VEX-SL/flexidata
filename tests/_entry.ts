@@ -70,5 +70,6 @@ import "../src/lib/extraction/__tests__/superpay_regression.test.ts";
 import "../src/lib/extraction/__tests__/arabic_invoice_generalization.test.ts";
 import "../src/app/api/documents/extract/__tests__/route.test.ts";
 import "../src/lib/extraction/__tests__/grounding.test.ts";
+import "../src/components/inspector/__tests__/DocumentInspector.test.tsx";
 
 await run();
