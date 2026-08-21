@@ -82,7 +82,7 @@ function ChatContent() {
   const [input, setInput] = useState("");
   const [chatId, setChatId] = useState<string | null>(initialChatId);
   const [chatHistory, setChatHistory] = useState<ChatRecord[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -270,7 +270,7 @@ function ChatContent() {
                       }`}>
                         {msg.role === "user"
                           ? <span dir="auto" className="whitespace-pre-wrap">{msg.content}</span>
-                          : <MarkdownRenderer content={msg.content} />
+                          : <MarkdownRenderer key={msg.content} content={msg.content} />
                         }
                       </div>
 
@@ -321,7 +321,7 @@ function ChatContent() {
                 <div className="flex gap-3 justify-start">
                   <AIAvatar size={28} className="mt-0.5" />
                   <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-card border border-border text-foreground text-sm leading-relaxed">
-                    <MarkdownRenderer content={streamedContent} />
+                    <MarkdownRenderer key={streamedContent} content={streamedContent} />
                     <StreamingCursor />
                   </div>
                 </div>

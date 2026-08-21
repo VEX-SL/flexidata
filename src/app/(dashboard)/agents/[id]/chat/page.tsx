@@ -105,7 +105,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const [input, setInput] = useState("");
   const [chatId, setChatId] = useState<string | null>(initialChatId);
   const [chatHistory, setChatHistory] = useState<ChatRecord[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [messageEdits, setMessageEdits] = useState<Record<string, FileEdit[]>>({});
@@ -423,7 +423,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                       }`}>
                         {msg.role === "user"
                           ? <span dir="auto" className="whitespace-pre-wrap">{msg.content}</span>
-                          : <MarkdownRenderer content={stripFileEdits(msg.content)} />
+                          : <MarkdownRenderer key={msg.content} content={stripFileEdits(msg.content)} />
                         }
                       </div>
 
@@ -490,7 +490,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                 <div className="flex gap-3 justify-start">
                   <AIAvatar size={28} className="mt-0.5" />
                   <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-card border border-border text-foreground text-sm leading-relaxed">
-                    <MarkdownRenderer content={stripFileEdits(streamedContent)} />
+                    <MarkdownRenderer key={streamedContent} content={stripFileEdits(streamedContent)} />
                     {generatedImages.length > 0 && (
                       <div className="mt-3 space-y-3">
                         {generatedImages.map((img, i) => (
