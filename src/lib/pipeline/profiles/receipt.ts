@@ -9,6 +9,39 @@ const schema = {
     { key: "merchant_tax_id", type: "string" as const, label: "Merchant tax ID", crossCheck: true },
     { key: "merchant_address", type: "string" as const, label: "Merchant address" },
     { key: "customer_name", type: "string" as const, label: "Customer name" },
+    {
+      key: "transaction_id",
+      type: "string" as const,
+      label: "Transaction ID (رقم العملية)",
+      labelGroup: "number",
+      crossCheck: true,
+      description:
+        "Long continuous digit sequence printed next to رقم العملية — typically 16 digits. Never a hotline/support number.",
+    },
+    {
+      key: "reference_number",
+      type: "string" as const,
+      label: "Reference number (الرقم المرجعي)",
+      labelGroup: "number",
+      crossCheck: true,
+      description: "Usually a 10-digit number starting with 20.",
+    },
+    {
+      key: "customer_id",
+      type: "string" as const,
+      label: "Customer ID (رقم العميل)",
+      labelGroup: "buyer",
+      crossCheck: true,
+      description: "The digits printed next to رقم العميل.",
+    },
+    {
+      key: "mobile_number",
+      type: "string" as const,
+      label: "Customer mobile number",
+      labelGroup: "phone",
+      crossCheck: true,
+      description: "Egyptian mobile number matching 01[0125] followed by 8 digits.",
+    },
     { key: "currency", type: "enum" as const, label: "Currency", enum: ["USD", "EUR", "GBP", "AED", "SAR", "EGP", "JOD", "KWD", "QAR", "BHD", "OMR"] },
     { key: "subtotal", type: "currency" as const, label: "Subtotal", crossCheck: true },
     { key: "tax_amount", type: "currency" as const, label: "Tax amount", crossCheck: true },
@@ -40,7 +73,12 @@ const schema = {
     {
       id: "customer",
       label: "Customer",
-      keys: ["customer_name"],
+      keys: ["customer_name", "customer_id", "mobile_number"],
+    },
+    {
+      id: "identifiers",
+      label: "Transaction identifiers",
+      keys: ["transaction_id", "reference_number"],
     },
     {
       id: "amounts",
@@ -77,6 +115,14 @@ Rules:
 - For each field you may include a numeric "confidence" between 0 and 1 (optional).
 - Never include explanation text outside the JSON.
 
+Egyptian payment / thermal receipts (Fawry, SuperPay, Aman):
+- transaction_id (رقم العملية): MUST be the long continuous digit sequence printed next to رقم العملية — typically 16 continuous digits (e.g. "6070218301132157"). DO NOT pick hotline/support numbers like "15468", company registration numbers, tax IDs, or account numbers in this field.
+- reference_number (الرقم المرجعي): usually a 10-digit number starting with "20" (e.g. "2013439351").
+- customer_id (رقم العميل): extract the digits printed next to رقم العميل.
+- mobile_number: an Egyptian mobile number matching 01 followed by an operator digit 0/1/2/5 and 8 more digits (e.g. "01012345678").
+- amount / total_amount (المبلغ المطلوب / الكلي): match decimal amounts explicitly, preserving the decimal point (e.g. 68.38 — not 6838, not 68).
+- Copy identifier digits verbatim even when the thermal print is faint; never pad, trim or reorder them, and keep each identifier separate from the others.
+
 Schema:
 {{schema}}
 
@@ -94,6 +140,12 @@ const validationRules = [
     allowed: ["USD", "EUR", "GBP", "AED", "SAR", "EGP", "JOD", "KWD", "QAR", "BHD", "OMR"],
   },
   { key: "receipt_date", kind: "string" as const, pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+  // Egyptian payment receipts (Fawry / SuperPay / Aman) — identifier shapes.
+  // Non-required: a mismatch lowers the validation signal and is surfaced for
+  // review, it never drops the field.
+  { key: "transaction_id", kind: "string" as const, pattern: "^\\d{16}$" },
+  { key: "reference_number", kind: "string" as const, pattern: "^20\\d{8}$" },
+  { key: "mobile_number", kind: "string" as const, pattern: "^01[0125]\\d{8}$" },
 ];
 
 export const receiptProfile: ExtractionProfile = {
@@ -126,6 +178,10 @@ export const receiptProfile: ExtractionProfile = {
       "merchant_name",
       "merchant_tax_id",
       "customer_name",
+      "customer_id",
+      "mobile_number",
+      "transaction_id",
+      "reference_number",
       "currency",
       "subtotal",
       "tax_amount",

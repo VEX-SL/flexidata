@@ -10,6 +10,7 @@ import {
   DEFAULT_DYNAMIC_FIELD_CONFIDENCE,
   parseDynamicExtraction,
 } from "./dynamic";
+import { isMobileField, sanitizeMobileNumber } from "./sanitizers";
 
 const DEFAULT_FIELD_CONFIDENCE = 0.85;
 
@@ -40,7 +41,7 @@ export function normalizeFields(
     const rawValue = envelope.raw !== undefined ? envelope.raw : entry;
 
     map[field.key] = {
-      value: coerce(field, envelope.value),
+      value: sanitizeTypedValue(field, coerce(field, envelope.value)),
       rawValue,
       confidence: clamp(
         envelope.confidence ??
@@ -115,6 +116,17 @@ function unwrapEnvelope(entry: unknown): FieldEnvelope {
     };
   }
   return { value: entry };
+}
+
+/**
+ * Field-aware value shaping applied AFTER type coercion (schema
+ * post-processing input). The verbatim `rawValue` is never touched here, so
+ * grounding keeps anchoring evidence against the printed text. Today: the
+ * Egyptian mobile sanitizer for phone/mobile fields.
+ */
+function sanitizeTypedValue(field: FieldSchema, value: FieldValue["value"]) {
+  if (typeof value !== "string") return value;
+  return isMobileField(field) ? sanitizeMobileNumber(value) : value;
 }
 
 /** Cast a raw value to the field's declared type. */
