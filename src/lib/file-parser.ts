@@ -8,6 +8,7 @@ import fs from "fs";
 
 import { recognizeMainThread } from "@/lib/tesseract-main";
 import type { OcrDocument } from "@/lib/pipeline/types";
+import { runVisionOCR } from "@/lib/ocr/vision-service";
 import type { ReceiptExtraction } from "@/lib/ocr/vision-service";
 import { OCR_TIMEOUT_MS } from "@/lib/ocr/recall";
 
@@ -230,50 +231,44 @@ async function extractExcelText(buffer: Buffer): Promise<string> {
 }
 
 async function extractImageText(buffer: Buffer): Promise<ParseResult> {
-  // Run Tesseract (OcrDocument for grounding/evidence) and Gemini Vision
-  // (structured extraction) in parallel. Tesseract provides word-level bboxes
-  // and confidence for grounding; Gemini Vision provides the structured field
-  // extraction that replaces the Mistral text-extraction call.
-  const tesseractPromise = withOcrTimeout(
-    recognizeMainThread(buffer, "ara+eng", {
-      verifyNumerics: true,
-      recoverRecall: true,
-      rescuePaddle: true,
-    })
-  ).catch((err): null => {
-    console.error("[Parser] Tesseract OCR failed:", err);
-    return null;
-  });
+  // Gemini Vision handles BOTH OCR text and structured extraction in one call.
+  // No Tesseract — eliminates 400MB+ WASM load, prevents Vercel OOM/502.
+  try {
+    const vision = await runVisionOCR(buffer, "auto");
+    if (!vision.success) {
+      return { text: "[Could not extract text from image]" };
+    }
 
-  const geminiPromise = import("@/lib/ocr/vision-service")
-    .then(({ runVisionOCR }) => runVisionOCR(buffer, "auto"))
-    .catch((err): null => {
-      console.error("[Parser] Gemini Vision OCR failed:", err);
-      return null;
-    });
+    const text = vision.data
+      .map((l: { text: string }) => l.text)
+      .join("\n")
+      .trim();
 
-  const [tesseractResult, geminiResult] = await Promise.all([
-    tesseractPromise,
-    geminiPromise,
-  ]);
+    // Build a minimal OcrDocument from Gemini lines so the grounding stage
+    // still has structured OCR evidence (no bboxes — grounding uses text
+    // matching instead of spatial alignment when bboxes are absent).
+    const ocr: OcrDocument = {
+      text,
+      language: vision.detected_language || undefined,
+      lines: vision.data.map((l: { text: string; confidence: number }) => ({
+        text: l.text,
+        confidence: l.confidence,
+        words: l.text
+          .split(/\s+/)
+          .filter((w: string) => w.length > 0)
+          .map((w: string) => ({ text: w, confidence: l.confidence })),
+      })),
+    };
 
-  const ocr = tesseractResult ?? undefined;
-  const visionExtraction =
-    geminiResult?.success === true ? geminiResult.extraction : undefined;
-
-  // Prefer Gemini text (better OCR quality) over Tesseract for sourceText.
-  const geminiText =
-    geminiResult?.success === true
-      ? geminiResult.data.map((l: { text: string }) => l.text).join("\n").trim()
-      : "";
-  const tesseractText = tesseractResult?.text?.trim() ?? "[No text found in image]";
-  const text = geminiText.length > 0 ? geminiText : tesseractText;
-
-  return {
-    text: text || "[No text found in image]",
-    ocr,
-    ...(visionExtraction !== undefined ? { visionExtraction } : {}),
-  };
+    return {
+      text: text || "[No text found in image]",
+      ocr,
+      ...(vision.extraction !== undefined ? { visionExtraction: vision.extraction } : {}),
+    };
+  } catch (err) {
+    console.error("[Parser] Gemini Vision OCR failed:", err);
+    return { text: "[Could not extract text from image]" };
+  }
 }
 
 async function extractAudioText(buffer: Buffer, fileName?: string): Promise<string> {
