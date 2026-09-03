@@ -236,7 +236,8 @@ async function extractImageText(buffer: Buffer): Promise<ParseResult> {
   try {
     const vision = await runVisionOCR(buffer, "auto");
     if (!vision.success) {
-      return { text: "[Could not extract text from image]" };
+      console.error("[Vision OCR Error]:", vision.error);
+      return { text: "", ocr: undefined, visionExtraction: undefined };
     }
 
     const text = vision.data
@@ -266,8 +267,8 @@ async function extractImageText(buffer: Buffer): Promise<ParseResult> {
       ...(vision.extraction !== undefined ? { visionExtraction: vision.extraction } : {}),
     };
   } catch (err) {
-    console.error("[Parser] Gemini Vision OCR failed:", err);
-    return { text: "[Could not extract text from image]" };
+    console.error("[Vision OCR Error]:", err);
+    return { text: "", ocr: undefined, visionExtraction: undefined };
   }
 }
 
