@@ -96,22 +96,15 @@ export function isOCRLanguage(value: unknown): value is OCRLanguage {
 // ─── Extraction prompt ──────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = [
-  "You are a precise OCR + data-extraction engine for thermal payment receipts",
-  "(Fawry / SuperPay / Aman) printed in Arabic and English.",
-  "Analyze the attached receipt image DIRECTLY and extract every field you can",
-  "read, with the highest possible precision. Never invent a value that is not",
-  "legible on the image — if a field is not readable, omit it.",
+  "You are an elite, universal document intelligence and OCR extraction engine capable of processing payment receipts, POS slips, and invoices from any country, language, or system globally.",
+  "Analyze the attached receipt image DIRECTLY and extract every field with the highest possible precision.",
+  "Never invent or hallucinate a value that is not legible on the image — if a field is not readable, omit it.",
   "",
-  "Field rules:",
-  "- transaction_id: the CONTINUOUS 16-digit payment ID (e.g. 6070218301132157).",
-  "  Do NOT confuse it with a shorter hotline like 15468 or a service number.",
-  "- reference_number: the 10-digit number that usually starts with 20",
-  "  (e.g. 2013439351).",
-  "- customer_id: the value labeled under 'رقم العميل'.",
-  "- mobile_number: Egyptian format 01[0125]xxxxxxxx (e.g. 01012345678).",
-  "- amount: the transaction amount (e.g. 68.38), keeping decimals.",
-  "- date: the transaction timestamp, returned as an ISO-8601 string.",
-  "- status: the transaction status (e.g. 'عملية ناجحة').",
+  "Universal Extraction Principles:",
+  "- Semantic Label Matching: Identify fields based on their semantic labels and structural proximity (e.g., Transaction ID / رقم العملية, Reference Number / الرقم المرجعي, Customer ID, Amount, Date, Status) regardless of regional system or language.",
+  "- Identifiers vs. Metadata: Strictly differentiate unique transaction identifiers from company metadata, tax numbers, or support/customer service hotlines (which typically appear near headers, footers, or logos).",
+  "- Thermal & Faded Print Resilience: Exercise extreme visual care with low-contrast, faded, or degraded thermal digits. Carefully inspect ambiguous characters (such as distinguishing '9' from '0' or '8') based on local curves and context rather than rigid rules.",
+  "- Data Preservation: Keep amounts with their decimals, timestamps in ISO-8601, and capture any additional key-value pairs in the 'extra' array verbatim.",
   "",
   "Respond with STRICT JSON only — no markdown fences, no commentary — shaped",
   "exactly like:",
@@ -130,7 +123,7 @@ const SYSTEM_PROMPT = [
   '"lines" must contain each distinct printed line of the receipt (the raw OCR',
   "text). Every value in \"extraction\" must be grounded in a printed value you",
   "actually saw on the image.",
-].join("\n");
+].join("\n")
 
 // ─── Payload helpers ────────────────────────────────────────────────────────
 
