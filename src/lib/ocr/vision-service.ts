@@ -23,7 +23,22 @@
 // ─── Config ─────────────────────────────────────────────────────────────────
 
 export const VISION_TIMEOUT_MS = 30_000;
-export const VISION_MODEL = "gemini-3.8-flash";
+
+/**
+ * Ordered fallback list of Gemini Vision models. The request loop tries each
+ * in turn and automatically falls back on 503 (High Demand) responses, so a
+ * crowded model never fails OCR.
+ */
+export const VISION_MODELS: readonly string[] = [
+  "gemini-2.5-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-pro",
+];
+
+/** Primary model alias (first in the fallback list) — kept for callers that
+ *  reference the single model constant. */
+export const VISION_MODEL = VISION_MODELS[0];
 const GENERATIVE_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -205,33 +220,54 @@ export async function runVisionOCR(
     },
   };
 
-  let response: Response;
-  try {
-    response = await fetch(
-      `${GENERATIVE_ENDPOINT}/${VISION_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(VISION_TIMEOUT_MS),
+  let lastNon503Error: string | null = null;
+
+  for (const model of VISION_MODELS) {
+    let response: Response;
+    try {
+      response = await fetch(
+        `${GENERATIVE_ENDPOINT}/${model}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(VISION_TIMEOUT_MS),
+        }
+      );
+    } catch (err) {
+      // Network-level failures are not retryable via model fallback — only
+      // 503/high-demand responses are. Surface it immediately.
+      return ocrFailure(describeNetworkError(err));
+    }
+
+    if (!response.ok) {
+      const detail = await extractUpstreamError(response);
+      if (
+        response.status === 503 ||
+        /503|high demand/i.test(detail) ||
+        /503|high demand/i.test(response.statusText)
+      ) {
+        console.warn(
+          `[Vision OCR] Model ${model} failed with 503, attempting fallback...`
+        );
+        continue;
       }
-    );
-  } catch (err) {
-    return ocrFailure(describeNetworkError(err));
+      lastNon503Error = `Vision service responded with status ${response.status}: ${detail}`;
+      break;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = await response.json();
+    } catch {
+      return ocrFailure("Vision service returned a non-JSON response");
+    }
+    return mapModelResult(parsed, lang);
   }
 
-  if (!response.ok) {
-    const detail = await extractUpstreamError(response);
-    return ocrFailure(`Vision service responded with status ${response.status}: ${detail}`);
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = await response.json();
-  } catch {
-    return ocrFailure("Vision service returned a non-JSON response");
-  }
-  return mapModelResult(parsed, lang);
+  return ocrFailure(
+    lastNon503Error ?? "All vision models are at high demand (503)"
+  );
 }
 
 // ─── Response shaping ───────────────────────────────────────────────────────
