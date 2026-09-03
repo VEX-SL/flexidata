@@ -30,10 +30,12 @@ export const VISION_TIMEOUT_MS = 30_000;
  * crowded model never fails OCR.
  */
 export const VISION_MODELS: readonly string[] = [
-  "gemini-2.5-flash",
-  "gemini-3.5-flash-lite",
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash",
   "gemini-3.1-flash-lite",
-  "gemini-2.5-pro",
+  "gemini-flash-latest",
 ];
 
 /** Primary model alias (first in the fallback list) — kept for callers that
@@ -220,7 +222,7 @@ export async function runVisionOCR(
     },
   };
 
-  let lastNon503Error: string | null = null;
+  let lastFailure: string | null = null;
 
   for (const model of VISION_MODELS) {
     let response: Response;
@@ -236,23 +238,27 @@ export async function runVisionOCR(
       );
     } catch (err) {
       // Network-level failures are not retryable via model fallback — only
-      // 503/high-demand responses are. Surface it immediately.
+      // 404 (deprecated) / 503 (high demand) responses are. Surface it.
       return ocrFailure(describeNetworkError(err));
     }
 
     if (!response.ok) {
       const detail = await extractUpstreamError(response);
-      if (
-        response.status === 503 ||
-        /503|high demand/i.test(detail) ||
-        /503|high demand/i.test(response.statusText)
-      ) {
+      const status = response.status;
+      const isDeprecatedOrBusy =
+        status === 404 ||
+        status === 503 ||
+        /404|not found|deprecated/i.test(detail) ||
+        /503|high demand|rate limit/i.test(detail) ||
+        /404|not found|deprecated/i.test(response.statusText) ||
+        /503|high demand|rate limit/i.test(response.statusText);
+      if (isDeprecatedOrBusy) {
         console.warn(
-          `[Vision OCR] Model ${model} failed with 503, attempting fallback...`
+          `[Vision OCR] Model ${model} returned ${status}, trying fallback...`
         );
         continue;
       }
-      lastNon503Error = `Vision service responded with status ${response.status}: ${detail}`;
+      lastFailure = `Vision service responded with status ${status}: ${detail}`;
       break;
     }
 
@@ -266,7 +272,7 @@ export async function runVisionOCR(
   }
 
   return ocrFailure(
-    lastNon503Error ?? "All vision models are at high demand (503)"
+    lastFailure ?? "All vision models are deprecated or at high demand (404/503)"
   );
 }
 
