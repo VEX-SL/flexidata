@@ -11,6 +11,13 @@ import type { BaseAIProvider } from "./providers/base";
 
 export class ProviderManager {
   private providers: BaseAIProvider[] = [];
+  /**
+   * Providers disabled for the lifetime of this instance. When a provider hits
+   * a permanent, non-retryable error (402 Payment Required / 404 Model Not
+   * Found) it is parked here so we stop hammering it on every document
+   * extraction, instead of logging the same failure over and over.
+   */
+  private disabledProviders = new Set<string>();
 
   constructor() {
     // RDP is opt-in and requires BOTH RDP_API_URL and RDP_API_KEY. No tunnel
@@ -72,6 +79,10 @@ export class ProviderManager {
         console.log(`[ProviderManager] Skipping ${provider.name} (already used)`);
         continue;
       }
+      if (this.disabledProviders.has(provider.name)) {
+        console.log(`[ProviderManager] Skipping ${provider.name} (disabled after permanent error)`);
+        continue;
+      }
 
       // Truncate context if provider has known token limits
       const truncatedRequest = this.truncateForProvider(provider.name, request);
@@ -92,10 +103,21 @@ export class ProviderManager {
           );
           lastError = err;
 
-          // Don't retry on non-transient errors (413 too large, 402 payment, 401 auth, 404 not found)
+          // Don't retry on non-transient errors (413 too large, 402 payment,
+          // 401 auth, 404 not found). 402/404 are treated as PERMANENT: the
+          // provider is disabled for the rest of the run so we stop logging
+          // the same failure on every extraction.
           const isNonRetryable = err?.message?.match(/\b(413|402|401|404)\b/);
           if (isNonRetryable) {
-            console.log(`[ProviderManager] ${provider.name}: non-retryable error, skipping`);
+            const permanent = err?.message?.match(/\b(402|404)\b/);
+            if (permanent) {
+              this.disabledProviders.add(provider.name);
+              console.warn(
+                `[ProviderManager] ${provider.name}: permanent error (${permanent[0]}), disabling for this run`
+              );
+            } else {
+              console.log(`[ProviderManager] ${provider.name}: non-retryable error, skipping`);
+            }
             break;
           }
 
@@ -127,6 +149,7 @@ export class ProviderManager {
   ): AsyncGenerator<string, void, unknown> {
     for (const provider of this.providers) {
       if (!provider.supportsStreaming()) continue;
+      if (this.disabledProviders.has(provider.name)) continue;
 
       const truncatedRequest = this.truncateForProvider(provider.name, request);
 
@@ -146,7 +169,15 @@ export class ProviderManager {
           );
 
           const isNonRetryable = err?.message?.match(/\b(413|402|401|404)\b/);
-          if (isNonRetryable) break;
+          if (isNonRetryable) {
+            if (err?.message?.match(/\b(402|404)\b/)) {
+              this.disabledProviders.add(provider.name);
+              console.warn(
+                `[ProviderManager] ${provider.name}: permanent error during stream, disabling for this run`
+              );
+            }
+            break;
+          }
 
           const isQuotaExhausted = err?.message?.includes("RESOURCE_EXHAUSTED") &&
             err?.message?.includes("limit: 0");

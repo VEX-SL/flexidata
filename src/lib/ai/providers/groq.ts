@@ -5,7 +5,7 @@ export class GroqProvider extends BaseAIProvider {
   public name = "groq";
 
   constructor(apiKey: string) {
-    super({ apiKey, model: "llama-3.1-8b-instant" });
+    super({ apiKey, model: "llama-3.3-70b-versatile" });
   }
 
   private buildBody(request: AIRequest, stream = false) {

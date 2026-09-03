@@ -122,6 +122,7 @@ const SYSTEM_PROMPT = [
   "2. THERMAL PRINT & DIGIT DEGRADATION: Thermal paper wear frequently distorts digits (e.g., the digit '9' often appears closed like '0' or '8', or faded). Use structural and contextual logic (such as standard regional mobile prefixes or expected reference length patterns) to correctly interpret degraded thermal digits.",
   "3. SEMANTIC LABEL MATCHING: Map fields based on their local semantic labels and structural layout proximity (e.g., Transaction ID / رقم العملية, Reference Number / الرقم المرجعي, Customer ID, Amount, Date, Status) regardless of regional system or language.",
   "4. DATA INTEGRITY: Keep amounts with decimals, timestamps strictly in ISO-8601 format, and capture any additional key-value pairs in the 'extra' array verbatim.",
+  "5. REQUIRED FIELDS MUST NOT BE OMITTED: For the critical required fields — Receipt Date, Total/Amount, and Merchant Name/Status — do NOT drop them just because OCR confidence is low. Return the best readable value even when confidence is BELOW 80%; use structural context (label position, currency symbol, date format) to recover the value. Only set the field to null when there is genuinely NO legible value on the image.",
   "",
   "Respond with STRICT JSON only — no markdown fences, no commentary — shaped",
   "exactly like:",
@@ -256,6 +257,12 @@ export async function runVisionOCR(
         console.warn(
           `[Vision OCR] Model ${model} returned ${status}, trying fallback...`
         );
+        // On high demand (503) let the request queue settle before jumping to
+        // the next model — a short 300-500ms jitter avoids hammering a crowded
+        // API with back-to-back requests.
+        if (status === 503 || /503|high demand|rate limit/i.test(detail)) {
+          await jitterDelay(300, 500);
+        }
         continue;
       }
       lastFailure = `Vision service responded with status ${status}: ${detail}`;
@@ -358,6 +365,12 @@ function sanitizeExtraction(value: unknown): ReceiptExtraction | undefined {
 
 function isStructured(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object";
+}
+
+/** Sleep for a random duration in [minMs, maxMs] to smooth out 503 retries. */
+function jitterDelay(minMs: number, maxMs: number): Promise<void> {
+  const delay = minMs + Math.random() * (maxMs - minMs);
+  return new Promise((resolve) => setTimeout(resolve, delay));
 }
 
 /**
