@@ -57,11 +57,13 @@ function hasVisionData(ext: ReceiptExtraction): boolean {
   const fields: Array<string | undefined> = [
     ext.transaction_id,
     ext.reference_number,
+    ext.receipt_number,
     ext.customer_id,
     ext.mobile_number,
     ext.amount,
     ext.date,
     ext.status,
+    ext.merchant_name,
   ];
   return fields.some((v) => typeof v === "string" && v.trim().length > 0);
 }
@@ -95,9 +97,19 @@ function visionField(
       return ext.mobile_number;
     case "amount":
     case "total":
+    case "total_amount":
     case "المبلغ":
     case "المبلغ الإجمالي":
       return ext.amount;
+    case "receipt_number":
+    case "invoice_number":
+    case "رقم_الفاتورة":
+      return ext.receipt_number;
+    case "merchant_name":
+    case "merchant":
+    case "vendor":
+    case "اسم_التاجر":
+      return ext.merchant_name;
     case "date":
     case "التاريخ":
     case "تاريخ المعاملة":

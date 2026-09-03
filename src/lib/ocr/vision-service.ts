@@ -68,6 +68,8 @@ export interface OCRResultItem {
 export interface ReceiptExtraction {
   /** Continuous 16-digit payment ID (e.g. "6070218301132157"). */
   transaction_id?: string;
+  /** Receipt / process number (مطابق للرقم المرجعي أو رقم العملية). */
+  receipt_number?: string;
   /** 10-digit reference number usually starting with "20". */
   reference_number?: string;
   /** Value under "رقم العميل" (customer ID). */
@@ -80,6 +82,8 @@ export interface ReceiptExtraction {
   date?: string;
   /** Transaction status (e.g. "عملية ناجحة"). */
   status?: string;
+  /** Merchant / brand name (e.g. "SuperPay", "فوري باي", "Zahra Aman"). */
+  merchant_name?: string;
   /** Any additional label/value pairs the model read (preserved verbatim). */
   extra?: Array<{ label: string; value: string }>;
 }
@@ -123,6 +127,11 @@ const SYSTEM_PROMPT = [
   "3. SEMANTIC LABEL MATCHING: Map fields based on their local semantic labels and structural layout proximity (e.g., Transaction ID / رقم العملية, Reference Number / الرقم المرجعي, Customer ID, Amount, Date, Status) regardless of regional system or language.",
   "4. DATA INTEGRITY: Keep amounts with decimals, timestamps strictly in ISO-8601 format, and capture any additional key-value pairs in the 'extra' array verbatim.",
   "5. REQUIRED FIELDS MUST NOT BE OMITTED: For the critical required fields — Receipt Date, Total/Amount, and Merchant Name/Status — do NOT drop them just because OCR confidence is low. Return the best readable value even when confidence is BELOW 80%; use structural context (label position, currency symbol, date format) to recover the value. Only set the field to null when there is genuinely NO legible value on the image.",
+  "6. PAYMENT AGGREGATOR & ARABIC SLIPS: These slips often lack verbose labels. Apply the following inference rules:",
+  "   a. MERCHANT NAME FROM HEADER BRAND: Infer 'merchant_name' from the top-level header brand/logo even when there is no explicit 'Merchant:' label (e.g. 'SuperPay', 'فوري باي', 'Zahra Aman', 'Aman', 'Vodafone Cash').",
+  "   b. PROCESS NUMBER = RECEIPT + TRANSACTION: Map 'رقم العملية' / 'Process No' / transaction number DIRECTLY to BOTH 'receipt_number' AND 'transaction_id' — they are the same operational identifier on these slips.",
+  "   c. SINGLE AMOUNT = TOTAL: If only ONE main currency/number value exists on the slip, use it as 'total_amount' / 'amount' even when no explicit 'Total' label is printed.",
+  "   d. MISSING DATE/AMOUNT CROP: If the image genuinely lacks a legible date or amount crop, return null for that field instead of raising a missing-required-field error.",
   "",
   "Respond with STRICT JSON only — no markdown fences, no commentary — shaped",
   "exactly like:",
@@ -135,7 +144,8 @@ const SYSTEM_PROMPT = [
   '    "mobile_number": "...",',
   '    "amount": "...",',
   '    "date": "...",',
-  '    "status": "..."',
+  '    "status": "...",',
+  '    "merchant_name": "..."',
   '  }',
   "}",
   '"lines" must contain each distinct printed line of the receipt (the raw OCR',
@@ -357,8 +367,11 @@ function sanitizeExtraction(value: unknown): ReceiptExtraction | undefined {
     ...(str("customer_id") !== undefined ? { customer_id: str("customer_id") } : {}),
     ...(str("mobile_number") !== undefined ? { mobile_number: str("mobile_number") } : {}),
     ...(str("amount") !== undefined ? { amount: str("amount") } : {}),
+    ...(str("total_amount") !== undefined ? { amount: str("total_amount") } : {}),
     ...(str("date") !== undefined ? { date: str("date") } : {}),
     ...(str("status") !== undefined ? { status: str("status") } : {}),
+    ...(str("merchant_name") !== undefined ? { merchant_name: str("merchant_name") } : {}),
+    ...(str("receipt_number") !== undefined ? { receipt_number: str("receipt_number") } : {}),
     ...(extra !== undefined && extra.length > 0 ? { extra } : {}),
   };
 }

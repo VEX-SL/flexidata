@@ -35,7 +35,13 @@ import { fieldSchemaForDynamicField } from "./dynamic";
 
 const MIN_CONFIDENCE = 0.3;
 const DEFAULT_FIELD_CONFIDENCE = 0.85;
-const LABEL_NEUTRAL_FACTOR = 0.8;
+/**
+ * Penalty applied when a field value has OCR evidence but no matching label
+ * group sat on the same line. Kept close to 1 so Arabic / payment-aggregator
+ * slips (Fawry, SuperPay, Vodafone Cash, Aman) that print values without an
+ * explicit on-line label are not flagged as UNCERTAIN / low-confidence.
+ */
+const LABEL_NEUTRAL_FACTOR = 0.92;
 /** Small penalty when a value is kept despite having no OCR evidence. */
 const NO_EVIDENCE_FACTOR = 0.9;
 /** Below this OCR factor a field is marked as low-OCR-confidence. */
