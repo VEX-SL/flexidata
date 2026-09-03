@@ -23,7 +23,7 @@
 // ─── Config ─────────────────────────────────────────────────────────────────
 
 export const VISION_TIMEOUT_MS = 30_000;
-export const VISION_MODEL = "gemini-1.5-flash";
+export const VISION_MODEL = "gemini-2.0-flash";
 const GENERATIVE_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1beta/models";
 
