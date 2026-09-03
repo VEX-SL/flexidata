@@ -36,15 +36,13 @@ test("grounded receipt extraction validates against the receipt profile", () => 
   equal(result.missing.length, 0);
 });
 
-test("receipt requires receipt_number, receipt_date, merchant_name, total_amount", () => {
+test("receipt validation is lenient: missing receipt fields are never flagged", () => {
   const result = validateExtraction({
     ...grounded,
     fieldsMap: { merchant_name: fv("SuperPay") },
   });
-  equal(result.ok, false);
-  ok(result.missing.includes("receipt_number"));
-  ok(result.missing.includes("receipt_date"));
-  ok(result.missing.includes("total_amount"));
+  equal(result.ok, true, "receipt slips must not hard-fail on missing optional fields");
+  equal(result.missing.length, 0, "missing receipt_number/date/total must not be flagged");
 });
 
 test("a receipt wrongly extracted as an invoice fails invoice validation", () => {

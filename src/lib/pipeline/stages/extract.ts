@@ -111,8 +111,12 @@ function visionField(
     case "اسم_التاجر":
       return ext.merchant_name;
     case "date":
+    case "receipt_date":
+    case "invoice_date":
     case "التاريخ":
     case "تاريخ المعاملة":
+    case "تاريخ الوقت":
+    case "الوقت":
       return ext.date;
     case "status":
     case "الحالة":

@@ -130,6 +130,11 @@ Document:
 {{document}}`;
 
 const validationRules = [
+  // NOTE: these fields stay `required` because the recovery / grounding stages
+  // use `required` to decide which fields to actively re-extract. Requiredness
+  // here does NOT mean the validator hard-fails on a missing receipt field —
+  // the validator treats the receipt profile as lenient (no missing-field
+  // errors) so thermal / aggregator slips that omit a number/date are fine.
   { key: "receipt_number", kind: "string" as const, required: true },
   { key: "receipt_date", kind: "date" as const, required: true, format: "yyyy-mm-dd" },
   { key: "merchant_name", kind: "string" as const, required: true },

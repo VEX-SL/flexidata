@@ -139,8 +139,8 @@ test("confidence is composed per field, not a fixed 0.85", async () => {
 
   // number: label match (المرجقي) → factor 1 → 0.9 * 1 = 0.9
   equal(result.fieldsMap.receipt_number.confidence, 0.9);
-  // merchant: neutral label → factor 0.8 → 0.9 * 0.8 = 0.72
-  equal(Math.round(result.fieldsMap.merchant_name.confidence * 100), 72);
+  // merchant: neutral label → factor 0.92 → 0.9 * 0.92 = 0.828 ≈ 83
+  equal(Math.round(result.fieldsMap.merchant_name.confidence * 100), 83);
   // date: label match (الوقت) → 0.85 * 1 = 0.85
   equal(result.fieldsMap.receipt_date.confidence, 0.85);
 });

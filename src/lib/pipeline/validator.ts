@@ -28,7 +28,15 @@ export function validateExtraction(
   const results: ValidationOutcome[] = [];
   const missing: string[] = [];
 
-  const required = new Set(rules.filter((r) => r.required).map((r) => r.key));
+  // Thermal / payment-aggregator slips (receipt profile) are lenient: they
+  // often print a value without a labeled number or date, so a missing field
+  // is never a hard error. Required-field enforcement is skipped entirely —
+  // pattern/enum checks still run for values that ARE present.
+  const lenientSlip = profile.id === "receipt";
+
+  const required = lenientSlip
+    ? new Set<string>()
+    : new Set(rules.filter((r) => r.required).map((r) => r.key));
   const defined = new Set(profile.schema.fields.map((f) => f.key));
 
   for (const key of required) {
@@ -39,15 +47,17 @@ export function validateExtraction(
   }
 
   // Also flag any schema-required field missing from the extraction entirely.
-  for (const field of profile.schema.fields) {
-    if (field.required && !extraction.fieldsMap[field.key]) {
-      if (!missing.includes(field.key)) missing.push(field.key);
+  if (!lenientSlip) {
+    for (const field of profile.schema.fields) {
+      if (field.required && !extraction.fieldsMap[field.key]) {
+        if (!missing.includes(field.key)) missing.push(field.key);
+      }
     }
   }
 
   for (const rule of rules) {
     const fv = extraction.fieldsMap[rule.key];
-    const outcome = evaluate(rule, fv, extraction.fieldsMap, defined);
+    const outcome = evaluate(rule, fv, extraction.fieldsMap, defined, lenientSlip);
     results.push(outcome);
   }
 
@@ -60,11 +70,12 @@ function evaluate(
   rule: ValidationRule,
   fv: FieldValue | undefined,
   fieldsMap: Record<string, FieldValue>,
-  defined: Set<string>
+  defined: Set<string>,
+  lenientSlip: boolean
 ): ValidationOutcome {
-  const base = { key: rule.key, weight: rule.required ? 1 : 0.5 };
+  const base = { key: rule.key, weight: rule.required && !lenientSlip ? 1 : 0.5 };
 
-  if (rule.required && (!fv || isEmpty(fv))) {
+  if (rule.required && !lenientSlip && (!fv || isEmpty(fv))) {
     return { ...base, ok: false, message: "Required field is missing" };
   }
   if (!fv || isEmpty(fv)) {

@@ -277,8 +277,8 @@ test("SuperPay regression: merchant_name survives grounding above MIN_CONFIDENCE
   ok(out.fieldsMap.merchant_name !== undefined, "merchant_name survived grounding");
   ok(out.droppedFields.merchant_name === undefined, "no drop reason attached");
   const confidence = out.fieldsMap.merchant_name!.confidence!;
-  // aiConf 0.9 × ocrFactor 0.768 × labelNeutral 0.8 ≈ 0.553 > 0.3.
-  approx(confidence, 0.9 * 0.768 * 0.8, 1e-6, "composed confidence");
+  // aiConf 0.9 × ocrFactor 0.768 × labelNeutral 0.92 ≈ 0.636 > 0.3.
+  approx(confidence, 0.9 * 0.768 * 0.92, 1e-6, "composed confidence");
   ok(confidence >= 0.3, "above the drop threshold (was 0.9 × 0.128 × 0.8 ≈ 0.092)");
 });
 

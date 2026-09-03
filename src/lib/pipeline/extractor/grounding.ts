@@ -470,12 +470,16 @@ function makeEvidence(
       context: line.text,
     };
   }
+  // Fallback region: when the matched line carries real coordinates (a line
+  // bbox) but no recognizable word boxes / no word-span match, copy the whole
+  // line box onto the evidence so the UI Inspector can still draw an overlay.
   return {
     quote: line.text,
     lineIndex,
     role,
     source: "ocr",
     confidence: meanWordConfidence(line),
+    ...(line.bbox !== undefined ? { bbox: line.bbox } : {}),
     context: line.text,
   };
 }

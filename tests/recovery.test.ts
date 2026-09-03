@@ -102,8 +102,8 @@ test("several distinct candidates → ambiguous with alternatives, never retried
   equal(total!.value, null);
   equal(total!.alternatives, [68.38, 55]);
   ok(
-    job.validation.missing.includes("total_amount"),
-    "ambiguous total_amount stays unresolved for the reviewer"
+    !job.validation.missing.includes("total_amount"),
+    "receipt validation is lenient — ambiguous total_amount is not flagged missing"
   );
   equal(ai.retryCalls.length, 1, "retry runs once for the other missing fields");
 });
@@ -168,7 +168,10 @@ test("model value dropped by strict grounding → never retried for that field",
     /not found in source text/.test(job.extraction.droppedFields.total_amount ?? ""),
     "drop reason must be preserved"
   );
-  ok(job.validation.missing.includes("total_amount"));
+  ok(
+    !job.validation.missing.includes("total_amount"),
+    "receipt validation is lenient — grounding-dropped total_amount is not flagged missing"
+  );
 });
 
 test("date recovery flags the printed value — never auto-corrects 2028 to 2026", async () => {
@@ -200,7 +203,7 @@ test("no total anywhere → field stays missing even after recovery", async () =
   const job = await runReceipt(ai, doc);
 
   ok(!job.extraction.fieldsMap.total_amount, "nothing to recover → keep null");
-  ok(job.validation.missing.includes("total_amount"));
+  ok(!job.validation.missing.includes("total_amount"), "receipt validation is lenient — absent total is not a hard missing error");
 });
 
 test("M16 regression: a generic RECEIPT header never becomes receipt_number", async () => {
@@ -210,7 +213,7 @@ test("M16 regression: a generic RECEIPT header never becomes receipt_number", as
 
   const n = job.extraction.fieldsMap.receipt_number;
   ok(!n, "the header word must not be recovered as the receipt number");
-  ok(job.validation.missing.includes("receipt_number"), "receipt_number stays missing");
+  ok(!job.validation.missing.includes("receipt_number"), "receipt validation is lenient — absent receipt_number is not a hard missing error");
 });
 
 test("M16 regression: a real 'Receipt Number: 20134' label recovers the reference", async () => {

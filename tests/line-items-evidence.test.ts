@@ -101,8 +101,8 @@ test("grounded line items carry per-description OCR evidence (no false no_direct
   equal(byLine.get(2)?.role, "value-match");
   ok(!(lineItems!.reasons ?? []).includes("no_direct_evidence"), "grounded items must not be flagged no_direct_evidence");
   ok((lineItems!.reasons ?? []).includes("label_not_matched"), "label-neutral items keep the label_not_matched reason");
-  // 0.9 (ai) * mean(0.95, 0.90) (ocr) * 0.8 (label-neutral) = 0.666 — no 0.9 penalty.
-  assert(Math.abs((lineItems!.confidence ?? 0) - 0.666) < 1e-9, `confidence must be 0.666, got ${lineItems!.confidence}`);
+  // 0.9 (ai) * mean(0.95, 0.90) (ocr) * 0.92 (label-neutral, relaxed) = 0.7659.
+  assert(Math.abs((lineItems!.confidence ?? 0) - 0.7659) < 1e-9, `confidence must be 0.7659, got ${lineItems!.confidence}`);
 });
 
 test("fully fabricated line items (descriptions absent from the OCR) are dropped in grounding", () => {
@@ -224,5 +224,5 @@ test("full production pipeline: itemized receipt commits line items with evidenc
   ok(lineItems, "line items must survive the full pipeline");
   ok(lineItems!.evidence && lineItems!.evidence.length === 2, "line items must carry OCR evidence end-to-end");
   ok(!(lineItems!.reasons ?? []).includes("no_direct_evidence"), "no false no_direct_evidence reason end-to-end");
-  equal(Math.round((lineItems!.confidence ?? 0) * 100), 72, "confidence must drop the unfair penalty (0.9 * 1 * 0.8)");
+  equal(Math.round((lineItems!.confidence ?? 0) * 100), 83, "confidence must reflect relaxed label-neutral factor (0.9 * 1 * 0.92)");
 });
