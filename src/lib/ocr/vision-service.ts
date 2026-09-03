@@ -18,24 +18,37 @@
  * malformed JSON, unusable image — resolves to
  * `{ success: false, error: "..." }` instead of throwing, so callers never
  * need their own try/catch.
+ *
+ * The Gemini model list is tried in order with a short per-attempt timeout
+ * (VISION_ATTEMPT_TIMEOUT_MS) so a slow/crowded model never stalls the whole
+ * request; when every Gemini model fails, an OpenRouter vision model is used
+ * as a final fallback so extraction never returns 0 chars.
  */
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
+/** Overall budget, not used per-attempt (see VISION_ATTEMPT_TIMEOUT_MS). */
 export const VISION_TIMEOUT_MS = 30_000;
 
 /**
- * Ordered fallback list of Gemini Vision models. The request loop tries each
- * in turn and automatically falls back on 503 (High Demand) responses, so a
- * crowded model never fails OCR.
+ * Per-attempt network timeout. A single model that takes longer than this to
+ * respond is aborted immediately so a slow/crowded model never eats the whole
+ * request budget — we just move on to the next model in the list.
+ */
+export const VISION_ATTEMPT_TIMEOUT_MS = 6_000;
+
+/**
+ * Ordered fallback list of Gemini Vision models. Lighter/faster models come
+ * first so we rarely hit the heavier flash tier or its rate limits, and the
+ * loop automatically falls back on timeout / 404 / 503 (High Demand).
+ * `gemini-3.5-flash-lite` / `gemini-3.1-flash-lite` are tried first, then the
+ * full flash tier, keeping every attempt under VISION_ATTEMPT_TIMEOUT_MS.
  */
 export const VISION_MODELS: readonly string[] = [
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
   "gemini-3.8-flash",
   "gemini-3.7-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-  "gemini-3.1-flash-lite",
-  "gemini-flash-latest",
 ];
 
 /** Primary model alias (first in the fallback list) — kept for callers that
@@ -43,6 +56,25 @@ export const VISION_MODELS: readonly string[] = [
 export const VISION_MODEL = VISION_MODELS[0];
 const GENERATIVE_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1beta/models";
+
+/**
+ * OpenRouter vision fallback, used only when every Gemini model fails. Keeps
+ * the extraction from ever returning 0 chars when Gemini is fully down or
+ * quota-limited. Uses the OpenAI-compatible chat/completions format.
+ */
+export const OPENROUTER_VISION_MODELS: readonly string[] = [
+  "google/gemini-2.5-flash",
+  "meta-llama/llama-3.2-11b-vision-instruct",
+];
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+
+/** Resolve the OpenRouter key for the vision fallback (null when unset). */
+export function openrouterVisionKeyFromEnv(): string | null {
+  const key =
+    process.env.OPENROUTER_API_KEY ?? process.env.NEXT_PUBLIC_OPENROUTER_API_KEY ?? "";
+  const trimmed = key.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
 
 /**
  * Resolve the Gemini API key from the environment. Prefers the server-only
@@ -244,12 +276,18 @@ export async function runVisionOCR(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(VISION_TIMEOUT_MS),
+          signal: AbortSignal.timeout(VISION_ATTEMPT_TIMEOUT_MS),
         }
       );
     } catch (err) {
-      // Network-level failures are not retryable via model fallback — only
-      // 404 (deprecated) / 503 (high demand) responses are. Surface it.
+      // An attempt that exceeds the per-attempt timeout is not fatal — abort it
+      // and immediately try the next model. Any other network failure is not
+      // retryable via model fallback and is surfaced directly.
+      if (isTimeoutError(err)) {
+        console.warn(`[Vision OCR] Model ${model} timed out after ${VISION_ATTEMPT_TIMEOUT_MS}ms, trying fallback...`);
+        lastFailure = `Model ${model} timed out after ${VISION_ATTEMPT_TIMEOUT_MS}ms`;
+        continue;
+      }
       return ocrFailure(describeNetworkError(err));
     }
 
@@ -273,6 +311,7 @@ export async function runVisionOCR(
         if (status === 503 || /503|high demand|rate limit/i.test(detail)) {
           await jitterDelay(300, 500);
         }
+        lastFailure = `Model ${model} returned ${status}`;
         continue;
       }
       lastFailure = `Vision service responded with status ${status}: ${detail}`;
@@ -286,6 +325,13 @@ export async function runVisionOCR(
       return ocrFailure("Vision service returned a non-JSON response");
     }
     return mapModelResult(parsed, lang);
+  }
+
+  // ── Final fallback: OpenRouter vision (OpenAI-compatible) ────────────────
+  const openrouterKey = openrouterVisionKeyFromEnv();
+  if (openrouterKey) {
+    const result = await tryOpenRouterFallback(openrouterKey, prompt, base64, mimeType, lang);
+    if (result) return result;
   }
 
   return ocrFailure(
@@ -304,7 +350,16 @@ function mapModelResult(parsed: unknown, lang: OCRLanguage): OCRResponse {
   if (text === null) {
     return ocrFailure("Vision service returned no usable content");
   }
+  return parseTextToResponse(text, lang);
+}
 
+/**
+ * Convert a raw model text output (assumed to be JSON shaped like
+ * `{ "lines": [...], "extraction": {...} }`) into the `OCRResponse` contract.
+ * Used for both the Gemini envelope and the OpenAI-compatible OpenRouter
+ * fallback path.
+ */
+function parseTextToResponse(text: string, lang: OCRLanguage): OCRResponse {
   let structured: unknown = null;
   try {
     structured = JSON.parse(stripCodeFences(text));
@@ -417,6 +472,94 @@ function stripCodeFences(text: string): string {
   return match ? match[1] : trimmed;
 }
 
+/** True when a fetch error is a per-attempt timeout (AbortSignal.timeout). */
+function isTimeoutError(err: unknown): boolean {
+  if (err instanceof Error) {
+    return (
+      err.name === "TimeoutError" ||
+      err.name === "AbortError" ||
+      (err.name === "DOMException" && /timeout|abort/i.test(err.message))
+    );
+  }
+  return false;
+}
+
+/**
+ * OpenRouter / Groq-vision fallback. Talks to the OpenAI-compatible
+ * `chat/completions` endpoint using a multimodal message (system prompt + a
+ * data-URL image part), parsing `choices[0].message.content` exactly like the
+ * Gemini output. Tries each configured vision model; returns the first usable
+ * `OCRResponse` or null when every one fails.
+ */
+async function tryOpenRouterFallback(
+  apiKey: string,
+  prompt: string,
+  base64: string,
+  mimeType: string,
+  lang: OCRLanguage
+): Promise<OCRResponse | null> {
+  const dataUrl = `data:${mimeType};base64,${base64}`;
+
+  for (const model of OPENROUTER_VISION_MODELS) {
+    let response: Response;
+    try {
+      response = await fetch(OPENROUTER_ENDPOINT, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 4096,
+          temperature: 0,
+          messages: [
+            { role: "system", content: prompt },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Extract the receipt fields per the instructions." },
+                { type: "image_url", image_url: { url: dataUrl } },
+              ],
+            },
+          ],
+        }),
+        signal: AbortSignal.timeout(VISION_ATTEMPT_TIMEOUT_MS),
+      });
+    } catch (err) {
+      console.warn(`[Vision OCR] OpenRouter ${model} failed (${err instanceof Error ? err.name : "network"}), trying next...`);
+      continue;
+    }
+
+    if (!response.ok) {
+      const detail = await extractUpstreamError(response);
+      const busy =
+        response.status === 429 ||
+        response.status === 503 ||
+        /429|503|rate limit|high demand|quota/i.test(detail);
+      console.warn(`[Vision OCR] OpenRouter ${model} returned ${response.status} (${detail}), trying next...`);
+      if (busy) continue;
+      // Non-retryable upstream error: try the next OpenRouter model anyway.
+      continue;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = await response.json();
+    } catch {
+      continue;
+    }
+    if (!isStructured(parsed)) continue;
+    const choices = (parsed as { choices?: unknown }).choices;
+    if (!Array.isArray(choices) || choices.length === 0) continue;
+    const content = (choices[0] as { message?: { content?: unknown } })?.message?.content;
+    if (typeof content !== "string" || content.trim().length === 0) continue;
+    return parseTextToResponse(content, lang);
+  }
+
+  return null;
+}
+
 // ─── Failure shaping ────────────────────────────────────────────────────────
 
 /** Uniform failure envelope — keeps the full OCRResponse contract. */
@@ -434,7 +577,7 @@ function ocrFailure(error: string): OCRResponse {
 /** Human-readable message for fetch-level failures (timeout, DNS, reset). */
 function describeNetworkError(err: unknown): string {
   if (err instanceof Error && err.name === "TimeoutError") {
-    return `Vision service timed out after ${VISION_TIMEOUT_MS}ms`;
+    return `Vision service timed out after ${VISION_ATTEMPT_TIMEOUT_MS}ms`;
   }
   if (err instanceof Error && err.name === "AbortError") {
     return "Vision request was aborted";
