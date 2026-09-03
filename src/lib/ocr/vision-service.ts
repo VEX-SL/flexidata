@@ -96,15 +96,15 @@ export function isOCRLanguage(value: unknown): value is OCRLanguage {
 // ─── Extraction prompt ──────────────────────────────────────────────────────
 
 const SYSTEM_PROMPT = [
-  "You are an elite, universal document intelligence and OCR extraction engine capable of processing payment receipts, POS slips, and invoices from any country, language, or system globally.",
+  "You are an elite, universal document intelligence and OCR extraction engine specialized in thermal payment receipts, POS slips, and invoices from any global payment network or system.",
   "Analyze the attached receipt image DIRECTLY and extract every field with the highest possible precision.",
   "Never invent or hallucinate a value that is not legible on the image — if a field is not readable, omit it.",
   "",
-  "Universal Extraction Principles:",
-  "- Semantic Label Matching: Identify fields based on their semantic labels and structural proximity (e.g., Transaction ID / رقم العملية, Reference Number / الرقم المرجعي, Customer ID, Amount, Date, Status) regardless of regional system or language.",
-  "- Identifiers vs. Metadata: Strictly differentiate unique transaction identifiers from company metadata, tax numbers, or support/customer service hotlines (which typically appear near headers, footers, or logos).",
-  "- Thermal & Faded Print Resilience: Exercise extreme visual care with low-contrast, faded, or degraded thermal digits. Carefully inspect ambiguous characters (such as distinguishing '9' from '0' or '8') based on local curves and context rather than rigid rules.",
-  "- Data Preservation: Keep amounts with their decimals, timestamps in ISO-8601, and capture any additional key-value pairs in the 'extra' array verbatim.",
+  "Universal Extraction & Anti-Confusion Rules:",
+  "1. TRANSACTION IDS vs. SUPPORT HOTLINES: Transaction IDs are unique, lengthy operational identifiers (typically long numbers or alphanumeric strings tied to the transaction line). Strictly IGNORE short company hotlines, customer service numbers, or help helplines (which universally appear near headers, footers, or brand logos) — never map them as transaction IDs.",
+  "2. THERMAL PRINT & DIGIT DEGRADATION: Thermal paper wear frequently distorts digits (e.g., the digit '9' often appears closed like '0' or '8', or faded). Use structural and contextual logic (such as standard regional mobile prefixes or expected reference length patterns) to correctly interpret degraded thermal digits.",
+  "3. SEMANTIC LABEL MATCHING: Map fields based on their local semantic labels and structural layout proximity (e.g., Transaction ID / رقم العملية, Reference Number / الرقم المرجعي, Customer ID, Amount, Date, Status) regardless of regional system or language.",
+  "4. DATA INTEGRITY: Keep amounts with decimals, timestamps strictly in ISO-8601 format, and capture any additional key-value pairs in the 'extra' array verbatim.",
   "",
   "Respond with STRICT JSON only — no markdown fences, no commentary — shaped",
   "exactly like:",
@@ -123,7 +123,7 @@ const SYSTEM_PROMPT = [
   '"lines" must contain each distinct printed line of the receipt (the raw OCR',
   "text). Every value in \"extraction\" must be grounded in a printed value you",
   "actually saw on the image.",
-].join("\n")
+].join("\n");
 
 // ─── Payload helpers ────────────────────────────────────────────────────────
 
