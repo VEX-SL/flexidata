@@ -8,6 +8,7 @@ import fs from "fs";
 
 import { recognizeMainThread } from "@/lib/tesseract-main";
 import type { OcrDocument } from "@/lib/pipeline/types";
+import type { ReceiptExtraction } from "@/lib/ocr/vision-service";
 import { OCR_TIMEOUT_MS } from "@/lib/ocr/recall";
 
 // Bound every OCR call with a hard timeout so the pipeline can never get
@@ -31,6 +32,8 @@ export interface ParseResult {
   text: string;
   /** Structured OCR document (word-level confidence) when available. */
   ocr?: OcrDocument;
+  /** Structured extraction from Gemini Vision (images only, when available). */
+  visionExtraction?: ReceiptExtraction;
 }
 
 export async function parseFileBuffer(
@@ -227,19 +230,50 @@ async function extractExcelText(buffer: Buffer): Promise<string> {
 }
 
 async function extractImageText(buffer: Buffer): Promise<ParseResult> {
-  try {
-    const ocr = await withOcrTimeout(
-      recognizeMainThread(buffer, "ara+eng", {
-        verifyNumerics: true,
-        recoverRecall: true,
-        rescuePaddle: true,
-      })
-    );
-    return { text: ocr.text?.trim() || "[No text found in image]", ocr };
-  } catch (err) {
-    console.error("[Parser] OCR failed:", err);
-    return { text: "[Could not extract text from image]" };
-  }
+  // Run Tesseract (OcrDocument for grounding/evidence) and Gemini Vision
+  // (structured extraction) in parallel. Tesseract provides word-level bboxes
+  // and confidence for grounding; Gemini Vision provides the structured field
+  // extraction that replaces the Mistral text-extraction call.
+  const tesseractPromise = withOcrTimeout(
+    recognizeMainThread(buffer, "ara+eng", {
+      verifyNumerics: true,
+      recoverRecall: true,
+      rescuePaddle: true,
+    })
+  ).catch((err): null => {
+    console.error("[Parser] Tesseract OCR failed:", err);
+    return null;
+  });
+
+  const geminiPromise = import("@/lib/ocr/vision-service")
+    .then(({ runVisionOCR }) => runVisionOCR(buffer, "auto"))
+    .catch((err): null => {
+      console.error("[Parser] Gemini Vision OCR failed:", err);
+      return null;
+    });
+
+  const [tesseractResult, geminiResult] = await Promise.all([
+    tesseractPromise,
+    geminiPromise,
+  ]);
+
+  const ocr = tesseractResult ?? undefined;
+  const visionExtraction =
+    geminiResult?.success === true ? geminiResult.extraction : undefined;
+
+  // Prefer Gemini text (better OCR quality) over Tesseract for sourceText.
+  const geminiText =
+    geminiResult?.success === true
+      ? geminiResult.data.map((l: { text: string }) => l.text).join("\n").trim()
+      : "";
+  const tesseractText = tesseractResult?.text?.trim() ?? "[No text found in image]";
+  const text = geminiText.length > 0 ? geminiText : tesseractText;
+
+  return {
+    text: text || "[No text found in image]",
+    ocr,
+    ...(visionExtraction !== undefined ? { visionExtraction } : {}),
+  };
 }
 
 async function extractAudioText(buffer: Buffer, fileName?: string): Promise<string> {

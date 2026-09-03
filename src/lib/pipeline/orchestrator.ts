@@ -44,6 +44,7 @@ export class Pipeline {
       // Structured OCR when the file path provided it; otherwise derive a
       // neutral (unknown-confidence) document from the text itself.
       ocr: input.ocr ?? buildOcrDocument(input.sourceText),
+      visionExtraction: input.visionExtraction,
     };
 
     const trace: TraceEvent[] = [];

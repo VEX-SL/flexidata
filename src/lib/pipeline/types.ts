@@ -11,6 +11,7 @@
  */
 
 import type { AIRequest, AIResponse } from "@/types";
+import type { ReceiptExtraction } from "@/lib/ocr/vision-service";
 
 // ─── Field schema (declarative, JSON-serializable) ────────────────────────
 
@@ -417,6 +418,8 @@ export interface PipelineState {
   readonly textStats: { length: number; lines: number };
   /** Structured OCR input when available (else derived from sourceText). */
   readonly ocr?: OcrDocument;
+  /** Structured extraction from Gemini Vision (when available). */
+  readonly visionExtraction?: ReceiptExtraction;
   classification?: ClassificationResult;
   profile?: ExtractionProfile;
   extraction?: ExtractionResult;
@@ -485,6 +488,8 @@ export interface RunJobInput {
   profileType?: ProfileType;
   /** Structured OCR input (word-level confidence) when available. */
   ocr?: OcrDocument;
+  /** Structured extraction from Gemini Vision (when available). */
+  visionExtraction?: ReceiptExtraction;
   /**
    * Extraction contract mode. Defaults to "legacy" (schema-driven). "dynamic"
    * lets the AI discover fields with no predefined field list — explicit,

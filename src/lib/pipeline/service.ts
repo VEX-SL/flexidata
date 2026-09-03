@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidUUID } from "@/lib/validators";
 import { parseFileBufferDetailed } from "@/lib/file-parser";
+import type { ReceiptExtraction } from "@/lib/ocr/vision-service";
 import { runPipeline } from "./defaults";
 import { getProfileManager } from "./profiles/registry";
 import {
@@ -64,6 +65,7 @@ export class PipelineService {
       idempotencyKey?: string;
       force?: boolean;
       ocr?: OcrDocument;
+      visionExtraction?: ReceiptExtraction;
       extractionMode?: ExtractionMode;
     }
   ): Promise<{ job: JobDTO; created: boolean; rerun: boolean }> {
@@ -72,6 +74,7 @@ export class PipelineService {
     let fileName = req.fileName;
     let mimeType = req.mimeType;
     let ocr = req.ocr;
+    let visionExtraction = req.visionExtraction;
     const fileId = req.fileId;
 
     if (req.profileType) {
@@ -133,6 +136,7 @@ export class PipelineService {
       fileName = resolved.fileName;
       mimeType = resolved.mimeType;
       ocr = resolved.ocr;
+      visionExtraction = resolved.visionExtraction;
     }
 
     if (!sourceText) {
@@ -198,6 +202,7 @@ export class PipelineService {
       fileId,
       profileType: req.profileType,
       ocr,
+      visionExtraction,
       extractionMode: req.extractionMode,
     };
 
@@ -638,7 +643,7 @@ export class PipelineService {
   private async readFileText(
     userId: string,
     fileId: string
-  ): Promise<{ text: string; ocr?: OcrDocument; fileName?: string; mimeType?: string }> {
+  ): Promise<{ text: string; ocr?: OcrDocument; visionExtraction?: ReceiptExtraction; fileName?: string; mimeType?: string }> {
     if (!isValidUUID(fileId)) {
       throw new PipelineError("Invalid file id", {
         code: "BAD_REQUEST",
@@ -694,6 +699,7 @@ export class PipelineService {
     return {
       text: parsed.text.slice(0, MAX_SOURCE_TEXT),
       ocr: parsed.ocr,
+      visionExtraction: parsed.visionExtraction,
       fileName: file.original_name,
       mimeType: file.mime_type,
     };
