@@ -1,17 +1,19 @@
 /**
- * POST /api/ocr — proxy an image to the PaddleOCR FastAPI microservice.
+ * POST /api/ocr — run OCR + structured extraction on an image via a Vision LLM
+ * (Gemini 1.5 Flash). Replaces the former PaddleOCR microservice proxy.
  *
  * Accepts `multipart/form-data`:
  *   - `file` (required): the image to recognize.
  *   - `lang` (optional): "auto" | "ar" | "en" — defaults to "auto".
  *
  * Returns the service's JSON contract verbatim on success
- * (`{ success, detected_language, requested_language, total_lines, data }`)
+ * (`{ success, detected_language, requested_language, total_lines, data,
+ *    extraction }`)
  * or a uniform `{ success: false, error }` body otherwise. Status codes map
  * failure classes: 400 bad input, 401 unauthenticated, 503 service not
  * configured, 502 upstream failure.
  *
- * The heavy lifting lives in @/lib/ocr/paddle-service so server actions can
+ * The heavy lifting lives in @/lib/ocr/vision-service so server actions can
  * reuse it without going through HTTP.
  */
 
@@ -20,8 +22,8 @@ import { requireAuth } from "@/lib/auth";
 import {
   DEFAULT_OCR_LANGUAGE,
   isOCRLanguage,
-  runPaddleOCR,
-} from "@/lib/ocr/paddle-service";
+  runVisionOCR,
+} from "@/lib/ocr/vision-service";
 
 export async function POST(request: Request) {
   const authResult = await requireAuth();
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await runPaddleOCR(file, rawLang);
+  const result = await runVisionOCR(file, rawLang);
   if (!result.success && result.error?.includes("not configured")) {
     return NextResponse.json(result, { status: 503 });
   }
