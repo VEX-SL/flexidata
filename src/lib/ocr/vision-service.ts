@@ -106,8 +106,15 @@ export interface ReceiptExtraction {
   reference_number?: string;
   /** Value under "رقم العميل" (customer ID). */
   customer_id?: string;
+  /** Account digits next to "رقم الحساب". */
+  account_number?: string;
   /** Egyptian mobile number in 01[0125]xxxxxxxx form. */
   mobile_number?: string;
+  /** Customer phone read from a multi-line header like
+   *  "معلومات إضافية : Mobile Number" followed by digits. */
+  customer_phone?: string;
+  /** Service / merchant description (e.g. "Hostinger", "PURCHASE"). */
+  description?: string;
   /** Transaction amount (e.g. "68.38"). */
   amount?: string;
   /** Transaction timestamp in ISO format. */
@@ -164,6 +171,11 @@ const SYSTEM_PROMPT = [
   "   b. PROCESS NUMBER = RECEIPT + TRANSACTION: Map 'رقم العملية' / 'Process No' / transaction number DIRECTLY to BOTH 'receipt_number' AND 'transaction_id' — they are the same operational identifier on these slips.",
   "   c. SINGLE AMOUNT = TOTAL: If only ONE main currency/number value exists on the slip, use it as 'total_amount' / 'amount' even when no explicit 'Total' label is printed.",
   "   d. MISSING DATE/AMOUNT CROP: If the image genuinely lacks a legible date or amount crop, return null for that field instead of raising a missing-required-field error.",
+  "7. ADDITIONAL RECEIPT FIELDS: Also parse the following where printed:",
+  "   a. receipt_date / date: extract from 'تاريخ الوقت', 'التاريخ والوقت', 'التاريخ', or a timestamp line (e.g. '02-07-2026 18:30:12'). Normalize to ISO-8601 (date part YYYY-MM-DD; keep time separately if needed).",
+  "   b. customer_phone / mobile_number: read from 'معلومات إضافية', 'Mobile Number', or a raw phone digit block (e.g. '0123456789'). MULTI-LINE HEADER: when a header like 'معلومات إضافية : Mobile Number' is followed by a digit line, map that digit line to customer_phone.",
+  "   c. account_number: extract the digits next to 'رقم الحساب' (e.g. '391003452').",
+  "   d. description / service_name: capture the service or merchant description (e.g. 'Hostinger', 'PURCHASE', 'اشتراك').",
   "",
   "Respond with STRICT JSON only — no markdown fences, no commentary — shaped",
   "exactly like:",
@@ -173,7 +185,10 @@ const SYSTEM_PROMPT = [
   '    "transaction_id": "...",',
   '    "reference_number": "...",',
   '    "customer_id": "...",',
+  '    "account_number": "...",',
   '    "mobile_number": "...",',
+  '    "customer_phone": "...",',
+  '    "description": "...",',
   '    "amount": "...",',
   '    "date": "...",',
   '    "status": "...",',
@@ -420,7 +435,11 @@ function sanitizeExtraction(value: unknown): ReceiptExtraction | undefined {
     ...(str("transaction_id") !== undefined ? { transaction_id: str("transaction_id") } : {}),
     ...(str("reference_number") !== undefined ? { reference_number: str("reference_number") } : {}),
     ...(str("customer_id") !== undefined ? { customer_id: str("customer_id") } : {}),
+    ...(str("account_number") !== undefined ? { account_number: str("account_number") } : {}),
     ...(str("mobile_number") !== undefined ? { mobile_number: str("mobile_number") } : {}),
+    ...(str("customer_phone") !== undefined ? { customer_phone: str("customer_phone") } : {}),
+    ...(str("description") !== undefined ? { description: str("description") } : {}),
+    ...(str("service_name") !== undefined ? { description: str("service_name") } : {}),
     ...(str("amount") !== undefined ? { amount: str("amount") } : {}),
     ...(str("total_amount") !== undefined ? { amount: str("total_amount") } : {}),
     ...(str("date") !== undefined ? { date: str("date") } : {}),

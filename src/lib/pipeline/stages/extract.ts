@@ -59,7 +59,10 @@ function hasVisionData(ext: ReceiptExtraction): boolean {
     ext.reference_number,
     ext.receipt_number,
     ext.customer_id,
+    ext.account_number,
     ext.mobile_number,
+    ext.customer_phone,
+    ext.description,
     ext.amount,
     ext.date,
     ext.status,
@@ -90,11 +93,22 @@ function visionField(
     case "customer_id":
     case "رقم_العميل":
       return ext.customer_id;
+    case "account_number":
+    case "رقم_الحساب":
+      return ext.account_number;
     case "mobile_number":
     case "phone":
+    case "customer_phone":
     case "رقم_الموبايل":
     case "الهاتف":
-      return ext.mobile_number;
+    case "رقم هاتف العميل":
+      return ext.mobile_number ?? ext.customer_phone;
+    case "description":
+    case "service_name":
+    case "service":
+    case "الوصف":
+    case "اسم الخدمة":
+      return ext.description;
     case "amount":
     case "total":
     case "total_amount":
@@ -116,6 +130,7 @@ function visionField(
     case "التاريخ":
     case "تاريخ المعاملة":
     case "تاريخ الوقت":
+    case "التاريخ والوقت":
     case "الوقت":
       return ext.date;
     case "status":

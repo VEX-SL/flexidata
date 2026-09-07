@@ -35,6 +35,14 @@ const schema = {
       description: "The digits printed next to رقم العميل.",
     },
     {
+      key: "account_number",
+      type: "string" as const,
+      label: "Account number (رقم الحساب)",
+      labelGroup: "pos",
+      crossCheck: true,
+      description: "The account digits printed next to رقم الحساب.",
+    },
+    {
       key: "mobile_number",
       type: "string" as const,
       label: "Customer mobile number",
@@ -50,6 +58,12 @@ const schema = {
     { key: "payment_method", type: "string" as const, label: "Payment method" },
     { key: "cashier_name", type: "string" as const, label: "Cashier" },
     { key: "pos_number", type: "string" as const, label: "POS / terminal number" },
+    {
+      key: "description",
+      type: "string" as const,
+      label: "Service / description",
+      description: "Service or merchant description (e.g. Hostinger, PURCHASE).",
+    },
     { key: "notes", type: "text" as const, label: "Notes / footer text" },
     {
       key: "line_items",
