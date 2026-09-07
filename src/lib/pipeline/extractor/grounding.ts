@@ -264,6 +264,17 @@ export function groundExtraction(
     };
   }
 
+  // ── Pass 1.5: region / bounding box mapping ──────────────────────────
+  // Every field grounded to an OCR line must carry a bbox so the UI inspector
+  // can draw a highlighted overlay. Prefer an existing bbox already attached to
+  // the evidence; otherwise do a lenient normalized contains-search across the
+  // OCR lines and copy the matching line's bbox onto the field AND its evidence.
+  for (const { field } of enumerateFields(profile, map)) {
+    const fv = map[field.key];
+    if (!fv || isEmpty(fv.value)) continue;
+    map[field.key] = attachBbox(field, fv, ocrDoc);
+  }
+
   // ── Pass 2: composed confidence ─────────────────────────────────────
   for (const { field } of enumerateFields(profile, map)) {
     const fv = map[field.key];
@@ -482,6 +493,84 @@ function makeEvidence(
     ...(line.bbox !== undefined ? { bbox: line.bbox } : {}),
     context: line.text,
   };
+}
+
+/**
+ * Resolve and attach a bounding box to a grounded field so the UI inspector
+ * can draw the region overlay. Order of preference:
+ *   1. any bbox already on the field's evidence (word-span or line box),
+ *   2. a lenient normalized contains-match against the OCR lines — the first
+ *      line whose bbox-bearing text contains the value (or vice versa) gets
+ *      its box copied onto both the field and that line's evidence.
+ */
+function attachBbox(field: FieldSchema, fv: FieldValue, ocrDoc: OcrDocument): FieldValue {
+  const existing = fv.evidence?.find((e) => e.bbox !== undefined)?.bbox;
+  if (existing !== undefined) {
+    return fv.bbox === undefined ? { ...fv, bbox: existing } : fv;
+  }
+
+  const needles = fieldBoxNeedles(field, fv);
+  const matched = new Set<number>();
+
+  for (const needle of needles) {
+    const a = stripForMatch(needle);
+    if (!a) continue;
+    for (let i = 0; i < ocrDoc.lines.length; i++) {
+      const line = ocrDoc.lines[i];
+      if (!line.bbox) continue;
+      const b = stripForMatch(line.text);
+      if (!b) continue;
+      if (!(a.includes(b) || b.includes(a))) continue;
+      matched.add(i);
+    }
+  }
+
+  if (matched.size === 0) return fv;
+
+  // Prefer the earliest matched real box.
+  const box =
+    ocrDoc.lines
+      .map((line, i) => ({ line, i }))
+      .filter(({ i }) => matched.has(i))
+      .find(({ line }) => line.bbox !== undefined)?.line.bbox;
+
+  if (box === undefined) return fv;
+
+  const evidence = fv.evidence?.map((e) =>
+    // Back-fill the bbox onto the matched evidence line so consumers that only
+    // read evidence (e.g. the inspector) still get a region.
+    e.bbox === undefined && e.lineIndex !== undefined && matched.has(e.lineIndex)
+      ? { ...e, bbox: box }
+      : e
+  );
+
+  return {
+    ...fv,
+    bbox: fv.bbox ?? box,
+    ...(evidence !== undefined ? { evidence } : {}),
+  };
+}
+
+/** Normalize a value for lenient region matching: drop spaces, colons and
+ *  punctuation, lowercase. Used only for locating the OCR line (box), never
+ *  for value grounding. */
+function stripForMatch(s: string): string {
+  return s.replace(/[\s:;,.|،/\\()\[\]{}'"-]+/g, "").toLowerCase();
+}
+
+/** Candidate print-forms of a field value to scan the OCR for. */
+function fieldBoxNeedles(field: FieldSchema, fv: FieldValue): string[] {
+  if (field.type === "array" && Array.isArray(fv.value)) {
+    return (fv.value as Array<Record<string, unknown>>)
+      .map((it) => it?.description)
+      .filter((d): d is string => typeof d === "string" && d.trim().length > 0);
+  }
+  const raw = fv.rawValue !== undefined && fv.rawValue !== null
+    ? fv.rawValue
+    : fv.value;
+  if (typeof raw === "string") return raw.trim() ? [raw] : [];
+  if (typeof raw === "number") return [String(raw)];
+  return [];
 }
 
 /** Minimal contiguous word span whose joined text contains the needle. */

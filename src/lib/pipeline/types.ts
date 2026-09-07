@@ -180,6 +180,12 @@ export interface FieldValue {
   /** Anchors in the source document that support this value. */
   evidence?: FieldEvidence[];
   /**
+   * Union bounding box (processed-image space) for the OCR line that carries
+   * this value, when one could be resolved. Lets the UI inspector draw the
+   * region overlay without re-deriving it from evidence.
+   */
+  bbox?: BBox;
+  /**
    * Distinct grounded candidates when the value could not be resolved
    * (status "ambiguous"). Each entry is the coerced candidate value.
    */
