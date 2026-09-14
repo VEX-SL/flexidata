@@ -66,7 +66,11 @@ interface SessionCookieValue {
  * structurally valid and not expired. Runs fully locally (no network).
  *
  * - The session cookie (`sb-<ref>-auth-token`) holds a JSON blob with the
- *   access token; we decode it without contacting Supabase.
+ *   access token. When the JSON is large — e.g. OAuth provider tokens in the
+ *   session — @supabase/ssr splits it into chunked cookies named
+ *   `sb-<ref>-auth-token.0`, `.1`, ... (MAX chunk ~3180 chars each); we
+ *   recombine them before parsing. We decode it all without contacting
+ *   Supabase.
  * - The JWT payload is base64-decoded and its `exp` claim is checked against
  *   the current time.
  * - When SUPERBASE_JWT_SECRET is present in the environment we additionally
@@ -77,17 +81,11 @@ interface SessionCookieValue {
  *   supabase.auth.getUser().
  */
 async function hasValidSession(request: NextRequest): Promise<boolean> {
-  const cookie = request.cookies
-    .getAll()
-    .find((c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"));
-  if (!cookie) return false;
+  const rawValue = collectSessionCookieValue(request);
+  if (!rawValue) return false;
 
-  let session: SessionCookieValue;
-  try {
-    session = JSON.parse(decodeURIComponent(cookie.value));
-  } catch {
-    return false;
-  }
+  const session = parseSessionValue(rawValue);
+  if (!session) return false;
 
   const token = session.access_token;
   if (typeof token !== "string" || token.split(".").length !== 3) return false;
@@ -116,6 +114,53 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
   }
 
   return true;
+}
+
+/** Matches `sb-<ref>-auth-token` and its chunked variants `…-auth-token.N`. */
+const SESSION_COOKIE_RE = /^sb-.+-auth-token(\.[0-9]+)?$/;
+
+/**
+ * Recombines the Supabase session cookie across its possible chunks.
+ * @supabase/ssr stores the session JSON in a single cookie, but once the
+ * encoded value exceeds ~3180 chars it writes `sb-<ref>-auth-token.N` chunks
+ * (no base cookie). Without this, large sessions look logged-out here.
+ */
+function collectSessionCookieValue(request: NextRequest): string | null {
+  let baseValue: string | null = null;
+  const chunks: { index: number; value: string }[] = [];
+
+  for (const c of request.cookies.getAll()) {
+    if (!SESSION_COOKIE_RE.test(c.name)) continue;
+    const chunkSeparator = c.name.lastIndexOf(".");
+    if (chunkSeparator === -1) {
+      baseValue = c.value;
+      continue;
+    }
+    const index = Number(c.name.slice(chunkSeparator + 1));
+    if (!Number.isNaN(index)) chunks.push({ index, value: c.value });
+  }
+
+  if (baseValue !== null) return baseValue;
+  if (chunks.length === 0) return null;
+  chunks.sort((a, b) => a.index - b.index);
+  return chunks.map((c) => c.value).join("");
+}
+
+/** Decodes a (possibly percent-encoded) cookie value into the session blob. */
+function parseSessionValue(value: string): SessionCookieValue | null {
+  let decoded = value;
+  if (decoded.includes("%")) {
+    try {
+      decoded = decodeURIComponent(decoded);
+    } catch {
+      return null;
+    }
+  }
+  try {
+    return JSON.parse(decoded) as SessionCookieValue;
+  } catch {
+    return null;
+  }
 }
 
 /** base64url → UTF-8 string (binary JWT segments decode to ASCII JSON). */
