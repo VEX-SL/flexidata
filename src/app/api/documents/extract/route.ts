@@ -186,3 +186,6 @@ export const POST = createExtractHandler({
   pipeline: processDocumentPipeline,
   renderPdf: renderFirstPageToPng,
 });
+
+export const runtime = "nodejs";
+export const maxDuration = 60;

@@ -317,3 +317,6 @@ export async function POST(
     document_id: doc.id,
   });
 }
+
+export const runtime = "nodejs";
+export const maxDuration = 60;

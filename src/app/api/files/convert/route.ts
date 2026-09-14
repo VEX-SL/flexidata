@@ -80,3 +80,4 @@ async function handleMarkdownToDocx(text: string, outFilename: string) {
 }
 
 export const runtime = "nodejs";
+export const maxDuration = 60;

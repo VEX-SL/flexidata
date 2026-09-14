@@ -79,3 +79,6 @@ export async function POST(request: Request) {
     return errorResponse(err);
   }
 }
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
