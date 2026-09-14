@@ -2,7 +2,7 @@
 
 import { useState, Suspense, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 // ─── Stable particle data (deterministic — avoids hydration mismatch) ────────
@@ -549,7 +549,6 @@ function LoginForm() {
   const [error, setError]       = useState("");
   const [loading, setLoading]   = useState(false);
 
-  const router       = useRouter();
   const searchParams = useSearchParams();
   const redirectTo   = searchParams.get("redirectTo") || "/dashboard";
   const supabase     = createClient();
@@ -560,8 +559,9 @@ function LoginForm() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { setError(error.message); setLoading(false); return; }
-    router.push(redirectTo);
-    router.refresh();
+    // Full-page navigation (not router.push): guarantees the auth cookie is
+    // committed and sent with the /dashboard request that middleware gates on.
+    window.location.assign(new URL(redirectTo, window.location.origin).toString());
   }
 
   async function handleOAuth(provider: "google" | "github") {

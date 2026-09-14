@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
   // where every millisecond counts and external calls are the top cause of
   // MIDDLEWARE_INVOCATION_TIMEOUT. We deliberately do NOT call
   // supabase.auth.getUser() here (it is a blocking request to Supabase Auth);
-  // we decode the session cookie's JWT locally and verify expiry + signature.
+  // we decode the session cookie's JWT locally and check its expiry.
   const loggedIn = await hasValidSession(request);
 
   const isProtected = PROTECTED_ROUTES.some((route) =>
@@ -72,31 +72,42 @@ interface SessionCookieValue {
  *   recombine them before parsing. We decode it all without contacting
  *   Supabase.
  * - The JWT payload is base64-decoded and its `exp` claim is checked against
- *   the current time.
- * - When SUPERBASE_JWT_SECRET is present in the environment we additionally
- *   verify the HS256 signature with Web Crypto, which makes the check
- *   cryptographically sound even against hand-crafted cookies. Without the
- *   secret we still perform the expiry check — page gating stays a UX guard;
- *   real authorization happens server-side in API routes / pages via
- *   supabase.auth.getUser().
+ *   the current time (with a small clock-skew window).
+ * - We do NOT verify the JWT signature here: a locally-configured secret can
+ *   diverge from the token-issuing project and silently lock users out for an
+ *   edge-runtime UX gate. Real authorization happens server-side in API
+ *   routes / pages via supabase.auth.getUser(), which always revalidates
+ *   against Supabase. This gate only decides where to point the browser.
  */
 async function hasValidSession(request: NextRequest): Promise<boolean> {
+  const { pathname } = request.nextUrl;
+
   const rawValue = collectSessionCookieValue(request);
-  if (!rawValue) return false;
+  if (!rawValue) {
+    console.warn(`[auth-gate] no session cookie for ${pathname}`);
+    return false;
+  }
 
   const session = parseSessionValue(rawValue);
-  if (!session) return false;
+  if (!session) {
+    console.warn(`[auth-gate] session cookie unparseable for ${pathname}`);
+    return false;
+  }
 
   const token = session.access_token;
-  if (typeof token !== "string" || token.split(".").length !== 3) return false;
+  if (typeof token !== "string" || token.split(".").length !== 3) {
+    console.warn(`[auth-gate] malformed access token for ${pathname}`);
+    return false;
+  }
 
-  const [header, payload, signature] = token.split(".");
-  if (!header || !payload || !signature) return false;
+  const [header, payload] = token.split(".");
+  if (!header || !payload) return false;
 
   let claims: Record<string, unknown>;
   try {
     claims = JSON.parse(base64UrlDecode(payload));
   } catch {
+    console.warn(`[auth-gate] undecodable token payload for ${pathname}`);
     return false;
   }
 
@@ -104,13 +115,8 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
     typeof claims.exp !== "number" ||
     claims.exp * 1000 < Date.now() - CLOCK_SKEW_SECONDS * 1000
   ) {
+    console.warn(`[auth-gate] expired or missing exp for ${pathname}`);
     return false;
-  }
-
-  const secret = process.env.SUPABASE_JWT_SECRET;
-  if (secret) {
-    const valid = await verifyJwtSignature(header, payload, signature, secret);
-    if (!valid) return false;
   }
 
   return true;
@@ -168,48 +174,6 @@ function base64UrlDecode(input: string): string {
   const base64 = input.replace(/-/g, "+").replace(/_/g, "/");
   const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
   return atob(padded);
-}
-
-/** base64url → raw bytes (for signature comparison). */
-function base64UrlToBytes(input: string): Uint8Array {
-  const binary = base64UrlDecode(input);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-/** Constant-time comparison so signature timing never leaks byte equality. */
-function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
-  return diff === 0;
-}
-
-/** Verify the HS256 JWT signature with Web Crypto (off-band, no network). */
-async function verifyJwtSignature(
-  header: string,
-  payload: string,
-  signature: string,
-  secret: string
-): Promise<boolean> {
-  try {
-    const key = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode(secret),
-      { name: "HMAC", hash: "SHA-256" },
-      false,
-      ["sign", "verify"]
-    );
-    const data = new TextEncoder().encode(`${header}.${payload}`);
-    const expected = new Uint8Array(
-      await crypto.subtle.sign("HMAC", key, data)
-    );
-    return timingSafeEqual(expected, base64UrlToBytes(signature));
-  } catch (err) {
-    console.error("[Middleware] JWT signature verification failed:", err);
-    return false;
-  }
 }
 
 export const config = {
