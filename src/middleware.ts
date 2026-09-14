@@ -28,17 +28,19 @@ export async function middleware(request: NextRequest) {
   const isProtected = PROTECTED_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
-  if (!loggedIn && isProtected) {
+  if (!loggedIn.ok && isProtected) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(redirectUrl);
+    const response = NextResponse.redirect(redirectUrl);
+    response.headers.set("X-Auth-Gate", loggedIn.reason);
+    return response;
   }
 
   const isAuthRoute = AUTH_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
-  if (loggedIn && isAuthRoute) {
+  if (loggedIn.ok && isAuthRoute) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     redirectUrl.searchParams.delete("redirectTo");
@@ -61,6 +63,11 @@ interface SessionCookieValue {
   expires_at?: number;
 }
 
+interface SessionVerdict {
+  ok: boolean;
+  reason: string;
+}
+
 /**
  * True when the request carries a Supabase session whose access token is
  * structurally valid and not expired. Runs fully locally (no network).
@@ -79,36 +86,38 @@ interface SessionCookieValue {
  *   routes / pages via supabase.auth.getUser(), which always revalidates
  *   against Supabase. This gate only decides where to point the browser.
  */
-async function hasValidSession(request: NextRequest): Promise<boolean> {
+async function hasValidSession(
+  request: NextRequest
+): Promise<SessionVerdict> {
   const { pathname } = request.nextUrl;
 
   const rawValue = collectSessionCookieValue(request);
   if (!rawValue) {
     console.warn(`[auth-gate] no session cookie for ${pathname}`);
-    return false;
+    return { ok: false, reason: "no_cookie" };
   }
 
   const session = parseSessionValue(rawValue);
   if (!session) {
     console.warn(`[auth-gate] session cookie unparseable for ${pathname}`);
-    return false;
+    return { ok: false, reason: "unparseable" };
   }
 
   const token = session.access_token;
   if (typeof token !== "string" || token.split(".").length !== 3) {
     console.warn(`[auth-gate] malformed access token for ${pathname}`);
-    return false;
+    return { ok: false, reason: "malformed" };
   }
 
   const [header, payload] = token.split(".");
-  if (!header || !payload) return false;
+  if (!header || !payload) return { ok: false, reason: "malformed" };
 
   let claims: Record<string, unknown>;
   try {
     claims = JSON.parse(base64UrlDecode(payload));
   } catch {
     console.warn(`[auth-gate] undecodable token payload for ${pathname}`);
-    return false;
+    return { ok: false, reason: "unparseable" };
   }
 
   if (
@@ -116,10 +125,10 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
     claims.exp * 1000 < Date.now() - CLOCK_SKEW_SECONDS * 1000
   ) {
     console.warn(`[auth-gate] expired or missing exp for ${pathname}`);
-    return false;
+    return { ok: false, reason: "expired" };
   }
 
-  return true;
+  return { ok: true, reason: "ok" };
 }
 
 /** Matches `sb-<ref>-auth-token` and its chunked variants `…-auth-token.N`. */

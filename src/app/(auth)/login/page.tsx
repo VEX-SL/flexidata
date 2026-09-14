@@ -557,8 +557,30 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setError(error.message); setLoading(false); return; }
+
+    // Server-side sign-in: the session cookie is written by the API route's
+    // Set-Cookie headers (not by browser JS), so it is guaranteed to exist
+    // before we navigate to the middleware-gated dashboard.
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(
+          data.error || "Login failed. Please check your credentials and try again."
+        );
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setError("Network error — could not reach the server. Please try again.");
+      setLoading(false);
+      return;
+    }
+
     // Full-page navigation (not router.push): guarantees the auth cookie is
     // committed and sent with the /dashboard request that middleware gates on.
     window.location.assign(new URL(redirectTo, window.location.origin).toString());
