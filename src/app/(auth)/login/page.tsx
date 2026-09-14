@@ -581,6 +581,31 @@ function LoginForm() {
       return;
     }
 
+    // Force the client library to resync its cookies (belt-and-suspenders on
+    // top of the server Set-Cookie above).
+    await supabase.auth.getSession().catch(() => null);
+
+    // Verify the browser actually stored/attaches the session cookie before
+    // navigating — otherwise we'd bounce right back from the dashboard gate.
+    const dbg = await fetch("/api/auth/debug")
+      .then((r) => r.json())
+      .catch(() => null);
+    const sbCookieCount =
+      dbg && Array.isArray(dbg.sbCookies) ? dbg.sbCookies.length : -1;
+
+    if (sbCookieCount === 0) {
+      setError(
+        "Signed in, but the session cookie wasn't stored by this browser. " +
+          "Please clear cookies for this site (or try another browser) and sign in again."
+      );
+      setLoading(false);
+      return;
+    }
+    if (sbCookieCount < 0) {
+      // debug endpoint unreachable — don't block the happy path
+      console.warn("[login] auth-debug endpoint unavailable");
+    }
+
     // Full-page navigation (not router.push): guarantees the auth cookie is
     // committed and sent with the /dashboard request that middleware gates on.
     window.location.assign(new URL(redirectTo, window.location.origin).toString());
