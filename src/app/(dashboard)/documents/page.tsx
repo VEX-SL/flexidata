@@ -117,6 +117,30 @@ function confidenceColor(c: number): string {
   return "#EF4444";
 }
 
+/** Cap for OCR fallback rows (mirrors the server ocr-passages stage). */
+const OCR_PASSAGE_MAX = 80;
+
+/**
+ * The fields that drive the review UI. When an extraction produced no fields
+ * but the OCR actually read lines, the OCR is the document's content: present
+ * it as label-less passage rows (one per line) so the review + inspector
+ * always surface the text instead of an empty panel.
+ */
+function reviewFields(job: JobDTO | null): FieldDTO[] {
+  const stored = job?.fields ?? [];
+  if (stored.length > 0) return stored;
+  const lines = (job?.ocr?.lines ?? []).filter((l) => l.text.trim().length > 0);
+  return lines.slice(0, OCR_PASSAGE_MAX).map((line, i) => ({
+    key: `passage_${i + 1}`,
+    value: line.text.trim(),
+    confidence: line.confidence ?? job?.overallConfidence ?? 0.99,
+    source: "ocr",
+    status: "extracted",
+    label: "",
+    evidence: [{ quote: line.text, lineIndex: i }],
+  }));
+}
+
 const BREAKDOWN_KEY: Record<string, string> = {
   Validation: "validation",
   "Cross-field consistency": "consistency",
@@ -854,8 +878,11 @@ function ReviewWorkspace(props: ReviewProps) {
     onCancel,
   } = props;
 
-  const fields = job.fields ?? [];
+  const fields = reviewFields(job);
   const byKey = new Map(fields.map((f) => [f.key, f]));
+  // Fallback OCR rows aren't persisted server-side (their keys only exist in
+  // the job's stored fields) so editing them would fail on save.
+  const storedKeys = new Set((job.fields ?? []).map((f) => f.key));
   const missing = job.validation?.missing ?? [];
   const fieldLabel = (key: string) =>
     schema?.fields.find((f) => f.key === key)?.label ??
@@ -1078,6 +1105,7 @@ function ReviewWorkspace(props: ReviewProps) {
                       onDraft={onDraft}
                       onSave={() => onSave(field.key)}
                       onCancel={onCancel}
+                      readOnly={!storedKeys.has(field.key)}
                     />
                   ))}
                 </div>
@@ -1248,6 +1276,8 @@ interface FieldRowProps {
   onDraft: (draft: string) => void;
   onSave: () => void;
   onCancel: () => void;
+  /** Hide the edit affordance (rows synthesized from OCR aren't persisted). */
+  readOnly?: boolean;
 }
 
 function FieldRow({
@@ -1262,6 +1292,7 @@ function FieldRow({
   onDraft,
   onSave,
   onCancel,
+  readOnly,
 }: FieldRowProps) {
   const value = displayValue(field.value);
   const empty = value === "";
@@ -1380,10 +1411,11 @@ function FieldRow({
         </div>
       ) : (
         <button
-          onClick={onStartEdit}
+          onClick={readOnly ? undefined : onStartEdit}
           className="fd-doc-btn fd-doc-btn-secondary flex-shrink-0"
-          style={{ padding: ".5rem .75rem" }}
+          style={{ padding: ".5rem .75rem", ...(readOnly ? { visibility: "hidden" } : {}) }}
           title={t("documents.edit")}
+          tabIndex={readOnly ? -1 : 0}
         >
           <Pencil size={13} />
         </button>

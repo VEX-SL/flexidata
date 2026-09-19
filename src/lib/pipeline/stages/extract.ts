@@ -24,7 +24,15 @@ export function extractStage(opts: { ai?: AIClient } = {}): PipelineStage {
       ctx.profile = profile;
 
       // ── Gemini Vision fast-path: use structured extraction directly ──
-      if (ctx.visionExtraction && hasVisionData(ctx.visionExtraction)) {
+      // Only meaningful against a profile that actually exposes schema keys.
+      // Schema-less/free-form profiles could never map vision fields to any
+      // schema slot, so the shortcut would just shadow the discovery pipeline
+      // (which surfaces the OCR content even when no fields are discovered).
+      if (
+        profile.schema.fields.length > 0 &&
+        ctx.visionExtraction &&
+        hasVisionData(ctx.visionExtraction)
+      ) {
         ctx.extraction = buildExtractionFromVision(
           profile.schema.fields,
           ctx.visionExtraction,
