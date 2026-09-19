@@ -337,6 +337,13 @@ export interface RawExtraction {
   confidence?: Record<string, number>;
   /** Optional model-provided overall confidence (0..1). */
   modelConfidence?: number;
+  /**
+   * Content passages (dynamic mode): contiguous runs of body text that carry
+   * no field name (paragraphs / sentences in free-form documents). Each entry
+   * is `{ text, evidence?, confidence? }`. Surfaced as label-less fields,
+   * grounded verbatim to their OCR lines.
+   */
+  passages?: unknown;
 }
 
 export interface NormalizedField {

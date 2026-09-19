@@ -9,6 +9,7 @@ import type {
 import {
   DEFAULT_DYNAMIC_FIELD_CONFIDENCE,
   parseDynamicExtraction,
+  parseDynamicPassages,
 } from "./dynamic";
 import { isMobileField, sanitizeMobileNumber } from "./sanitizers";
 
@@ -94,6 +95,35 @@ export function normalizeDynamicFields(
       source: "ai",
       status: "extracted",
       meta,
+    };
+  }
+
+  // Content passages: label-less body text (paragraphs / sentences). Kept as
+  // dynamic entries so they flow through grounding like every other field; the
+  // synthesized schema produces no real label (the Inspector then shows the
+  // text alone and highlights its OCR region). Keys are positional and parked
+  // in a namespace the AI's own field names never collide with.
+  let passageSlot = 0;
+  for (const passage of parseDynamicPassages(raw)) {
+    passageSlot += 1;
+    let key = `passage_${passageSlot}`;
+    while (key in map) {
+      passageSlot += 1;
+      key = `passage_${passageSlot}`;
+    }
+    map[key] = {
+      value: passage.text,
+      rawValue: passage.text,
+      confidence: clamp(
+        passage.confidence ?? DEFAULT_DYNAMIC_FIELD_CONFIDENCE
+      ),
+      source: "ai",
+      status: "extracted",
+      meta: {
+        dynamicType: "text",
+        dynamicPassage: true,
+        evidenceQuote: passage.text,
+      },
     };
   }
 

@@ -179,5 +179,6 @@ export function parseRaw(content: string): RawExtraction {
       {},
     modelConfidence:
       typeof obj.modelConfidence === "number" ? obj.modelConfidence : undefined,
+    passages: Array.isArray(obj.passages) ? obj.passages : undefined,
   };
 }

@@ -134,6 +134,7 @@ export function groundExtraction(
   for (const { field, dynamic } of enumerateFields(profile, map)) {
     const fv = map[field.key];
     if (!fv || isEmpty(fv.value)) continue;
+    const passageMeta = dynamic ? passageMetaOf(fv) : null;
 
     // Universal semantic checks (document-type agnostic, never vendor-keyed).
     if (field.key === "currency") {
@@ -166,46 +167,59 @@ export function groundExtraction(
       // A clean note is still anchored to its OCR span below (evidence, label
       // verdict, confidence) like every other field — never `no_direct_evidence`.
     }
-    if (field.type === "text" && isNoiseFragment(String(fv.value))) {
+    if (!passageMeta && field.type === "text" && isNoiseFragment(String(fv.value))) {
       drops[field.key] = "OCR artifacts / non-clean text";
       delete map[field.key];
       continue;
     }
 
-    // Anchor the value to the source document. Dates are commonly printed in
-    // more than one format (ISO header, dd-mm-yyyy footer); union both so
-    // differing readings surface as honest alternatives. Other types only
-    // fall back to derived variants (e.g. amounts with thousands separators)
-    // when no verbatim match exists.
-    let evidence =
-      evidenceProvider !== undefined
-        ? [...evidenceProvider(field, fv)]
-        : findEvidence(ocrDoc, field, fv);
-    // Fallback: when the layout-aware path yields nothing (layout failure or
-    // an empty match) the OCR-only search runs unchanged — extraction never
-    // loses evidence because layout failed.
-    if (evidenceProvider !== undefined && evidence.length === 0) {
-      evidence = findEvidence(ocrDoc, field, fv);
-    }
-    if (field.type === "date") {
-      evidence = dedupeEvidence([
-        ...evidence,
-        ...findDerivedEvidence(ocrDoc, field, fv.value),
-      ]);
-    } else if (evidence.length === 0) {
-      evidence = findDerivedEvidence(ocrDoc, field, fv.value);
-    }
-    // Verify-or-Find (M12): when no verbatim/derived evidence exists, verify
-    // the value against the document in deterministic normalization tiers
-    // (separator-free reference numbers, alternative ISO date layouts). This
-    // stays strict grounding — no fuzzy matching, nothing invented.
-    if (evidence.length === 0) {
-      evidence = verifyEvidence(ocrDoc, field, fv);
-    }
-    if (evidence.length === 0) {
-      drops[field.key] = "not found in source text";
-      delete map[field.key];
-      continue;
+    // Anchor the value to the source document. Content passages anchor across
+    // a contiguous run of OCR lines (the whole text region) instead of a
+    // single-line value match; the pipeline drops a passage it cannot prove
+    // verbatim, exactly like any other value.
+    let evidence: FieldEvidence[] = [];
+    if (passageMeta) {
+      evidence = matchPassageLines(ocrDoc, passageMeta.text);
+      if (evidence.length === 0) {
+        drops[field.key] = "passage not found in source text";
+        delete map[field.key];
+        continue;
+      }
+    } else {
+      // Dates are commonly printed in more than one format (ISO header,
+      // dd-mm-yyyy footer); union both so differing readings surface as honest
+      // alternatives. Other types only fall back to derived variants (e.g.
+      // amounts with thousands separators) when no verbatim match exists.
+      evidence =
+        evidenceProvider !== undefined
+          ? [...evidenceProvider(field, fv)]
+          : findEvidence(ocrDoc, field, fv);
+      // Fallback: when the layout-aware path yields nothing (layout failure or
+      // an empty match) the OCR-only search runs unchanged — extraction never
+      // loses evidence because layout failed.
+      if (evidenceProvider !== undefined && evidence.length === 0) {
+        evidence = findEvidence(ocrDoc, field, fv);
+      }
+      if (field.type === "date") {
+        evidence = dedupeEvidence([
+          ...evidence,
+          ...findDerivedEvidence(ocrDoc, field, fv.value),
+        ]);
+      } else if (evidence.length === 0) {
+        evidence = findDerivedEvidence(ocrDoc, field, fv.value);
+      }
+      // Verify-or-Find (M12): when no verbatim/derived evidence exists, verify
+      // the value against the document in deterministic normalization tiers
+      // (separator-free reference numbers, alternative ISO date layouts). This
+      // stays strict grounding — no fuzzy matching, nothing invented.
+      if (evidence.length === 0) {
+        evidence = verifyEvidence(ocrDoc, field, fv);
+      }
+      if (evidence.length === 0) {
+        drops[field.key] = "not found in source text";
+        delete map[field.key];
+        continue;
+      }
     }
 
     // M22 — evidence-text anchoring for discovery entities: when the AI
@@ -214,7 +228,7 @@ export function groundExtraction(
     // evidence). This runs AFTER the value-existence gate, so a fabricated
     // value can never be smuggled in via a grounded quote — the value must
     // still anchor (see the drop above).
-    if (dynamic) {
+    if (dynamic && !passageMeta) {
       const hint = evidenceQuoteOf(fv);
       if (hint && universalGrounding(hint, ocrDoc.text).grounded) {
         const quoteEvidence = findQuoteEvidence(ocrDoc, hint);
@@ -449,6 +463,62 @@ function findQuoteEvidence(ocrDoc: OcrDocument, hint: string): FieldEvidence[] {
     out.push(makeEvidence(line, i, "value-match", norm));
   }
   return dedupeEvidence(out);
+}
+
+// ─── Content passages (multi-line body text) ───────────────────────────────
+
+/** Passage marker carried on a dynamic field's meta by the normalizer. */
+function passageMetaOf(fv: FieldValue): { text: string } | null {
+  const meta = fv.meta as { dynamicPassage?: unknown } | undefined;
+  if (!meta?.dynamicPassage) return null;
+  const text = String(fv.value ?? "").trim();
+  return text ? { text } : null;
+}
+
+/**
+ * Anchor a content passage to the OCR stream. A passage is a contiguous,
+ * verbatim run of the document that may span several lines, so instead of a
+ * single-line needle match the passage text is located in the normalized
+ * full-stream (lines joined exactly once per line break). Every covered line
+ * becomes a FieldEvidence anchor — the UI repeats the whole text region.
+ * Nothing is accepted unless the passage is a verbatim substring of the
+ * document (after the pipeline's standard normalization).
+ */
+function matchPassageLines(ocrDoc: OcrDocument, passageText: string): FieldEvidence[] {
+  const target = normalizeText(passageText);
+  if (!target) return [];
+  const lineTexts = ocrDoc.lines.map((l) => normalizeText(l.text));
+  const joined = lineTexts.join(" ");
+
+  const idx = joined.indexOf(target);
+  if (idx < 0) return [];
+
+  // Locate the line range covering [idx, idx + target.length) in the joined
+  // stream. Each normalized line contributes len(line) + 1 (its joiner space).
+  const end = idx + target.length;
+  let startLine = -1;
+  let cursor = 0;
+  for (let i = 0; i < lineTexts.length; i++) {
+    const len = lineTexts[i].length;
+    if (idx >= cursor && idx < cursor + len) startLine = i;
+    if (end > cursor && end <= cursor + len) {
+      if (startLine < 0) return [];
+      const out: FieldEvidence[] = [];
+      for (let j = startLine; j <= i; j++) {
+        out.push(makeEvidence(ocrDoc.lines[j], j, "value-match", lineTexts[j]));
+      }
+      return dedupeEvidence(out);
+    }
+    cursor += len + 1;
+  }
+
+  // Defensive single-line fallback (unreachable when the join is consistent).
+  for (let i = 0; i < ocrDoc.lines.length; i++) {
+    if (normalizeText(ocrDoc.lines[i].text).includes(target)) {
+      return [makeEvidence(ocrDoc.lines[i], i, "value-match", target)];
+    }
+  }
+  return [];
 }
 
 /**

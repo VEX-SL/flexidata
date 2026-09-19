@@ -88,6 +88,7 @@ Rules:
 - On OCR lines that mix Arabic and English, the printed order may be unreliable (RTL bidi layout): never assume the segment before ":" is the label. In an Arabic document the Arabic segment of a mixed line is usually the label. If you cannot confidently determine which side is the label, do NOT create the field.
 - Only create a field when the value is plausibly compatible with the meaning of the label (a "mobile number" label must hold a phone number, not another label or a foreign text fragment).
 - Do not turn broken or garbled OCR snippets into fields: a line that reads as short fragments with no clear category is not a field — omit it.
+- Free-form body text (paragraphs, sentences of a book, a letter, any prose without a field : value structure) is NOT a field. Do not force a fabricated field name onto prose. Instead report the meaningful sentences or paragraphs under the separate "passages" channel (see the output contract) — verbatim, each as one contiguous run.
 - For each field include: a field name, the value, and a useful type.
 
 Document:
@@ -125,13 +126,39 @@ Rules:
 - Never normalize away ambiguity: if characters are unclear, transcribe them as printed in "raw" and reflect uncertainty in "confidence".
 - Never include text outside the JSON.`;
 
+/**
+ * Content passages: the dynamic response may also carry body text that has no
+ * field name (free-form prose). Kept in a separate `passages` channel so prose
+ * is never forced into a fabricated field : value pair.
+ */
+const PASSAGES_CONTRACT = `
+The JSON object may additionally carry "passages": an array of free-form body text runs that are NOT field : value pairs.
+
+Each passage is:
+{
+  "text": <the passage EXACTLY as it appears in the document, copying every line verbatim — never translate, summarize, rephrase or "fix" it>,
+  "evidence": <exact verbatim quote from the document that contains this passage>,
+  "confidence": <number between 0 and 1>
+}
+
+Passage rules:
+- One passage = one contiguous run of prose. Split a long paragraph at sentence or line boundaries; never merge pieces from different, non-adjacent parts of the document.
+- Copy "text" verbatim from the document. If you cannot quote it verbatim, omit the passage.
+- Never invent prose that is not printed.
+- Do not put headings, titles, branding, standalone numbers, or field labels into "passages" — those belong to "data" or nowhere.
+- When the document is structured (receipt, invoice, table, form), use "passages": [] or omit the key entirely.
+
+full response shape:
+{ "data": { <field name>: { raw, value, type, label, confidence, evidence }, ... }, "passages": [ { text, evidence, confidence }, ... ] }`;
+
 /** Render the schema-free dynamic prompt (no profile template, no schema). */
 export function buildDynamicPrompt(sourceText: string): string {
   const document = truncateMiddle(sourceText, MAX_DOCUMENT_CHARS);
   return (
     DYNAMIC_PROMPT.replace(/\{\{document\}\}/g, document) +
     "\n\n" +
-    DYNAMIC_OUTPUT_CONTRACT
+    DYNAMIC_OUTPUT_CONTRACT +
+    PASSAGES_CONTRACT
   );
 }
 

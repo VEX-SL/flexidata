@@ -126,6 +126,71 @@ export function humanizeKey(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// ─── Content passages (label-less body text) ───────────────────────────────
+
+/**
+ * M22 — content passage contract. Free-form documents (a paragraph, a page of
+ * a book, a letter) have no field : value structure, so the model reports the
+ * meaningful body text as passages instead of forcing fabricated field names.
+ * Each passage is a contiguous run of verbatim text; grounding anchors it to
+ * its OCR lines, and the UI shows it in the Inspector as a text-only row whose
+ * on-image location is highlighted.
+ */
+export interface PassageSpec {
+  /** Verbatim passage text (a contiguous run of the source document). */
+  text: string;
+  /** Informational 0..1 confidence (grounding re-validates verbatim). */
+  confidence?: number;
+}
+
+/**
+ * Parse the model's `passages` channel into passage specs. Fails safely:
+ * non-array payloads yield nothing, malformed / placeholder-shaped entries are
+ * skipped, confidence is clamped. Nothing is ever fabricated here — grounding
+ * remains the verbatim authority.
+ */
+export function parseDynamicPassages(raw: RawExtraction): PassageSpec[] {
+  const list = raw.passages;
+  if (!Array.isArray(list)) return [];
+
+  const out: PassageSpec[] = [];
+  for (const entry of list) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      continue;
+    }
+    const text = (entry as Record<string, unknown>).text;
+    if (typeof text !== "string" || !isPassageText(text)) continue;
+
+    const rawConfidence = (entry as Record<string, unknown>).confidence;
+    out.push({
+      text: text.trim(),
+      confidence:
+        typeof rawConfidence === "number"
+          ? clampPassageConfidence(rawConfidence)
+          : undefined,
+    });
+  }
+  return out;
+}
+
+/**
+ * A passage must be real body text: several characters across at least two
+ * tokens, and not pure digits/standalone symbols (those are field values or
+ * fragments, not free-form prose).
+ */
+function isPassageText(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 4) return false;
+  if (t.split(/\s+/).length < 2) return false;
+  if (/^[\p{N}\p{P}\p{S}\s]+$/u.test(t)) return false;
+  return true;
+}
+
+function clampPassageConfidence(n: number): number {
+  if (!Number.isFinite(n)) return DEFAULT_DYNAMIC_FIELD_CONFIDENCE;
+  return Math.min(1, Math.max(0, n));
+}
+
 /**
  * Parse a raw AI response into dynamic field specs.
  * Fails safely: non-object payloads yield nothing, malformed entries are
