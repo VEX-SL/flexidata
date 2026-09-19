@@ -6,21 +6,22 @@ import type {
 import { buildOcrDocument } from "../ocr";
 
 /**
- * Stage: ocr-passages. Deterministic content fallback for discovery runs.
+ * Stage: ocr-passages. The OCR is a ground-truth reading of the document, and
+ * in discovery (dynamic) mode the reviewer wants to see the document's content
+ * — not just whatever few attributes the model happened to name. This stage
+ * turns every OCR line into a label-less passage, so the Inspector always
+ * renders the text (with its exact on-image region when boxes exist).
  *
- * A dynamic extraction that surfaced ZERO fields leaves the reviewer looking
- * at an empty Inspector for a document that clearly has content (a textbook
- * page, a scanned paragraph, a page of prose). The AI is not the only reader
- * of the document: the OCR itself is a ground-truth reading. When discovery
- * found nothing to highlight, this stage turns the OCR lines themselves into
- * label-less passages — one verbatim line per passage, each carrying its own
- * line-indexed (boxed) evidence, so the Inspector renders every line of text
- * with its exact on-image region.
+ * It never duplicates what the extraction already surfaced:
+ *  - a line covered by an existing field's evidence (lineIndex) is skipped;
+ *  - a line whose verbatim text is already a field/passage value is skipped
+ *    (e.g. a model that discovered "Surah name" from the title line — that
+ *    line is already represented).
+ *  - existing fields/passages keep their place; the addition is purely
+ *    additive and never re-orders or rewrites discovered structure.
  *
- * Strictly additive and guarded:
+ * Guards:
  *  - runs only in dynamic mode (legacy/schema extractions are untouched);
- *  - only when the extraction produced no fields at all (never duplicates or
- *    disturbs discovered structure);
  *  - only non-empty lines; capped to keep the reviewer view readable.
  */
 export const MAX_OCR_PASSAGES = 80;
@@ -36,7 +37,20 @@ export function ocrPassagesStage(): PipelineStage {
       }
       const extraction = ctx.extraction;
       if (extraction.extractionMode !== "dynamic") return;
-      if (extraction.fields.length > 0) return;
+
+      // Lines already represented by the extraction (evidence or value).
+      const coveredIndexes = new Set<number>();
+      const surfacedValues = new Set<string>();
+      const usedKeys = new Set<string>();
+      for (const f of extraction.fields) {
+        usedKeys.add(f.field.key);
+        for (const e of f.value.evidence ?? []) {
+          if (typeof e.lineIndex === "number") coveredIndexes.add(e.lineIndex);
+          if (e.quote) surfacedValues.add(e.quote.trim());
+        }
+        const v = f.value.value;
+        if (typeof v === "string") surfacedValues.add(v.trim());
+      }
 
       const ocr = ctx.ocr ?? buildOcrDocument(ctx.sourceText ?? "");
       const pageConfidence =
@@ -44,13 +58,23 @@ export function ocrPassagesStage(): PipelineStage {
 
       const passages: NormalizedField[] = [];
       const lines = ocr.lines.slice(0, MAX_OCR_PASSAGES);
-      for (let i = 0; i < lines.length; i += 1) {
+      outer: for (let i = 0; i < lines.length; i += 1) {
         const line = lines[i];
         const text = line.text.trim();
         if (!text) continue;
+        if (coveredIndexes.has(i)) continue;
+        if (surfacedValues.has(text)) continue;
 
         const confidence = clamp(line.confidence ?? pageConfidence);
-        const key = `passage_${i + 1}`;
+        let slot = i;
+        let key = `passage_${slot + 1}`;
+        while (usedKeys.has(key)) {
+          slot += 1;
+          key = `passage_${slot + 1}`;
+          if (slot > lines.length + 8) continue outer;
+        }
+        usedKeys.add(key);
+
         passages.push({
           field: { key, type: "text", label: "" },
           value: {

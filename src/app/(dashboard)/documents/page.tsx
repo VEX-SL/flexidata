@@ -35,7 +35,7 @@ const EXPORT_FORMATS = ["json", "csv", "word"] as const;
 const EXPORT_LABELS: Record<(typeof EXPORT_FORMATS)[number], string> = {
   json: "JSON",
   csv: "CSV",
-  word: "Word",
+  word: "docx (word)",
 };
 const ACCEPT =
   ".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp";

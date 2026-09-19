@@ -63,7 +63,7 @@ test("fallback: a zero-field dynamic extraction surfaces every OCR line as a pas
   ok(ev?.quote === SURAH_LINES[2], "evidence quote is the verbatim OCR line");
 });
 
-test("fallback: never fires when discovery already found fields", async () => {
+test("fallback: never duplicates lines the extraction already surfaced", async () => {
   const out = await runPipeline(
     {
       sourceText: SURAH_LINES.join("\n"),
@@ -79,8 +79,8 @@ test("fallback: never fires when discovery already found fields", async () => {
               raw: SURAH_LINES[0],
               value: SURAH_LINES[0],
               type: "string",
-              label: "سورة الفاتحة",
-              confidence: 0.9,
+              label: "Surah name",
+              confidence: 0.99,
               evidence: SURAH_LINES[0],
             },
           },
@@ -91,10 +91,26 @@ test("fallback: never fires when discovery already found fields", async () => {
 
   ok(out.status === "complete", `pipeline must complete: ${JSON.stringify(out.error)}`);
   const extraction = out.job!.extraction;
-  equal(Object.keys(extraction.cleanFields).length, 1, "only the discovered field");
+
+  ok("سورة" in extraction.cleanFields, "the discovered field kept its place");
+  equal(extraction.cleanFields["سورة"], SURAH_LINES[0]);
+
+  // The title line is already represented by the field → skipped; the other
+  // verses are free-form content → each still appears as a passage.
   assert(
-    !("passage_2" in extraction.cleanFields),
-    "no OCR-line fallback when the model produced real content"
+    !("passage_1" in extraction.cleanFields),
+    "the covered title line is not re-surfaced as a passage"
+  );
+  equal(
+    extraction.cleanFields.passage_2,
+    SURAH_LINES[1],
+    "the first real verse appears as a passage"
+  );
+  ok("passage_4" in extraction.cleanFields, "later verses are surfaced too");
+  equal(
+    extraction.fields.filter((f) => f.field.label === "").length,
+    SURAH_LINES.length - 1,
+    "every unrecovered verse is a label-less passage"
   );
 });
 
