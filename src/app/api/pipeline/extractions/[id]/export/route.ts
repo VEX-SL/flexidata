@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { PipelineService } from "@/lib/pipeline/service";
 import { errorResponse } from "@/lib/pipeline/http";
 
-const FORMATS = ["json", "csv", "xlsx", "pdf"] as const;
+const FORMATS = ["json", "csv", "word", "xlsx", "pdf"] as const;
 
 /**
  * GET /api/pipeline/extractions/{id}/export?format=json|csv
@@ -33,13 +33,13 @@ export async function GET(
 
   try {
     const service = new PipelineService();
-    const { content, fileName, mimeType } = await service.exportJob(
+    const { content, buffer, fileName, mimeType } = await service.exportJob(
       user.id,
       id,
       format
     );
 
-    return new Response(content, {
+    return new Response((buffer ?? content) as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": mimeType,

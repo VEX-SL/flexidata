@@ -392,7 +392,12 @@ export class PipelineService {
     userId: string,
     id: string,
     format: ExportFormat
-  ): Promise<{ content: string; fileName: string; mimeType: string }> {
+  ): Promise<{
+    content: string;
+    buffer?: Uint8Array;
+    fileName: string;
+    mimeType: string;
+  }> {
     const row = await this.getRow(userId, id);
 
     if (row.status !== "complete") {
@@ -409,13 +414,14 @@ export class PipelineService {
 
     let result;
     try {
-      result = exportExtraction(extraction, { format }, {
+      result = await exportExtraction(extraction, { format }, {
         confidence: Number(row.overall_confidence ?? 0),
         signals:
           row.confidence_json && typeof row.confidence_json === "object"
             ? row.confidence_json.signals
             : undefined,
         extractedAt: row.completed_at ?? undefined,
+        ocrText: ocrTextOf(row),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -433,6 +439,7 @@ export class PipelineService {
 
     return {
       content: result.content ?? "",
+      buffer: result.buffer,
       fileName: result.fileName,
       mimeType: result.mimeType,
     };
@@ -873,6 +880,22 @@ function rebuildExtraction(
     model: row.model ?? undefined,
     provider: row.provider ?? undefined,
   };
+}
+
+/**
+ * Verbatim OCR text for exports: the structured OCR lines (exactly what the
+ * Line-level OCR preview shows), falling back to the raw source text when no
+ * structured OCR was captured. Newline-joined so a Word/JSON export reproduces
+ * the OCR reading line-for-line.
+ */
+function ocrTextOf(row: Row): string {
+  const ocr = row.ocr_json;
+  if (ocr && Array.isArray(ocr.lines) && ocr.lines.length > 0) {
+    return ocr.lines
+      .map((l) => (typeof l === "object" && l !== null ? (l as { text?: string }).text ?? "" : String(l)))
+      .join("\n");
+  }
+  return row.source_text ?? "";
 }
 
 function serializeFields(extraction: ExtractionResult): FieldDTO[] {

@@ -250,8 +250,8 @@ test("clean stage runs in the default pipeline between ground and recover", asyn
   const order = Array.from(new Set(out.trace.map((t) => t.stage)));
   equal(
     order.join(","),
-    "classify,extract,ground,clean,recover,validate,confidence",
-    "clean must sit between ground and recover"
+    "classify,extract,ground,ocr-passages,clean,recover,validate,confidence",
+    "clean must sit between ground and recover, after the OCR-passages fallback"
   );
   equal(out.job!.extraction.fieldsMap.merchant_name.value, "ACME Store");
   equal(out.job!.extraction.fieldsMap.merchant_name.chosenReason, "entity_cleaned");

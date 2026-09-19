@@ -567,7 +567,7 @@ export interface StructuredError {
 
 // ─── Export ───────────────────────────────────────────────────────────────
 
-export type ExportFormat = "json" | "csv" | "xlsx" | "pdf";
+export type ExportFormat = "json" | "csv" | "word" | "xlsx" | "pdf";
 
 export interface ExportOptions {
   format: ExportFormat;

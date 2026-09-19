@@ -2,6 +2,7 @@ import type { AIClient, PipelineStage } from "../types";
 import { classifyStage } from "./classify";
 import { extractStage } from "./extract";
 import { groundStage } from "./ground";
+import { ocrPassagesStage } from "./ocr-passages";
 import { cleanStage } from "./clean";
 import { recoverStage } from "./recover";
 import { validateStage } from "./validate";
@@ -19,6 +20,7 @@ export function defaultPipelineStages(
     classifyStage(opts),
     extractStage(opts),
     groundStage(),
+    ocrPassagesStage(),
     cleanStage(),
     recoverStage(opts),
     validateStage(),
@@ -30,6 +32,7 @@ export {
   classifyStage,
   extractStage,
   groundStage,
+  ocrPassagesStage,
   cleanStage,
   recoverStage,
   validateStage,

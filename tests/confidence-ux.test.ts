@@ -84,7 +84,7 @@ test("JSON export is complete + grounded: reasons, evidence, raw, signals", asyn
   const ai = makeAI(EMPTY);
   const job = await runReceipt(ai, SUPERYPAY_RECEIPT_OCR);
 
-  const res = exportExtraction(
+  const res = await exportExtraction(
     job.extraction,
     { format: "json" },
     {

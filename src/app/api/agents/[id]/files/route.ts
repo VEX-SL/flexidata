@@ -165,11 +165,18 @@ export async function POST(
     );
   }
 
-  const textContent = parsed.text;
+  // Scanned images / photographed pages frequently yield an empty text blob
+  // while the OCR layer still reads the page. Fall back to the structured OCR
+  // text before giving up — an OCR-only document is still a real document.
+  const textContent =
+    parsed.text.trim() || parsed.ocr?.text?.trim() || "";
 
   if (!textContent.trim()) {
     return NextResponse.json(
-      { error: "Extracted text is empty" },
+      {
+        error:
+          "Extracted text is empty — the OCR could not read this file either",
+      },
       { status: 400 }
     );
   }

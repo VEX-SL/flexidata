@@ -6,11 +6,23 @@ import type {
 } from "./types";
 import { getProfileManager } from "./profiles/registry";
 import { isEmptyValue } from "./extractor/post-processor";
+import {
+  AlignmentType,
+  Document,
+  HeadingLevel,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableRow,
+  TextRun,
+  WidthType,
+} from "docx";
 
 /**
  * Exporter — turns a validated extraction into downloadable formats.
- * JSON and CSV are implemented; XLSX and PDF land in phase 2 (stubs throw
- * a clear "not implemented" error so the contract stays explicit).
+ * JSON, CSV and Word are implemented; XLSX and PDF land in phase 2 (stubs
+ * throw a clear "not implemented" error so the contract stays explicit).
  */
 
 /** Enrichment metadata (not part of the extraction result itself). */
@@ -21,12 +33,18 @@ export interface ExportMeta {
   signals?: Record<string, number>;
   /** ISO timestamp of completion. */
   extractedAt?: string;
+  /**
+   * Verbatim OCR lines (newline-joined), as shown in the Line-level OCR
+   * preview. Exported verbatim — the user asked for the text exactly as OCR
+   * read it.
+   */
+  ocrText?: string;
 }
-export function exportExtraction(
+export async function exportExtraction(
   extraction: ExtractionResult,
   options: ExportOptions,
   meta: ExportMeta = {}
-): ExportResult {
+): Promise<ExportResult> {
   const profile = getProfileManager().getOrFallback(extraction.profileType);
   const baseName = sanitize(profile.exportConfig.filename ?? profile.id);
 
@@ -35,6 +53,8 @@ export function exportExtraction(
       return exportJson(extraction, options, meta, `${baseName}.json`);
     case "csv":
       return exportCsv(profile, extraction, options, `${baseName}.csv`);
+    case "word":
+      return exportWord(extraction, meta, `${baseName}.docx`);
     case "xlsx":
       throw new Error("XLSX export is scheduled for phase 2");
     case "pdf":
@@ -46,13 +66,16 @@ export function exportExtraction(
 
 /**
  * Structured JSON export. Always self-describing and current:
- *  - `document_type`, `confidence`, `signals`, `extracted_at`, `provider`, `model`
+ *  - `document_type`, `confidence`, `signals`, `extracted_at`
+ *  - `ocr`: the verbatim OCR lines (what "فصل النصوص في كلمة" expects — the
+ *    text exactly as the OCR read it, newline-joined)
  *  - `fields`: every extracted field key → { value, confidence, source, status,
  *    edited, verified, label, raw, evidence, reasons, alternatives }. Reviewed
  *    values are what the user sees; empty values (including empty arrays) are
  *    never emitted — the export can never contain a meaningless `key: []`.
  * Every field carries the same grounded evidence + uncertainty reasons the
  * review UI shows, so the export is a faithful copy of what was extracted.
+ * Provider/model metadata is deliberately NOT exported (user request).
  */
 function exportJson(
   extraction: ExtractionResult,
@@ -88,8 +111,7 @@ function exportJson(
     confidence: meta.confidence ?? null,
     signals: meta.signals ?? undefined,
     extracted_at: meta.extractedAt ?? null,
-    provider: extraction.provider ?? null,
-    model: extraction.model ?? null,
+    ocr: meta.ocrText ?? null,
     fields,
   };
 
@@ -140,6 +162,166 @@ function csvEscape(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
+}
+
+/**
+ * Word export — a .docx rendered straight from the OCR reading. The document
+ * body is the exact line-level OCR text (one line = one paragraph, verbatim,
+ * nothing normalized or rewritten), followed by the extracted fields.
+ */
+async function exportWord(
+  extraction: ExtractionResult,
+  meta: ExportMeta,
+  fileName: string
+): Promise<ExportResult> {
+  const lines = (meta.ocrText ?? "").split("\n").filter((l) => l.length > 0);
+
+  const children: Array<Paragraph | Table> = [];
+
+  children.push(
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      alignment: AlignmentType.RIGHT,
+      children: [
+        new TextRun({ text: "مستند الاستخراج", bold: true, size: 28 }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      children: [
+        new TextRun({
+          text: (
+            extraction.fields.length > 0
+              ? `${extraction.fields.length} حقل مستخرج`
+              : "بدون حقول مستخرجة"
+          ) + (typeof meta.confidence === "number"
+            ? ` · الثقة ${Math.round(meta.confidence * 100)}٪`
+            : ""),
+          size: 22,
+          color: "555555",
+        }),
+      ],
+    })
+  );
+
+  children.push(
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      alignment: AlignmentType.RIGHT,
+      children: [new TextRun({ text: "النص المستخرج من OCR", bold: true, size: 24 })],
+    })
+  );
+
+  if (lines.length === 0) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: "(لا يوجد نص OCR)", color: "888888" })],
+      })
+    );
+  }
+
+  for (const line of lines) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.RIGHT,
+        children: [new TextRun({ text: line, size: 22 })],
+      })
+    );
+  }
+
+  if (extraction.fields.length > 0) {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        alignment: AlignmentType.RIGHT,
+        children: [new TextRun({ text: "الحقول المستخرجة", bold: true, size: 24 })],
+      })
+    );
+
+    const rows: TableRow[] = [
+      new TableRow({
+        tableHeader: true,
+        children: [
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: "الحقل", bold: true })] })],
+          }),
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: "القيمة", bold: true })] })],
+          }),
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: "الثقة", bold: true })] })],
+          }),
+        ],
+      }),
+    ];
+
+    for (const f of extraction.fields) {
+      if (isEmptyValue(f.value.value)) continue;
+      rows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: f.field.label && f.field.label !== f.field.key
+                        ? f.field.label
+                        : f.field.key,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text:
+                        typeof f.value.value === "string"
+                          ? f.value.value
+                          : JSON.stringify(f.value.value),
+                    }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `${Math.round((f.value.confidence ?? 0) * 100)}٪`,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        })
+      );
+    }
+
+    children.push(
+      new Table({
+        rows,
+        width: { size: 100, type: WidthType.PERCENTAGE },
+      })
+    );
+  }
+
+  const doc = new Document({
+    sections: [{ children }],
+  });
+  const uint8 = await Packer.toBuffer(doc);
+  return {
+    format: "word",
+    buffer: new Uint8Array(uint8),
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    fileName,
+  };
 }
 
 function sanitize(name: string): string {

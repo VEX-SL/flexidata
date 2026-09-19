@@ -16,7 +16,6 @@ import {
   History,
   ScanText,
   ScanSearch,
-  Sparkles,
   ShieldCheck,
   Clipboard,
   FileClock,
@@ -32,7 +31,12 @@ import { downloadBlob } from "@/lib/download";
 import DocumentInspector, { type InspectorField } from "@/components/inspector/DocumentInspector";
 
 const RUNNING = new Set(["queued", "classifying", "extracting", "validating"]);
-const EXPORT_FORMATS = ["json", "csv"] as const;
+const EXPORT_FORMATS = ["json", "csv", "word"] as const;
+const EXPORT_LABELS: Record<(typeof EXPORT_FORMATS)[number], string> = {
+  json: "JSON",
+  csv: "CSV",
+  word: "Word",
+};
 const ACCEPT =
   ".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp";
 
@@ -953,12 +957,6 @@ function ReviewWorkspace(props: ReviewProps) {
             <ShieldCheck size={13} />
             {Math.round((job.overallConfidence ?? 0) * 100)}% {t("documents.confidence").toLowerCase()}
           </span>
-          {job.model && (
-            <span className="fd-doc-chip" style={{ background: "rgba(115,115,115,.08)", color: "#4a4a4a" }}>
-              <Sparkles size={12} />
-              {job.model}
-            </span>
-          )}
         </div>
 
         {/* View tabs */}
@@ -1101,7 +1099,7 @@ function ReviewWorkspace(props: ReviewProps) {
           className="fd-doc-select"
         >
           {EXPORT_FORMATS.map((f) => (
-            <option key={f} value={f}>{f.toUpperCase()}</option>
+            <option key={f} value={f}>{EXPORT_LABELS[f]}</option>
           ))}
         </select>
         <div className="flex-1" />

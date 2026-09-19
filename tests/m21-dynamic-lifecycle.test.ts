@@ -390,7 +390,7 @@ test("validateExtraction is schema-neutral for dynamic mode", () => {
   );
 });
 
-test("exportCsv dynamic columns differ from the profile's configured columns", () => {
+test("exportCsv dynamic columns differ from the profile's configured columns", async () => {
   const profile = getProfileManager().get("invoice")!;
   const fields = dynamicFields.map((f) => ({
     field: {
@@ -410,7 +410,7 @@ test("exportCsv dynamic columns differ from the profile's configured columns", (
     droppedFields: {},
   };
 
-  const dynamicCsv = exportExtraction(extraction, { format: "csv" });
+  const dynamicCsv = await exportExtraction(extraction, { format: "csv" });
   const header = dynamicCsv.content?.split("\n")[0] ?? "";
   equal(header, "account_number,customer_name,total");
 
