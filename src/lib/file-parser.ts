@@ -14,6 +14,7 @@ import type { ReceiptExtraction } from "@/lib/ocr/vision-service";
 import { OCR_TIMEOUT_MS } from "@/lib/ocr/recall";
 import { postProcessOcr } from "@/lib/ocr/arabic";
 import { countArabicLetters } from "@/lib/ocr/arabic/scripts";
+import { matchVisionLinesToGeometry } from "@/lib/ocr/vision-geometry";
 
 // Bound every OCR call with a hard timeout so the pipeline can never get
 // stuck; on failure the caller falls back to the "no text" path. The same
@@ -285,6 +286,42 @@ async function extractImageText(buffer: Buffer): Promise<ParseResult> {
       if (repaired.report.linesChanged > 0) {
         console.debug(
           `[Vision OCR] Arabic repair applied to ${repaired.report.linesChanged} line(s)`
+        );
+      }
+    }
+
+    // Geometry recovery: the Vision model is a strong reader but often returns
+    // NO per-line bbox (screenshots, glyph-heavy images). Without pixel boxes
+    // the Inspector has nothing to highlight, so when coverage is missing we
+    // borrow real word boxes from the local Tesseract engine by matching each
+    // Vision line's tokens to the Tesseract rows. Text stays the Vision
+    // reading — only the coordinates are supplemented.
+    const boxedLines = ocr.lines.filter(
+      (l) => l.bbox !== undefined && l.bbox.width > 0 && l.bbox.height > 0
+    ).length;
+    const geometryCoverage =
+      ocr.lines.length === 0 ? 1 : boxedLines / ocr.lines.length;
+    if (geometryCoverage < 0.8 && ocr.lines.length > 0) {
+      try {
+        const geo = await withOcrTimeout(
+          recognizeMainThread(buffer, "ara+eng", { preprocess: true })
+        );
+        const boxes = matchVisionLinesToGeometry(ocr.lines, geo.lines);
+        if (boxes.size > 0) {
+          ocr = {
+            ...ocr,
+            lines: ocr.lines.map((line, i) =>
+              boxes.get(i) === undefined ? line : { ...line, bbox: boxes.get(i) }
+            ),
+          };
+          console.debug(
+            `[Vision OCR] geometry recovered for ${boxes.size}/${ocr.lines.length} line(s) via Tesseract`
+          );
+        }
+      } catch (err) {
+        console.debug(
+          "[Vision OCR] geometry recovery skipped:",
+          err instanceof Error ? err.message : err
         );
       }
     }

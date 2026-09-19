@@ -5,6 +5,7 @@ import {
   visionNormalizedBBoxToPixelBox,
 } from "../src/lib/ocr/vision-service";
 import { imageDimensionsFromBuffer } from "../src/lib/ocr/image-dims";
+import { matchVisionLinesToGeometry } from "../src/lib/ocr/vision-geometry";
 
 // ─── 1. parseBBox: canonical array form (0..1000) ─────────────────────────
 
@@ -155,4 +156,64 @@ test("vision bbox flows into an OcrDocument line as a pixel box", () => {
   equal(dims, { w: 1000, h: 2000 });
   const pixel = visionNormalizedBBoxToPixelBox(line.bbox!, dims!.w, dims!.h);
   equal(pixel, { x: 60, y: 240, width: 580, height: 100 });
+});
+
+// ─── 6. geometry recovery: Vision lines get Tesseract pixel boxes ─────────
+
+test("geometry recovery: exact-row match attaches the Tesseract box", () => {
+  const vision = [{ text: "ويل لكل همزه لمزه 1 الذي جمع مالا وعدده 2" }];
+  const geo = [
+    { text: "ويل لكل همزه لمزه 1 الذي جمع مالا وعدده 2", bbox: { x: 10, y: 60, width: 500, height: 28 } },
+  ];
+  const boxes = matchVisionLinesToGeometry(vision, geo);
+  equal(boxes.size, 1);
+  equal(boxes.get(0), geo[0].bbox);
+});
+
+test("geometry recovery: a merged Vision line unions the rows it spans", () => {
+  const vision = [
+    {
+      text: "وَيْلٌ لِكُلِّ هُمَزَهٍ لُمَزَهٍ 1 الَّذِي جَمَعَ مَالًا وَعَدَّدَهُ 2",
+    },
+  ];
+  const geo = [
+    { text: "ويل لكل همزه لمزه 1", bbox: { x: 20, y: 100, width: 300, height: 26 } },
+    { text: "الذي جمع مالا وعدده 2", bbox: { x: 20, y: 130, width: 300, height: 26 } },
+  ];
+  const boxes = matchVisionLinesToGeometry(vision, geo);
+  equal(boxes.size, 1, "the merged line is still located");
+  equal(boxes.get(0), { x: 20, y: 100, width: 300, height: 56 }, "union of both rows");
+});
+
+test("geometry recovery: diacritics and digit families do not block matching", () => {
+  const vision = [{ text: "بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ" }];
+  const geo = [
+    { text: "بسم الله الرحمن الرحيم", bbox: { x: 5, y: 20, width: 400, height: 24 } },
+  ];
+  const boxes = matchVisionLinesToGeometry(vision, geo);
+  equal(boxes.size, 1, "harakat-heavy line matches its plain tesseract row");
+  equal(boxes.get(0), geo[0].bbox);
+});
+
+test("geometry recovery: unrelated text is not associated", () => {
+  const vision = [{ text: "رقم العملية 391003452" }];
+  const geo = [
+    { text: "المجموع الكلي 1500", bbox: { x: 0, y: 0, width: 300, height: 20 } },
+    { text: "شكرا لتعاملكم", bbox: { x: 0, y: 40, width: 300, height: 20 } },
+  ];
+  const boxes = matchVisionLinesToGeometry(vision, geo);
+  equal(boxes.size, 0, "low overlap yields no box, nothing invented");
+});
+
+test("geometry recovery: empty / unboxed geometry degrades gracefully", () => {
+  equal(matchVisionLinesToGeometry([{ text: "hello" }], []).size, 0);
+  equal(
+    matchVisionLinesToGeometry(
+      [{ text: "hello" }],
+      [{ text: "hello", bbox: { x: 0, y: 0, width: 0, height: 0 } }]
+    ).size,
+    0,
+    "zero-area rows are ignored"
+  );
+  equal(matchVisionLinesToGeometry([{ text: "" }], []).size, 0);
 });
