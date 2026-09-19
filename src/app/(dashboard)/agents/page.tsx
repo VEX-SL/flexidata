@@ -177,7 +177,7 @@ export default function AgentsPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="fd-agents-header" style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(12px)', transition: 'all .5s cubic-bezier(.16,1,.3,1)' }}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-10">
             <div>
               <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.035em', color: 'var(--color-foreground)', margin: '0 0 .25rem' }}>
                 {t("agents.title")}
@@ -189,9 +189,9 @@ export default function AgentsPage() {
             <button
               onClick={() => setShowCreate(true)}
               className="fd-agents-card-btn primary"
-              style={{ padding: '.65rem 1.1rem', fontSize: '.85rem', flexShrink: 0 }}
+              style={{ padding: '.45rem .85rem', fontSize: '.76rem', flexShrink: 0, gap: '.3rem' }}
             >
-              <Plus size={15} />
+              <Plus size={13} />
               {t("agents.create")}
             </button>
           </div>
