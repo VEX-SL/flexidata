@@ -71,10 +71,10 @@ export default function ExtractionSidebar({
           border: 1px solid transparent; transition: background .12s, border-color .12s, box-shadow .12s;
         }
         .fd-inspector-row:hover { background: var(--color-accent); }
-        .fd-inspector-row--hovered { background: var(--color-accent); border-color: rgba(176,125,53,.35); }
+        .fd-inspector-row--hovered { background: var(--color-accent); border-color: rgba(115,115,115,.35); }
         .fd-inspector-row--active {
-          background: rgba(176,125,53,.08); border-color: rgba(176,125,53,.55);
-          box-shadow: 0 0 0 2px rgba(176,125,53,.12);
+          background: rgba(115,115,115,.08); border-color: rgba(115,115,115,.55);
+          box-shadow: 0 0 0 2px rgba(115,115,115,.12);
         }
         .fd-inspector-row-tone { width: 4px; align-self: stretch; border-radius: 2px; flex-shrink: 0; }
         .fd-inspector-row-body { flex: 1; min-width: 0; }

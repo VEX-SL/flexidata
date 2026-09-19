@@ -91,7 +91,7 @@ function ActivityFeed({ items, loading }: { items: ActivityItem[]; loading: bool
   if (loading) {
     return (
       <div style={{ display: "flex", justifyContent: "center", padding: "1.25rem 0" }}>
-        <Loader2 size={18} className="animate-spin" style={{ color: "#B07D35" }} />
+        <Loader2 size={18} className="animate-spin" style={{ color: "#4a4a4a" }} />
       </div>
     );
   }
@@ -109,7 +109,7 @@ function ActivityFeed({ items, loading }: { items: ActivityItem[]; loading: bool
           <div
             className="fd-activity-dot"
             style={{
-              background: item.type === "upload" ? "#B07D35" : "#F59E0B"
+              background: item.type === "upload" ? "#4a4a4a" : "#F59E0B"
             }}
           />
           <div className="fd-activity-content">
@@ -308,7 +308,7 @@ export default function DashboardPage() {
       /* Smooth scrollbar */
       .fd-content::-webkit-scrollbar { width: 6px; }
       .fd-content::-webkit-scrollbar-thumb { 
-        background: rgba(214,178,105,0.15); 
+        background: rgba(190,190,190,0.15); 
         border-radius: 99px; 
       }
       .fd-content::-webkit-scrollbar-track { background: transparent; }
@@ -352,8 +352,8 @@ export default function DashboardPage() {
         transition: all 0.2s;
       }
       .fd-search input:focus {
-        border-color: rgba(176,125,53,0.4);
-        box-shadow: 0 0 0 3px rgba(176,125,53,0.08);
+        border-color: rgba(115,115,115,0.4);
+        box-shadow: 0 0 0 3px rgba(115,115,115,0.08);
       }
       
       .fd-header-actions {
@@ -376,7 +376,7 @@ export default function DashboardPage() {
         position: relative;
       }
       .fd-icon-btn:hover {
-        border-color: rgba(214,178,105,0.3);
+        border-color: rgba(190,190,190,0.3);
         color: var(--color-foreground);
         background: var(--color-accent);
       }
@@ -386,7 +386,7 @@ export default function DashboardPage() {
         width: 34px;
         height: 34px;
         border-radius: 9px;
-        background: linear-gradient(135deg, #B07D35, #A35828);
+        background: linear-gradient(135deg, #171717, #3f3f3f);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -400,8 +400,8 @@ export default function DashboardPage() {
         user-select: none;
       }
       .fd-avatar:hover {
-        border-color: rgba(176,125,53,0.4);
-        box-shadow: 0 0 0 3px rgba(176,125,53,0.1);
+        border-color: rgba(115,115,115,0.4);
+        box-shadow: 0 0 0 3px rgba(115,115,115,0.1);
       }
       
       /* ── Hero ── */
@@ -410,19 +410,19 @@ export default function DashboardPage() {
         overflow: hidden;
         border-radius: 20px;
         padding: 2rem 2.25rem;
-        background: linear-gradient(135deg, rgba(176,125,53,0.08) 0%, rgba(163,88,40,0.05) 50%, rgba(140,96,52,0.03) 100%);
-        border: 1px solid rgba(214,178,105,0.1);
+        background: linear-gradient(135deg, rgba(115,115,115,0.08) 0%, rgba(80,80,80,0.05) 50%, rgba(95,95,95,0.03) 100%);
+        border: 1px solid rgba(190,190,190,0.1);
         margin-bottom: 1.5rem;
       }
       [data-theme="light"] .fd-hero {
-        background: linear-gradient(135deg, rgba(176,125,53,0.04) 0%, rgba(163,88,40,0.02) 50%, rgba(140,96,52,0.02) 100%);
+        background: linear-gradient(135deg, rgba(115,115,115,0.04) 0%, rgba(80,80,80,0.02) 50%, rgba(95,95,95,0.02) 100%);
       }
       .fd-hero-orb {
         position: absolute;
         width: 300px;
         height: 300px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(176,125,53,0.12) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(115,115,115,0.12) 0%, transparent 70%);
         filter: blur(40px);
         top: -80px;
         right: -40px;
@@ -505,8 +505,8 @@ export default function DashboardPage() {
       }
       .fd-stat:hover {
         transform: translateY(-2px);
-        box-shadow: 0 12px 32px rgba(176,125,53,0.06);
-        border-color: rgba(214,178,105,0.2);
+        box-shadow: 0 12px 32px rgba(115,115,115,0.06);
+        border-color: rgba(190,190,190,0.2);
       }
       .fd-stat-top {
         display: flex;
@@ -567,7 +567,7 @@ export default function DashboardPage() {
       .fd-section-link {
         font-size: 0.78rem;
         font-weight: 600;
-        color: #B07D35;
+        color: #4a4a4a;
         background: none;
         border: none;
         cursor: pointer;
@@ -602,13 +602,13 @@ export default function DashboardPage() {
       }
       .fd-agent-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(176,125,53,0.06);
-        border-color: rgba(214,178,105,0.25);
+        box-shadow: 0 8px 24px rgba(115,115,115,0.06);
+        border-color: rgba(190,190,190,0.25);
       }
       .fd-agent-card.active {
-        border-color: rgba(176,125,53,0.4);
-        background: linear-gradient(135deg, rgba(176,125,53,0.05), rgba(163,88,40,0.03));
-        box-shadow: 0 0 0 3px rgba(176,125,53,0.08);
+        border-color: rgba(115,115,115,0.4);
+        background: linear-gradient(135deg, rgba(115,115,115,0.05), rgba(80,80,80,0.03));
+        box-shadow: 0 0 0 3px rgba(115,115,115,0.08);
       }
       .fd-agent-card-header {
         display: flex;
@@ -620,7 +620,7 @@ export default function DashboardPage() {
         width: 40px;
         height: 40px;
         border-radius: 11px;
-        background: linear-gradient(135deg, rgba(176,125,53,0.15), rgba(163,88,40,0.1));
+        background: linear-gradient(135deg, rgba(115,115,115,0.15), rgba(80,80,80,0.1));
         display: flex;
         align-items: center;
         justify-content: center;
@@ -669,20 +669,20 @@ export default function DashboardPage() {
         margin-bottom: 1.5rem;
       }
       .fd-upload:hover, .fd-upload.drag-over {
-        border-color: rgba(176,125,53,0.4);
-        background: rgba(176,125,53,0.02);
+        border-color: rgba(115,115,115,0.4);
+        background: rgba(115,115,115,0.02);
       }
       .fd-upload.drag-over {
         transform: scale(1.005);
-        border-color: #B07D35;
-        background: rgba(176,125,53,0.04);
+        border-color: #4a4a4a;
+        background: rgba(115,115,115,0.04);
       }
       .fd-upload-icon {
         width: 52px;
         height: 52px;
         border-radius: 14px;
         margin: 0 auto 0.875rem;
-        background: linear-gradient(135deg, rgba(176,125,53,0.12), rgba(163,88,40,0.08));
+        background: linear-gradient(135deg, rgba(115,115,115,0.12), rgba(80,80,80,0.08));
         display: flex;
         align-items: center;
         justify-content: center;
@@ -719,7 +719,7 @@ export default function DashboardPage() {
       }
       .fd-file-row:hover {
         background: var(--color-accent);
-        border-color: rgba(214,178,105,0.2);
+        border-color: rgba(190,190,190,0.2);
       }
       .fd-file-icon {
         width: 36px;
@@ -828,8 +828,8 @@ export default function DashboardPage() {
         color: inherit;
       }
       .fd-action:hover {
-        border-color: rgba(214,178,105,0.3);
-        box-shadow: 0 4px 16px rgba(176,125,53,0.06);
+        border-color: rgba(190,190,190,0.3);
+        box-shadow: 0 4px 16px rgba(115,115,115,0.06);
         transform: translateY(-1px);
       }
       .fd-action-icon {
@@ -866,7 +866,7 @@ export default function DashboardPage() {
         height: 56px;
         border-radius: 14px;
         margin: 0 auto 1rem;
-        background: linear-gradient(135deg, rgba(176,125,53,0.08), rgba(163,88,40,0.06));
+        background: linear-gradient(135deg, rgba(115,115,115,0.08), rgba(80,80,80,0.06));
         display: flex;
         align-items: center;
         justify-content: center;
@@ -948,8 +948,8 @@ export default function DashboardPage() {
         margin-bottom: 0.75rem;
       }
       .fd-input:focus {
-        border-color: rgba(176,125,53,0.4);
-        box-shadow: 0 0 0 3px rgba(176,125,53,0.08);
+        border-color: rgba(115,115,115,0.4);
+        box-shadow: 0 0 0 3px rgba(115,115,115,0.08);
       }
       
       .fd-btn {
@@ -968,12 +968,12 @@ export default function DashboardPage() {
         gap: 0.5rem;
       }
       .fd-btn-primary {
-        background: linear-gradient(135deg, #B07D35, #A35828);
+        background: linear-gradient(135deg, #171717, #3f3f3f);
         color: #fff;
       }
       .fd-btn-primary:hover:not(:disabled) {
         transform: translateY(-1px);
-        box-shadow: 0 8px 24px rgba(176,125,53,0.35);
+        box-shadow: 0 8px 24px rgba(115,115,115,0.35);
       }
       .fd-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
       .fd-btn-secondary {
@@ -1167,8 +1167,8 @@ export default function DashboardPage() {
           <div className="fd-stats fd-animate" style={{ animationDelay: '0.1s' }}>
             <div className="fd-stat">
               <div className="fd-stat-top">
-                <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(176,125,53,0.12), rgba(163,88,40,0.08))' }}>
-                  <Bot size={17} style={{ color: '#B07D35' }} />
+                <div className="fd-stat-icon" style={{ background: 'linear-gradient(135deg, rgba(115,115,115,0.12), rgba(80,80,80,0.08))' }}>
+                  <Bot size={17} style={{ color: '#4a4a4a' }} />
                 </div>
               </div>
               <div className="fd-stat-value">{agents.length}</div>
@@ -1204,7 +1204,7 @@ export default function DashboardPage() {
                 <div className="fd-section">
                   <div className="fd-section-header">
                     <h2 className="fd-section-title">
-                      <Bot size={16} style={{ color: '#B07D35' }} />
+                      <Bot size={16} style={{ color: '#4a4a4a' }} />
                       {t("dashboard.yourAgents")}
                     </h2>
                     <button className="fd-section-link" onClick={() => router.push("/agents")}>
@@ -1223,7 +1223,7 @@ export default function DashboardPage() {
                           >
                             <div className="fd-agent-card-header">
                               <div className="fd-agent-avatar">
-                                <Bot size={18} style={{ color: '#B07D35' }} />
+                                <Bot size={18} style={{ color: '#4a4a4a' }} />
                               </div>
                               <div style={{ minWidth: 0 }}>
                                 <h3>{agent.name}</h3>
@@ -1267,7 +1267,7 @@ export default function DashboardPage() {
                   ) : (
                     <div className="fd-empty">
                       <div className="fd-empty-icon">
-                        <Bot size={24} style={{ color: '#B07D35' }} />
+                        <Bot size={24} style={{ color: '#4a4a4a' }} />
                       </div>
                       <p style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-foreground)', margin: '0 0 0.3rem' }}>
                         {t("agents.noAgents")}
@@ -1305,14 +1305,14 @@ export default function DashboardPage() {
                     />
                     {uploading ? (
                       <div className="flex flex-col items-center">
-                        <Loader2 size={24} className="animate-spin" style={{ color: '#B07D35', marginBottom: '0.6rem' }} />
+                        <Loader2 size={24} className="animate-spin" style={{ color: '#4a4a4a', marginBottom: '0.6rem' }} />
                         <h3>{t("dashboard.uploadingFile")}</h3>
                         <p>{t("dashboard.processingDoc")}</p>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center">
                         <div className="fd-upload-icon">
-                          <Upload size={22} style={{ color: '#B07D35' }} />
+                          <Upload size={22} style={{ color: '#4a4a4a' }} />
                         </div>
                         <h3>{t("dashboard.dropFiles")}</h3>
                         <p>{t("dashboard.dropFilesSub")}</p>
@@ -1325,8 +1325,8 @@ export default function DashboardPage() {
                 {selectedAgent && (
                   <div className="fd-actions">
                     <button className="fd-action" onClick={() => router.push(`/agents/${selectedAgentId}`)}>
-                      <div className="fd-action-icon" style={{ background: 'linear-gradient(135deg, rgba(176,125,53,0.12), rgba(163,88,40,0.08))' }}>
-                        <FolderOpen size={17} style={{ color: '#B07D35' }} />
+                      <div className="fd-action-icon" style={{ background: 'linear-gradient(135deg, rgba(115,115,115,0.12), rgba(80,80,80,0.08))' }}>
+                        <FolderOpen size={17} style={{ color: '#4a4a4a' }} />
                       </div>
                       <div>
                         <h4>{t("dashboard.manageFiles")}</h4>
@@ -1362,7 +1362,7 @@ export default function DashboardPage() {
                   <div className="fd-card fd-animate" style={{ animationDelay: '0.25s', marginTop: '1rem' }}>
                     <div className="fd-section-header" style={{ marginBottom: '0.75rem' }}>
                       <h3 className="fd-card-title" style={{ margin: 0 }}>
-                        <FileText size={15} style={{ color: '#B07D35' }} />
+                        <FileText size={15} style={{ color: '#4a4a4a' }} />
                         {t("dashboard.latestFiles")}
                       </h3>
                     </div>
@@ -1444,7 +1444,7 @@ export default function DashboardPage() {
           {activeTab === 'activity' && (
             <div className="fd-card fd-animate" style={{ animationDelay: '0.15s', maxWidth: 640 }}>
               <h3 className="fd-card-title">
-                <BarChart3 size={15} style={{ color: '#B07D35' }} />
+                <BarChart3 size={15} style={{ color: '#4a4a4a' }} />
                 {t("dashboard.recentActivity")}
               </h3>
               <div className="fd-activity">

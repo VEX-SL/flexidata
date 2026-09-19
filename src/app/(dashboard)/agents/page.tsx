@@ -17,15 +17,15 @@ interface Agent {
 }
 
 const GRADIENTS = [
-  "linear-gradient(135deg, rgba(176,125,53,.15), rgba(163,88,40,.1))",
-  "linear-gradient(135deg, rgba(140,96,52,.15), rgba(34,211,238,.1))",
-  "linear-gradient(135deg, rgba(178,92,44,.15), rgba(236,72,153,.1))",
-  "linear-gradient(135deg, rgba(34,197,94,.15), rgba(172,150,96,.1))",
+  "linear-gradient(135deg, rgba(115,115,115,.15), rgba(80,80,80,.1))",
+  "linear-gradient(135deg, rgba(95,95,95,.15), rgba(34,211,238,.1))",
+  "linear-gradient(135deg, rgba(90,90,90,.15), rgba(236,72,153,.1))",
+  "linear-gradient(135deg, rgba(34,197,94,.15), rgba(140,140,140,.1))",
   "linear-gradient(135deg, rgba(245,158,11,.15), rgba(249,115,22,.1))",
   "linear-gradient(135deg, rgba(239,68,68,.15), rgba(244,63,94,.1))",
 ];
 
-const ICON_COLORS = ["#C1934B", "#A86B32", "#B6622B", "#9C7A3C", "#D6B269", "#8C6A44"];
+const ICON_COLORS = ["#9c9c9c", "#6b6b6b", "#535353", "#575757", "#d4d4d4", "#414141"];
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -82,12 +82,12 @@ export default function AgentsPage() {
       .fd-agents-header {
         position: relative; overflow: hidden;
         border-radius: 20px; padding: 2rem 2rem;
-        background: linear-gradient(135deg, rgba(176,125,53,.1) 0%, rgba(178,92,44,.06) 100%);
-        border: 1px solid rgba(214,178,105,.1);
+        background: linear-gradient(135deg, rgba(115,115,115,.1) 0%, rgba(90,90,90,.06) 100%);
+        border: 1px solid rgba(190,190,190,.1);
         margin-bottom: 1.5rem;
       }
       [data-theme="light"] .fd-agents-header {
-        background: linear-gradient(135deg, rgba(176,125,53,.05) 0%, rgba(178,92,44,.03) 100%);
+        background: linear-gradient(135deg, rgba(115,115,115,.05) 0%, rgba(90,90,90,.03) 100%);
       }
       .fd-agents-card {
         position: relative; overflow: hidden;
@@ -99,8 +99,8 @@ export default function AgentsPage() {
       }
       .fd-agents-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 16px 40px rgba(176,125,53,.08);
-        border-color: rgba(214,178,105,.25);
+        box-shadow: 0 16px 40px rgba(115,115,115,.08);
+        border-color: rgba(190,190,190,.25);
       }
       .fd-agents-card-actions-top {
         position: absolute; top: .8rem; right: .8rem; z-index: 3;
@@ -141,15 +141,15 @@ export default function AgentsPage() {
       }
       .fd-agents-card-btn:hover {
         background: var(--color-accent);
-        border-color: rgba(214,178,105,.25);
+        border-color: rgba(190,190,190,.25);
       }
       .fd-agents-card-btn.primary {
-        background: linear-gradient(135deg, #B07D35, #A35828);
+        background: linear-gradient(135deg, #171717, #3f3f3f);
         color: #fff; border: none;
-        box-shadow: 0 3px 10px rgba(176,125,53,.2);
+        box-shadow: 0 3px 10px rgba(115,115,115,.2);
       }
       .fd-agents-card-btn.primary:hover {
-        box-shadow: 0 6px 18px rgba(176,125,53,.3);
+        box-shadow: 0 6px 18px rgba(115,115,115,.3);
         transform: translateY(-1px);
       }
       .fd-agents-create-input {
@@ -160,8 +160,8 @@ export default function AgentsPage() {
         transition: border-color .2s, box-shadow .2s; box-sizing: border-box;
       }
       .fd-agents-create-input:focus {
-        border-color: rgba(176,125,53,.45);
-        box-shadow: 0 0 0 3px rgba(176,125,53,.08);
+        border-color: rgba(115,115,115,.45);
+        box-shadow: 0 0 0 3px rgba(115,115,115,.08);
       }
       .fd-agents-create-input::placeholder { color: var(--color-muted-foreground); }
       .fd-agents-empty {
@@ -169,7 +169,7 @@ export default function AgentsPage() {
       }
       .fd-agents-empty-icon {
         width: 72px; height: 72px; border-radius: 18px; margin: 0 auto 1.2rem;
-        background: linear-gradient(135deg, rgba(176,125,53,.1), rgba(163,88,40,.06));
+        background: linear-gradient(135deg, rgba(115,115,115,.1), rgba(80,80,80,.06));
         display: flex; align-items: center; justify-content: center;
       }
     `}</style>
@@ -225,7 +225,7 @@ export default function AgentsPage() {
         {agents.length === 0 && !showCreate && (
           <div className="fd-agents-empty" style={{ opacity: mounted ? 1 : 0, transition: 'all .5s cubic-bezier(.16,1,.3,1) .15s' }}>
             <div className="fd-agents-empty-icon">
-              <Bot size={32} style={{ color: '#B07D35' }} />
+              <Bot size={32} style={{ color: '#4a4a4a' }} />
             </div>
             <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-foreground)', margin: '0 0 .3rem' }}>
               {t("agents.noAgents")}

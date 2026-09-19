@@ -46,9 +46,9 @@ interface AgentFile {
 function getFileIcon(name: string) {
   const ext = name.split(".").pop()?.toLowerCase() || "";
   if (["pdf"].includes(ext)) return { icon: FileText, color: "#EF4444", bg: "rgba(239,68,68,.1)" };
-  if (["doc", "docx", "txt", "md", "rtf"].includes(ext)) return { icon: FileText, color: "#9C7A3C", bg: "rgba(140,96,52,.1)" };
+  if (["doc", "docx", "txt", "md", "rtf"].includes(ext)) return { icon: FileText, color: "#575757", bg: "rgba(95,95,95,.1)" };
   if (["xls", "xlsx", "csv"].includes(ext)) return { icon: FileSpreadsheet, color: "#22C55E", bg: "rgba(34,197,94,.1)" };
-  if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext)) return { icon: FileImage, color: "#B25C2C", bg: "rgba(178,92,44,.1)" };
+  if (["jpg", "jpeg", "png", "gif", "webp", "svg"].includes(ext)) return { icon: FileImage, color: "#B25C2C", bg: "rgba(90,90,90,.1)" };
   if (["js", "jsx", "ts", "tsx", "py", "java", "c", "cpp", "cs", "go", "rs", "rb", "php", "sh", "sql", "yaml", "yml", "xml", "html", "css", "scss", "vue", "svelte", "toml", "ini", "env", "json"].includes(ext)) return { icon: FileCode, color: "#F59E0B", bg: "rgba(245,158,11,.1)" };
   return { icon: File, color: "#64748B", bg: "rgba(100,116,139,.1)" };
 }
@@ -184,7 +184,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   if (!agent) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="animate-spin" size={24} style={{ color: '#B07D35' }} />
+        <Loader2 className="animate-spin" size={24} style={{ color: '#4a4a4a' }} />
       </div>
     );
   }
@@ -197,15 +197,15 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       .fd-detail-hero {
         position: relative; overflow: hidden;
         border-radius: 20px; padding: 1.8rem 2rem;
-        background: linear-gradient(135deg, rgba(176,125,53,.1) 0%, rgba(140,96,52,.06) 50%, rgba(178,92,44,.05) 100%);
-        border: 1px solid rgba(214,178,105,.1);
+        background: linear-gradient(135deg, rgba(115,115,115,.1) 0%, rgba(95,95,95,.06) 50%, rgba(90,90,90,.05) 100%);
+        border: 1px solid rgba(190,190,190,.1);
       }
       [data-theme="light"] .fd-detail-hero {
-        background: linear-gradient(135deg, rgba(176,125,53,.05) 0%, rgba(140,96,52,.03) 50%, rgba(178,92,44,.02) 100%);
+        background: linear-gradient(135deg, rgba(115,115,115,.05) 0%, rgba(95,95,95,.03) 50%, rgba(90,90,90,.02) 100%);
       }
       .fd-detail-hero-orb {
         position: absolute; width: 300px; height: 300px; border-radius: 50%;
-        background: radial-gradient(circle, rgba(176,125,53,.12) 0%, transparent 70%);
+        background: radial-gradient(circle, rgba(115,115,115,.12) 0%, transparent 70%);
         filter: blur(50px); top: -80px; right: -40px; pointer-events: none;
       }
       .fd-detail-upload {
@@ -214,12 +214,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         transition: all .3s; cursor: pointer;
       }
       .fd-detail-upload:hover {
-        border-color: rgba(176,125,53,.35);
-        background: rgba(176,125,53,.02);
+        border-color: rgba(115,115,115,.35);
+        background: rgba(115,115,115,.02);
       }
       .fd-detail-upload.dragging {
-        border-color: rgba(176,125,53,.5);
-        background: rgba(176,125,53,.05);
+        border-color: rgba(115,115,115,.5);
+        background: rgba(115,115,115,.05);
         transform: scale(1.01);
       }
       .fd-detail-upload-icon {
@@ -229,7 +229,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       }
       .fd-detail-upload:hover .fd-detail-upload-icon {
         transform: translateY(-3px);
-        box-shadow: 0 8px 20px rgba(176,125,53,.15);
+        box-shadow: 0 8px 20px rgba(115,115,115,.15);
       }
       .fd-detail-file {
         display: flex; align-items: center; gap: .8rem;
@@ -238,9 +238,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         transition: all .2s;
       }
       .fd-detail-file:hover {
-        border-color: rgba(214,178,105,.2);
+        border-color: rgba(190,190,190,.2);
         background: var(--color-accent);
-        box-shadow: 0 2px 8px rgba(176,125,53,.04);
+        box-shadow: 0 2px 8px rgba(115,115,115,.04);
       }
       .fd-detail-file-icon {
         width: 38px; height: 38px; border-radius: 10px;
@@ -254,7 +254,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         transition: all .15s;
       }
       .fd-detail-file-btn:hover { background: var(--color-accent); color: var(--color-foreground); }
-      .fd-detail-file-btn.active { background: rgba(176,125,53,.12); color: #B07D35; }
+      .fd-detail-file-btn.active { background: rgba(115,115,115,.12); color: #4a4a4a; }
       .fd-detail-file-btn.danger:hover { background: rgba(239,68,68,.1); color: #EF4444; }
       .fd-detail-view {
         border: 1px solid var(--color-border); border-top: none;
@@ -286,19 +286,19 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         border: none; cursor: pointer; transition: all .2s;
       }
       .fd-detail-action.primary {
-        background: linear-gradient(135deg, #B07D35, #A35828);
-        color: #fff; box-shadow: 0 4px 14px rgba(176,125,53,.25);
+        background: linear-gradient(135deg, #171717, #3f3f3f);
+        color: #fff; box-shadow: 0 4px 14px rgba(115,115,115,.25);
       }
       .fd-detail-action.primary:hover {
         transform: translateY(-1px);
-        box-shadow: 0 8px 24px rgba(176,125,53,.35);
+        box-shadow: 0 8px 24px rgba(115,115,115,.35);
       }
       .fd-detail-action.secondary {
         background: var(--color-card); color: var(--color-foreground);
         border: 1px solid var(--color-border);
       }
       .fd-detail-action.secondary:hover {
-        border-color: rgba(214,178,105,.3);
+        border-color: rgba(190,190,190,.3);
         background: var(--color-accent);
       }
       .fd-detail-save-btn {
@@ -306,7 +306,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         padding: .4rem .7rem; border-radius: 8px;
         font-size: .75rem; font-weight: 600; font-family: inherit;
         border: none; cursor: pointer;
-        background: linear-gradient(135deg, #22C55E, #16A34A);
+        background: linear-gradient(135deg, #171717, #3f3f3f);
         color: #fff; transition: all .2s;
       }
       .fd-detail-save-btn:hover { box-shadow: 0 4px 12px rgba(34,197,94,.3); }
@@ -360,13 +360,13 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           <label htmlFor="agent-file-upload" className="cursor-pointer">
             {uploading ? (
               <div className="flex flex-col items-center">
-                <Loader2 size={26} className="animate-spin" style={{ color: '#B07D35', marginBottom: '.7rem' }} />
+                <Loader2 size={26} className="animate-spin" style={{ color: '#4a4a4a', marginBottom: '.7rem' }} />
                 <p style={{ fontSize: '.9rem', fontWeight: 600, color: 'var(--color-foreground)', margin: '0 0 .2rem' }}>{t("agents.uploading")}</p>
               </div>
             ) : (
               <div className="flex flex-col items-center">
-                <div className="fd-detail-upload-icon" style={{ background: dragging ? 'linear-gradient(135deg, rgba(176,125,53,.2), rgba(163,88,40,.12))' : 'linear-gradient(135deg, rgba(176,125,53,.1), rgba(163,88,40,.06))' }}>
-                  <Upload size={24} style={{ color: dragging ? '#B07D35' : 'var(--color-muted-foreground)' }} />
+                <div className="fd-detail-upload-icon" style={{ background: dragging ? 'linear-gradient(135deg, rgba(115,115,115,.2), rgba(80,80,80,.12))' : 'linear-gradient(135deg, rgba(115,115,115,.1), rgba(80,80,80,.06))' }}>
+                  <Upload size={24} style={{ color: dragging ? '#4a4a4a' : 'var(--color-muted-foreground)' }} />
                 </div>
                 <p style={{ fontSize: '.95rem', fontWeight: 700, color: 'var(--color-foreground)', margin: '0 0 .25rem' }}>
                   {dragging ? t("agents.dropHere") : t("agents.uploadFiles")}
@@ -443,7 +443,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     {editingFile === file.id && (
                       <div className="fd-detail-view" style={{ animation: 'fd-dash-drop .2s ease' }}>
                         <div className="fd-detail-view-header">
-                          <span style={{ fontSize: '.75rem', fontWeight: 600, color: '#B07D35' }}>Editing {file.file_name}</span>
+                          <span style={{ fontSize: '.75rem', fontWeight: 600, color: '#4a4a4a' }}>Editing {file.file_name}</span>
                           <div className="flex items-center gap-2">
                             <button onClick={() => handleSaveEdit(file.id, file.file_name)} disabled={saving} className="fd-detail-save-btn">
                               {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}

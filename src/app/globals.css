@@ -3,44 +3,44 @@
 @import "highlight.js/styles/github-dark.css";
 
 @theme {
-  --color-background: #fbf9f4;
-  --color-foreground: #17130d;
+  --color-background: #ffffff;
+  --color-foreground: #0a0a0a;
   --color-card: #ffffff;
-  --color-card-foreground: #17130d;
-  --color-primary: #b07d35;
+  --color-card-foreground: #0a0a0a;
+  --color-primary: #0a0a0a;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #f0ebe0;
-  --color-secondary-foreground: #2a241b;
-  --color-muted: #f0ebe0;
-  --color-muted-foreground: #8a7f6b;
-  --color-accent: #efe9dc;
-  --color-accent-foreground: #2a241b;
-  --color-destructive: #c4553e;
+  --color-secondary: #f2f2f2;
+  --color-secondary-foreground: #0a0a0a;
+  --color-muted: #f2f2f2;
+  --color-muted-foreground: #6b6b6b;
+  --color-accent: #ececec;
+  --color-accent-foreground: #111111;
+  --color-destructive: #dc2626;
   --color-destructive-foreground: #ffffff;
-  --color-border: #e4dccb;
-  --color-input: #e4dccb;
-  --color-ring: #b07d35;
+  --color-border: #e2e2e2;
+  --color-input: #dcdcdc;
+  --color-ring: #0a0a0a;
   --radius: 0.5rem;
 }
 
 [data-theme="dark"] {
-  --color-background: #0c0a07;
-  --color-foreground: #eae3d6;
-  --color-card: #14110c;
-  --color-card-foreground: #eae3d6;
-  --color-primary: #c99a4e;
-  --color-primary-foreground: #17130d;
-  --color-secondary: #1c1812;
-  --color-secondary-foreground: #eae3d6;
-  --color-muted: #171310;
-  --color-muted-foreground: #9c907d;
-  --color-accent: #201a13;
-  --color-accent-foreground: #eae3d6;
-  --color-destructive: #c4553e;
+  --color-background: #0a0a0a;
+  --color-foreground: #f5f5f5;
+  --color-card: #141414;
+  --color-card-foreground: #f5f5f5;
+  --color-primary: #f5f5f5;
+  --color-primary-foreground: #0a0a0a;
+  --color-secondary: #1e1e1e;
+  --color-secondary-foreground: #f5f5f5;
+  --color-muted: #181818;
+  --color-muted-foreground: #9a9a9a;
+  --color-accent: #232323;
+  --color-accent-foreground: #f5f5f5;
+  --color-destructive: #dc2626;
   --color-destructive-foreground: #ffffff;
-  --color-border: #2b241a;
-  --color-input: #2b241a;
-  --color-ring: #c99a4e;
+  --color-border: #262626;
+  --color-input: #262626;
+  --color-ring: #f5f5f5;
 }
 
 * {

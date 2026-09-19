@@ -29,7 +29,7 @@ const PARTICLES = [
   { id: 19, x: 76, y: 95, s: 1, d: 0.5, dur: 8 },
 ];
 
-const PARTICLE_COLORS = ["#D6B269", "#BD8C50", "#DEB879", "#D8AD72", "#B07D35"];
+const PARTICLE_COLORS = ["#d4d4d4", "#8a8a8a", "#c8c8c8", "#b8b8b8", "#4a4a4a"];
 
 // ─── Styles (identical token system, signup-specific additions) ───────────────
 function AuthStyles() {
@@ -69,7 +69,7 @@ function AuthStyles() {
         background: #0C0A08;
       }
       @media (min-width: 1024px) { .fd-brand { display: flex; } }
-      [data-theme="light"] .fd-brand { background: #F1EBDE; }
+      [data-theme="light"] .fd-brand { background: #f4f4f4; }
 
       .fd-orb {
         position: absolute;
@@ -77,8 +77,8 @@ function AuthStyles() {
         top: 50%; left: -140px;
         transform: translateY(-50%);
         background: radial-gradient(circle,
-          rgba(176,125,53,.38) 0%,
-          rgba(163,88,40,.18) 36%,
+          rgba(115,115,115,.38) 0%,
+          rgba(80,80,80,.18) 36%,
           transparent 68%
         );
         border-radius: 50%;
@@ -88,8 +88,8 @@ function AuthStyles() {
       }
       [data-theme="light"] .fd-orb {
         background: radial-gradient(circle,
-          rgba(176,125,53,.22) 0%,
-          rgba(163,88,40,.10) 36%,
+          rgba(115,115,115,.22) 0%,
+          rgba(80,80,80,.10) 36%,
           transparent 68%
         );
       }
@@ -101,19 +101,19 @@ function AuthStyles() {
       }
       .fd-ring-a {
         width: 360px; height: 360px;
-        border: 1px solid rgba(214,178,105,.20);
+        border: 1px solid rgba(190,190,190,.20);
         transform: translate(-50%,-50%);
         animation: fd-ring-spin 24s linear infinite;
       }
       .fd-ring-b {
         width: 560px; height: 560px;
-        border: 1px solid rgba(214,178,105,.09);
+        border: 1px solid rgba(190,190,190,.09);
         transform: translate(-50%,-50%);
         animation: fd-ring-spin 38s linear infinite reverse;
       }
       .fd-ring-c {
         width: 190px; height: 190px;
-        border: 1px solid rgba(189,140,80,.28);
+        border: 1px solid rgba(150,150,150,.28);
         transform: translate(-50%,-50%);
         animation: fd-ring-spin 14s linear infinite;
       }
@@ -134,10 +134,10 @@ function AuthStyles() {
 
       .fd-logo-mark {
         width: 50px; height: 50px;
-        background: linear-gradient(135deg, #B07D35, #A35828);
+        background: linear-gradient(135deg, #171717, #3f3f3f);
         border-radius: 13px;
         display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 8px 28px rgba(176,125,53,.45);
+        box-shadow: 0 8px 28px rgba(115,115,115,.45);
         margin-bottom: 1.1rem;
         flex-shrink: 0;
       }
@@ -145,7 +145,7 @@ function AuthStyles() {
       .fd-brand-wordmark {
         font-size: 1.45rem; font-weight: 700;
         letter-spacing: -.025em;
-        color: #F4EFE2;
+        color: #f5f5f5;
         margin-bottom: 2.75rem;
       }
       [data-theme="light"] .fd-brand-wordmark { color: #1E1B4B; }
@@ -155,13 +155,13 @@ function AuthStyles() {
         font-weight: 800;
         line-height: 1.07;
         letter-spacing: -.038em;
-        color: #F4EFE2;
+        color: #f5f5f5;
         margin: 0 0 1.4rem;
       }
       [data-theme="light"] .fd-hero-h1 { color: #1E1B4B; }
 
       .fd-shimmer {
-        background: linear-gradient(90deg, #D6B269, #BD8C50, #DEB879, #D6B269);
+        background: linear-gradient(90deg, #d4d4d4, #8a8a8a, #c8c8c8, #d4d4d4);
         background-size: 300% auto;
         -webkit-background-clip: text;
         background-clip: text;
@@ -182,8 +182,8 @@ function AuthStyles() {
         display: flex; align-items: center; gap: 11px;
         padding: 12px 17px;
         border-radius: 13px;
-        background: rgba(214,178,105,.07);
-        border: 1px solid rgba(214,178,105,.14);
+        background: rgba(190,190,190,.07);
+        border: 1px solid rgba(190,190,190,.14);
         color: #CBD5E1;
         font-size: .875rem; font-weight: 500;
         margin-bottom: 9px;
@@ -191,13 +191,13 @@ function AuthStyles() {
         animation: fd-fade-up .6s ease both;
       }
       [data-theme="light"] .fd-pill {
-        background: rgba(176,125,53,.06);
-        border-color: rgba(176,125,53,.15);
+        background: rgba(115,115,115,.06);
+        border-color: rgba(115,115,115,.15);
         color: #374151;
       }
       .fd-pill:hover {
-        background: rgba(214,178,105,.13);
-        border-color: rgba(214,178,105,.28);
+        background: rgba(190,190,190,.13);
+        border-color: rgba(190,190,190,.28);
       }
 
       /* ── Form side ───────────────────── */
@@ -224,7 +224,7 @@ function AuthStyles() {
           width: 5px;
         }
         .fd-form-side::-webkit-scrollbar-thumb {
-          background: rgba(214,178,105,0.15);
+          background: rgba(190,190,190,0.15);
           border-radius: 99px;
         }
         .fd-form-side::-webkit-scrollbar-track {
@@ -241,13 +241,13 @@ function AuthStyles() {
         padding: 2.5rem;
         border-radius: 22px;
         background: rgba(255,255,255,.03);
-        border: 1px solid rgba(214,178,105,.14);
+        border: 1px solid rgba(190,190,190,.14);
         backdrop-filter: blur(20px);
       }
       [data-theme="light"] .fd-card-inner {
         background: rgba(255,255,255,.96);
-        border-color: rgba(176,125,53,.12);
-        box-shadow: 0 24px 56px rgba(176,125,53,.08), 0 4px 14px rgba(0,0,0,.04);
+        border-color: rgba(115,115,115,.12);
+        box-shadow: 0 24px 56px rgba(115,115,115,.08), 0 4px 14px rgba(0,0,0,.04);
       }
 
       /* 4. تقليص ذكي للمكونات الداخلية على الشاشات المتوسطة والكبيرة لضمان تناسبها مع شاشة اللابتوب دون حاجة للتمرير */
@@ -293,7 +293,7 @@ function AuthStyles() {
         border-radius: 11px;
         font-size: .95rem; font-family: inherit;
         background: rgba(255,255,255,.05);
-        border: 1px solid rgba(214,178,105,.20);
+        border: 1px solid rgba(190,190,190,.20);
         color: var(--color-foreground);
         transition: border-color .2s, background .2s, box-shadow .2s;
         outline: none;
@@ -303,13 +303,13 @@ function AuthStyles() {
       }
       [data-theme="light"] .fd-input {
         background: rgba(238,242,255,.6);
-        border-color: rgba(176,125,53,.18);
+        border-color: rgba(115,115,115,.18);
       }
       .fd-input::placeholder { color: var(--color-muted-foreground); }
       .fd-input:focus {
-        border-color: rgba(214,178,105,.55);
-        background: rgba(214,178,105,.07);
-        box-shadow: 0 0 0 3px rgba(214,178,105,.10);
+        border-color: rgba(190,190,190,.55);
+        background: rgba(190,190,190,.07);
+        box-shadow: 0 0 0 3px rgba(190,190,190,.10);
       }
       [data-theme="light"] .fd-input:focus { background: rgba(238,242,255,.92); }
 
@@ -320,7 +320,7 @@ function AuthStyles() {
         font-size: .95rem; font-weight: 600; font-family: inherit;
         color: #fff;
         border: none; cursor: pointer;
-        background: linear-gradient(135deg, #B07D35 0%, #A35828 100%);
+        background: linear-gradient(135deg, #171717 0%, #3f3f3f 100%);
         position: relative; overflow: hidden;
         transition: transform .2s, box-shadow .2s, opacity .2s;
         margin-top: 4px; margin-bottom: 1.5rem;
@@ -332,7 +332,7 @@ function AuthStyles() {
       }
       .fd-btn-primary:hover:not(:disabled) {
         transform: translateY(-2px);
-        box-shadow: 0 12px 32px rgba(176,125,53,.45);
+        box-shadow: 0 12px 32px rgba(115,115,115,.45);
       }
       .fd-btn-primary:active:not(:disabled) { transform: translateY(0); }
       .fd-btn-primary:disabled { opacity: .6; cursor: not-allowed; }
@@ -343,9 +343,9 @@ function AuthStyles() {
       }
       .fd-divider-line {
         flex: 1; height: 1px;
-        background: rgba(214,178,105,.15);
+        background: rgba(190,190,190,.15);
       }
-      [data-theme="light"] .fd-divider-line { background: rgba(176,125,53,.15); }
+      [data-theme="light"] .fd-divider-line { background: rgba(115,115,115,.15); }
       .fd-divider-text {
         font-size: .78rem;
         color: var(--color-muted-foreground);
@@ -359,18 +359,18 @@ function AuthStyles() {
         cursor: pointer;
         display: flex; align-items: center; justify-content: center; gap: 10px;
         background: rgba(255,255,255,.04);
-        border: 1px solid rgba(214,178,105,.18);
+        border: 1px solid rgba(190,190,190,.18);
         color: var(--color-foreground);
         transition: background .2s, border-color .2s, transform .2s;
         margin-bottom: 9px;
       }
       [data-theme="light"] .fd-btn-oauth {
         background: rgba(238,242,255,.5);
-        border-color: rgba(176,125,53,.2);
+        border-color: rgba(115,115,115,.2);
       }
       .fd-btn-oauth:hover {
-        background: rgba(214,178,105,.10);
-        border-color: rgba(214,178,105,.35);
+        background: rgba(190,190,190,.10);
+        border-color: rgba(190,190,190,.35);
         transform: translateY(-1px);
       }
 
@@ -390,18 +390,18 @@ function AuthStyles() {
         padding: 2.5rem;
         border-radius: 22px;
         background: rgba(255,255,255,.03);
-        border: 1px solid rgba(214,178,105,.14);
+        border: 1px solid rgba(190,190,190,.14);
         animation: fd-fade-up .5s ease;
       }
       [data-theme="light"] .fd-success-box {
         background: rgba(255,255,255,.96);
-        border-color: rgba(176,125,53,.12);
-        box-shadow: 0 24px 56px rgba(176,125,53,.08);
+        border-color: rgba(115,115,115,.12);
+        box-shadow: 0 24px 56px rgba(115,115,115,.08);
       }
 
       .fd-success-icon {
         width: 60px; height: 60px;
-        background: rgba(176,125,53,.12);
+        background: rgba(115,115,115,.12);
         border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
         margin: 0 auto 1.25rem;
@@ -414,10 +414,10 @@ function AuthStyles() {
         margin-top: 1.5rem;
       }
       .fd-footer-txt a {
-        color: #D6B269; font-weight: 600;
+        color: #d4d4d4; font-weight: 600;
         text-decoration: none; transition: color .15s;
       }
-      .fd-footer-txt a:hover { color: #BD8C50; text-decoration: underline; }
+      .fd-footer-txt a:hover { color: #8a8a8a; text-decoration: underline; }
 
       /* Strength meter */
 /* ─── Enhanced Strength Meter ─── */
@@ -567,7 +567,7 @@ function BrandPanel() {
             <div key={i} className="fd-pill" style={{ animationDelay: `${0.1 + i * 0.15}s` }}>
               <span style={{ display: "inline-flex", alignItems: "center" }}>
                 {f.icon === "rocket" && (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D6B269" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
                     <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
                     <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
@@ -575,7 +575,7 @@ function BrandPanel() {
                   </svg>
                 )}
                 {f.icon === "doc" && (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D6B269" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
@@ -584,7 +584,7 @@ function BrandPanel() {
                   </svg>
                 )}
                 {f.icon === "share" && (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D6B269" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d4d4d4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="18" cy="5" r="3" />
                     <circle cx="6" cy="12" r="3" />
                     <circle cx="18" cy="19" r="3" />
@@ -633,7 +633,7 @@ function getStrength(p: string): { pct: number; color: string; label: string } {
   if (/[^A-Za-z0-9]/.test(p)) score++;
   if (score <= 1) return { pct: 20, color: "#EF4444", label: "Weak" };
   if (score <= 2) return { pct: 45, color: "#F59E0B", label: "Fair" };
-  if (score <= 3) return { pct: 70, color: "#9C7A3C", label: "Good" };
+  if (score <= 3) return { pct: 70, color: "#575757", label: "Good" };
   return { pct: 100, color: "#22C55E", label: "Strong" };
 }
 
@@ -677,7 +677,7 @@ function SignupForm() {
     return (
       <div className="fd-success-box">
         <div className="fd-success-icon">
-          <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#D6B269" strokeWidth="2.2">
+          <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#d4d4d4" strokeWidth="2.2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
