@@ -150,6 +150,14 @@ export async function parseFileBufferDetailed(
   throw new Error(`Unsupported file type: ${mimeType}`);
 }
 
+async function loadPdfJs(): Promise<any> {
+  try {
+    return await import("pdfjs-dist/legacy/build/pdf.mjs");
+  } catch {
+    return await import("pdfjs-dist/build/pdf.mjs");
+  }
+}
+
 async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
   try {
     const { extractText } = await import("unpdf");
@@ -166,8 +174,17 @@ async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
     if (needsReOcr) {
       try {
         const ocr = await ocrPdfPages(buffer);
-        if (ocr.text.length > cleaned.length) {
-          return { text: ocr.text.slice(0, 500_000), ocr };
+        if (ocr.text.trim()) {
+          const isGarbage =
+            countArabicLetters(cleaned) > 0 &&
+            isGarbageArabicTextLayer(cleaned);
+          // Garbage text layers are glyph dumps far longer than any real
+          // reading, so length alone is the wrong yardstick there: accept the
+          // page-OCR result whenever it produced anything. The length check
+          // stays only for the scanned-PDF case (short text layer).
+          if (isGarbage || ocr.text.length > cleaned.length) {
+            return { text: ocr.text.slice(0, 500_000), ocr };
+          }
         }
       } catch (e) {
         console.error("[Parser] PDF OCR failed:", e);
@@ -188,7 +205,7 @@ async function ocrPdfPages(buffer: Buffer): Promise<OcrDocument> {
   const { isCanvasAvailable } = await import("@/lib/pdf-canvas");
   if (!isCanvasAvailable()) return { text: "", lines: [] };
 
-  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdfjsLib = await loadPdfJs();
   const { createCanvas } = await import("@/lib/pdf-canvas");
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = "";
