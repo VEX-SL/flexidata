@@ -101,7 +101,10 @@ async function uploadFile(file: File, signal: AbortSignal): Promise<string> {
       signal,
     });
     if (!putRes.ok) {
-      throw new Error(`Upload failed (${putRes.status})`);
+      const putText = await putRes.text();
+      throw new Error(
+        `Upload failed (${putRes.status}${putText ? `: ${putText.slice(0, 200)}` : ""})`
+      );
     }
     return up.id as string;
   }

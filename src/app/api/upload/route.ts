@@ -67,7 +67,11 @@ export async function POST(request: Request) {
 
   if (uploadError) {
     console.error("[Upload] Storage error:", uploadError);
-    return NextResponse.json({ error: "File upload failed" }, { status: 502 });
+    const detail =
+      typeof (uploadError as { message?: unknown })?.message === "string"
+        ? `: ${(uploadError as { message: string }).message}`
+        : "";
+    return NextResponse.json({ error: `File upload failed${detail}` }, { status: 502 });
   }
 
   const {

@@ -73,8 +73,12 @@ export async function POST(request: Request) {
     );
   if (signError) {
     console.error("[Upload/start] Sign error:", signError);
+    const detail =
+      typeof (signError as { message?: unknown })?.message === "string"
+        ? `: ${(signError as { message: string }).message}`
+        : "";
     return NextResponse.json(
-      { error: "Failed to prepare upload" },
+      { error: `Failed to prepare upload${detail}` },
       { status: 502 }
     );
   }
