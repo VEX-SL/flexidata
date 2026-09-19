@@ -126,10 +126,18 @@ export default function ExtractionSidebar({
                   >
                     <div className="fd-inspector-row-tone" style={{ background: g.color }} />
                     <div className="fd-inspector-row-body">
-                      <div className="fd-inspector-row-label" title={f.label}>{f.label}</div>
-                      <div className={`fd-inspector-row-value ${f.value ? "" : "empty"}`}>
-                        {f.value || "—"}
-                      </div>
+                      {f.label ? (
+                        <>
+                          <div className="fd-inspector-row-label" title={f.label}>{f.label}</div>
+                          <div className={`fd-inspector-row-value ${f.value ? "" : "empty"}`}>
+                            {f.value || "—"}
+                          </div>
+                        </>
+                      ) : (
+                        <div className={`fd-inspector-row-label ${f.value ? "" : "empty"}`}>
+                          {f.value || "—"}
+                        </div>
+                      )}
                     </div>
                     {f.tone !== "missing" && (
                       <span

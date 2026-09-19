@@ -76,7 +76,7 @@ export default function BBoxOverlay({ boxes, onEnter, onLeave, onSelect }: BBoxO
               onClick={(e) => { e.stopPropagation(); onSelect?.(b.id); }}
             >
               <span className="fd-inspector-tip">
-                <span className="fd-inspector-tip-title">{b.label}</span>
+                {b.label && <span className="fd-inspector-tip-title">{b.label}</span>}
                 {b.value && <span className="fd-inspector-tip-value">{b.value}</span>}
                 <span className="fd-inspector-tip-conf" style={{ color: b.color }}>
                   {Math.round(b.confidence * 100)}%

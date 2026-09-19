@@ -883,16 +883,26 @@ function ReviewWorkspace(props: ReviewProps) {
   const isImage =
     fileIsImage ||
     (!!job.fileUrl && /\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(job.fileUrl));
-  const inspectorFields: InspectorField[] = fields.map((f) => ({
-    key: f.key,
-    label: fieldLabel(f.key),
-    value: displayValue(f.value),
-    confidence: f.confidence,
-    evidence:
-      f.evidence
-        ?.filter((e) => typeof e.lineIndex === "number")
-        .map((e) => ({ lineIndex: e.lineIndex, quote: e.quote })) ?? [],
-  }));
+  const inspectorFields: InspectorField[] = fields.map((f) => {
+    // A real title is the schema label or the extraction's own label. A label
+    // that merely duplicates the key's derived fallback (e.g. "Field 1" for
+    // key "field_1") is invented — the sidebar then shows the extracted text
+    // alone instead of a fabricated header.
+    const realLabel =
+      schema?.fields.find((s) => s.key === f.key)?.label ??
+      byKey.get(f.key)?.label ??
+      "";
+    return {
+      key: f.key,
+      label: realLabel && realLabel !== humanize(f.key) ? realLabel : "",
+      value: displayValue(f.value),
+      confidence: f.confidence,
+      evidence:
+        f.evidence
+          ?.filter((e) => typeof e.lineIndex === "number")
+          .map((e) => ({ lineIndex: e.lineIndex, quote: e.quote })) ?? [],
+    };
+  });
   const inspectorLabels = {
     verified: t("documents.inspector.verified"),
     uncertain: t("documents.inspector.uncertain"),
