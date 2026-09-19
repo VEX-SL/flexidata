@@ -66,19 +66,17 @@ export async function POST(request: Request) {
     .from("files")
     .createSignedUploadUrl(
       storagePath,
-      // The SDK's declared options only expose `upsert`, but the storage API
-      // honors `expiresIn`; the cast keeps the longer window for large files
-      // while satisfying the build's type check.
-      { upsert: false, expiresIn: 600 } as { upsert?: boolean; expiresIn?: number }
+      // Keep the literal (upsert:false + a longer expiry) while lying about
+      // the type so it matches the SDK's declared `{ upsert: boolean }`
+      // signature — `expiresIn` rides along at runtime. Pinning upsert as
+      // required (not optional) is what the type check demands; an optional
+      // upsert here fails `next build`.
+      { upsert: false, expiresIn: 600 } as { upsert: boolean }
     );
   if (signError) {
     console.error("[Upload/start] Sign error:", signError);
-    const detail =
-      typeof (signError as { message?: unknown })?.message === "string"
-        ? `: ${(signError as { message: string }).message}`
-        : "";
     return NextResponse.json(
-      { error: `Failed to prepare upload${detail}` },
+      { error: "Failed to prepare upload" },
       { status: 502 }
     );
   }
