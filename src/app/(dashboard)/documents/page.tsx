@@ -903,11 +903,14 @@ function ReviewWorkspace(props: ReviewProps) {
       schema?.fields.find((f) => f.key === key)?.label ??
       byKey.get(key)?.label ??
       "";
-    if (real.trim()) return real;
-    // Synthesized OCR content/rows carry no label — render as a bare text
-    // block (no fabricated "Content" / "Passage 1" header).
+    const humanized = humanize(key);
+    // A label that merely duplicates the key's derived fallback (e.g. "Passage
+    // 1" for key "passage_1") is invented, not authored — render the value as a
+    // bare text block instead of a fabricated header (mirrors the inspector).
+    if (real.trim() && real.trim() !== humanized) return real.trim();
+    // Synthesized OCR content carries no label — render as a bare text block.
     if (key === "content" || key.startsWith("passage_")) return "";
-    return humanize(key);
+    return humanized;
   };
   const [view, setView] = useState<"fields" | "preview" | "inspector">("fields");
   const [fileIsImage, setFileIsImage] = useState(false);
@@ -973,7 +976,19 @@ function ReviewWorkspace(props: ReviewProps) {
       }
     }
     const other = fields.filter((f) => !used.has(f.key));
-    if (other.length) groups.push({ label: t("documents.other"), fields: other });
+    if (other.length) {
+      // A leftover group that is exactly the synthesized OCR content block is
+      // the whole document reading — say so, rather than dumping it under
+      // "Other" next to real extra fields.
+      const isFullContent =
+        other.length === 1 &&
+        other[0].key === "content" &&
+        other[0].source === "ocr";
+      groups.push({
+        label: isFullContent ? t("documents.fullContent") : t("documents.other"),
+        fields: other,
+      });
+    }
   } else if (fields.length) {
     groups.push({ label: "", fields });
   }

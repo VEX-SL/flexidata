@@ -84,6 +84,7 @@
     "removeFile": "移除",
     "confirm": "确认",
     "other": "其他",
+    "fullContent": "完整内容",
     "loadingHistory": "加载中...",
     "stage": {
       "queued": "排队中",

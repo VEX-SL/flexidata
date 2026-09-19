@@ -84,6 +84,7 @@
     "removeFile": "Retirer",
     "confirm": "Confirmer",
     "other": "Autre",
+    "fullContent": "Contenu complet",
     "loadingHistory": "Chargement...",
     "stage": {
       "queued": "En file",

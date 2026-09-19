@@ -5,10 +5,11 @@ import { test, ok, equal, assert } from "./harness.ts";
 
 /**
  * OCR-content fallback: a dynamic extraction that surfaced NO fields must
- * still hand the reviewer the document's content. The OCR's unrecovered lines
- * are folded into ONE label-less `content` field whose evidence still anchors
- * every source line, so the review shows a single reviewable block while the
- * Inspector can highlight the whole region. Dynamic mode only, verbatim text.
+ * still hand the reviewer the document's content. The entire OCR reading is
+ * folded into ONE label-less `content` field whose evidence anchors every
+ * source line. Dynamic mode only, verbatim text — and only when the extraction
+ * is empty: once the model found fields (schema fields or quoted passages),
+ * those ARE the content and a leftover OCR blob would only add stray noise.
  */
 
 function fakeAI(content: string): AIClient {
@@ -63,7 +64,7 @@ test("fallback: a zero-field dynamic extraction surfaces the OCR as ONE content 
   equal(evidence[2]?.quote, SURAH_LINES[2], "evidence quotes the verbatim OCR line");
 });
 
-test("fallback: never duplicates lines the extraction already surfaced", async () => {
+test("fallback: stays out of the way once the extraction found fields", async () => {
   const out = await runPipeline(
     {
       sourceText: SURAH_LINES.join("\n"),
@@ -94,19 +95,14 @@ test("fallback: never duplicates lines the extraction already surfaced", async (
 
   ok("سورة" in extraction.cleanFields, "the discovered field kept its place");
   equal(extraction.cleanFields["سورة"], SURAH_LINES[0]);
-
-  // The title line is already represented by the field → skipped; the other
-  // verses are free-form content → they land in the single content block.
-  equal(
-    extraction.cleanFields.content,
-    SURAH_LINES.slice(1).join("\n"),
-    "only the unrecovered lines form the content field"
+  assert(
+    !("content" in extraction.cleanFields),
+    "no OCR remainder blob when the model already found content"
   );
-  const content = extraction.fields.find((f) => f.field.key === "content")!;
   equal(
-    (content.value.evidence ?? []).length,
-    SURAH_LINES.length - 1,
-    "covered title line has no evidence entry"
+    extraction.fields.length,
+    1,
+    "the extraction stays exactly what the model surfaced"
   );
 });
 

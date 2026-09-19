@@ -12,6 +12,8 @@ import { runVisionOCR, visionNormalizedBBoxToPixelBox } from "@/lib/ocr/vision-s
 import { imageDimensionsFromBuffer } from "@/lib/ocr/image-dims";
 import type { ReceiptExtraction } from "@/lib/ocr/vision-service";
 import { OCR_TIMEOUT_MS } from "@/lib/ocr/recall";
+import { postProcessOcr } from "@/lib/ocr/arabic";
+import { countArabicLetters } from "@/lib/ocr/arabic/scripts";
 
 // Bound every OCR call with a hard timeout so the pipeline can never get
 // stuck; on failure the caller falls back to the "no text" path. The same
@@ -255,7 +257,7 @@ async function extractImageText(buffer: Buffer): Promise<ParseResult> {
     // Build a minimal OcrDocument from Gemini lines so the grounding stage
     // still has structured OCR evidence; lines carry pixel bboxes when the
     // model returned normalized coordinates.
-    const ocr: OcrDocument = {
+    let ocr: OcrDocument = {
       text,
       language: vision.detected_language || undefined,
       lines: vision.data.map((l: { text: string; confidence: number; bbox?: [number, number, number, number] }) => ({
@@ -270,9 +272,25 @@ async function extractImageText(buffer: Buffer): Promise<ParseResult> {
           .map((w: string) => ({ text: w, confidence: l.confidence })),
       })),
     };
+    let outText = text;
+
+    // Arabic-first OCR repair (same layer the scanned-PDF path uses): normalize
+    // alef/yeh variants and kashida, reassemble isolated letters, unify digit
+    // families and report per-line quality — all gated so text is never
+    // invented or deleted. Applies whenever the reading contains Arabic script.
+    if (countArabicLetters(text) > 0) {
+      const repaired = postProcessOcr(ocr);
+      ocr = repaired.doc;
+      outText = repaired.doc.text;
+      if (repaired.report.linesChanged > 0) {
+        console.debug(
+          `[Vision OCR] Arabic repair applied to ${repaired.report.linesChanged} line(s)`
+        );
+      }
+    }
 
     return {
-      text: text || "[No text found in image]",
+      text: outText || "[No text found in image]",
       ocr,
       ...(vision.extraction !== undefined ? { visionExtraction: vision.extraction } : {}),
     };

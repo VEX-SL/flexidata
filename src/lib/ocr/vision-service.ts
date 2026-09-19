@@ -185,6 +185,7 @@ const SYSTEM_PROMPT = [
   "   b. customer_phone / mobile_number: read from 'معلومات إضافية', 'Mobile Number', or a raw phone digit block (e.g. '0123456789'). MULTI-LINE HEADER: when a header like 'معلومات إضافية : Mobile Number' is followed by a digit line, map that digit line to customer_phone.",
   "   c. account_number: extract the digits next to 'رقم الحساب' (e.g. '391003452').",
   "   d. description / service_name: capture the service or merchant description (e.g. 'Hostinger', 'PURCHASE', 'اشتراك').",
+  "8. LINE FIDELITY (ALL DOCUMENTS): Treat every visually distinct text row — a receipt line, a chat message bubble, a timestamp, a status chip — as its OWN line in 'lines'. NEVER merge several rows into one 'text' entry, and never drop a row to 'clean up': the raw reading must be complete. If the same value appears repeatedly (e.g. the timestamp on consecutive messages), emit each occurrence as its own line. Keep each line's bbox tight around that row only.",
   "",
   "Respond with STRICT JSON only — no markdown fences, no commentary — shaped",
   "exactly like:",
