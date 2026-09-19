@@ -9,10 +9,9 @@ import type { SidebarField } from "./ExtractionSidebar";
 import ExtractionSidebar from "./ExtractionSidebar";
 import {
   confidenceColor,
+  fieldRegionBox,
   fieldTone,
-  matchQuoteWords,
   pixelBBoxToNormalized,
-  unionPixelBoxes,
   type NormalizedBox,
 } from "./bbox-utils";
 import type { BBox } from "@/lib/pipeline/types";
@@ -53,47 +52,9 @@ export default function DocumentInspector({
   const [imageSize, setImageSize] = useState<{ w: number; h: number } | null>(null);
 
   const fieldBoxes = useMemo(() => {
-    const byLine = new Map<number, BBox | null>();
-    const lineBox = (lineIndex: number): BBox | null => {
-      if (byLine.has(lineIndex)) return byLine.get(lineIndex) ?? null;
-      const line = ocr?.lines[lineIndex];
-      if (!line) {
-        byLine.set(lineIndex, null);
-        return null;
-      }
-      let box: BBox | null = null;
-      if (line.bbox) box = line.bbox;
-      else {
-        const words = line.words.map((w) => w.bbox).filter((b): b is BBox => Boolean(b));
-        box = unionPixelBoxes(words);
-      }
-      byLine.set(lineIndex, box);
-      return box;
-    };
-
     const boxes = new Map<string, BBox | null>();
     for (const f of fields) {
-      let found: BBox | null = null;
-      for (const ev of f.evidence ?? []) {
-        if (typeof ev.lineIndex !== "number") continue;
-        const line = ocr?.lines[ev.lineIndex];
-        if (!line) continue;
-        if (ev.quote && line.words.length) {
-          const span = matchQuoteWords(line.words, ev.quote);
-          const wordBoxes = span.map((w) => w.bbox).filter((b): b is BBox => Boolean(b));
-          const union = unionPixelBoxes(wordBoxes);
-          if (union) {
-            found = union;
-            break;
-          }
-        }
-        const fallback = lineBox(ev.lineIndex);
-        if (fallback) {
-          found = fallback;
-          break;
-        }
-      }
-      boxes.set(f.key, found);
+      boxes.set(f.key, fieldRegionBox(f, ocr));
     }
     return boxes;
   }, [fields, ocr]);

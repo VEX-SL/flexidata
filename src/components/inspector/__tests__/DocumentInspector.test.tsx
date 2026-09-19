@@ -9,6 +9,7 @@ import {
   normalizedToPercentageBBox,
   pixelBBoxToNormalized,
   unionPixelBoxes,
+  fieldRegionBox,
   matchQuoteWords,
   confidenceColor,
   fieldTone,
@@ -125,6 +126,81 @@ test("inspector: union of word boxes is the bounding rectangle", () => {
 test("inspector: empty or zero-area boxes yield null", () => {
   ok(unionPixelBoxes([]) === null, "empty list must yield null");
   ok(unionPixelBoxes([{ x: 5, y: 5, width: 0, height: 10 }]) === null, "zero width must yield null");
+});
+
+// ─── fieldRegionBox ────────────────────────────────────────────────────────
+
+const REGION_LINES = [
+  {
+    text: "ذهب عمر إلى الشام فخرج الناس يستقبلونه",
+    words: [
+      { text: "ذهب", bbox: { x: 10, y: 40, width: 60, height: 20 } },
+      { text: "عمر", bbox: { x: 80, y: 40, width: 50, height: 20 } },
+      { text: "إلى الشام", bbox: { x: 140, y: 40, width: 120, height: 20 } },
+    ],
+    bbox: { x: 10, y: 40, width: 250, height: 20 },
+  },
+  {
+    text: "فقال لهم إنما جئت اعرف لكم أمركم",
+    words: [
+      { text: "فقال", bbox: { x: 10, y: 68, width: 70, height: 20 } },
+      { text: "لهم", bbox: { x: 90, y: 68, width: 50, height: 20 } },
+    ],
+    bbox: { x: 10, y: 68, width: 270, height: 20 },
+  },
+];
+
+test("inspector: a multi-line value unions every covered line into one region", () => {
+  const region = fieldRegionBox(
+    {
+      evidence: [
+        { lineIndex: 0, quote: REGION_LINES[0].text },
+        { lineIndex: 1, quote: REGION_LINES[1].text },
+      ],
+    },
+    {
+      text: REGION_LINES.map((l) => l.text).join("\n"),
+      lines: REGION_LINES.map((l) => ({
+        text: l.text,
+        words: l.words,
+        bbox: l.bbox,
+      })),
+    }
+  );
+
+  ok(region, "region must resolve");
+  equal(region!.y, 40, "top covers the first line");
+  equal(region!.y + region!.height, 88, "bottom covers the last line");
+  equal(region!.x, 10, "left follows the lines");
+});
+
+test("inspector: a single-line value resolves to its own line region", () => {
+  const region = fieldRegionBox(
+    { evidence: [{ lineIndex: 1, quote: "فقال لهم إنما جئت" }] },
+    {
+      text: REGION_LINES.map((l) => l.text).join("\n"),
+      lines: REGION_LINES.map((l) => ({
+        text: l.text,
+        words: l.words,
+        bbox: l.bbox,
+      })),
+    }
+  );
+  ok(region, "region must resolve");
+  equal(region!.y, 68);
+});
+
+test("inspector: fields without boxed evidence resolve to null", () => {
+  const ocr = {
+    text: "plain text without boxes",
+    lines: [{ text: "plain text without boxes", words: [{ text: "plain" }] }],
+  };
+  ok(
+    fieldRegionBox({ evidence: [{ lineIndex: 0, quote: "plain" }] }, ocr as never) === null,
+    "no bbox anywhere yields null"
+  );
+  ok(fieldRegionBox({}, ocr as never) === null, "no evidence yields null");
+  ok(fieldRegionBox({ evidence: [{ lineIndex: 99, quote: "x" }] }, ocr as never) === null, "out-of-range line yields null");
 });
 
 // ─── matchQuoteWords ──────────────────────────────────────────────────────

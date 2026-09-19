@@ -1,4 +1,4 @@
-import type { BBox } from "@/lib/pipeline/types";
+import type { BBox, OcrDocument } from "@/lib/pipeline/types";
 
 /**
  * Normalized bounding box in the standard `[ymin, xmin, ymax, xmax]` layout,
@@ -88,6 +88,52 @@ export function unionPixelBoxes(boxes: BBox[]): BBox | null {
   }
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   return { x, y, width: x2 - x, height: y2 - y };
+}
+
+/**
+ * Resolve a field's on-image region as the union of EVERY evidence line's box
+ * (word-span match first, then the line's own bbox). Values that span several
+ * lines — a grounded content passage from free-form text — therefore highlight
+ * their whole region on the image, not just the first anchored line. Returns
+ * null when no evidence lands on a boxed OCR line.
+ */
+export function fieldRegionBox(
+  field: { evidence?: Array<{ lineIndex?: number; quote?: string }> },
+  ocr?: OcrDocument | null
+): BBox | null {
+  const cached = new Map<number, BBox | null>();
+  const lineBox = (lineIndex: number): BBox | null => {
+    if (cached.has(lineIndex)) return cached.get(lineIndex) ?? null;
+    const line = ocr?.lines[lineIndex];
+    if (!line) {
+      cached.set(lineIndex, null);
+      return null;
+    }
+    let box: BBox | null = null;
+    if (line.bbox) box = line.bbox;
+    else {
+      const words = line.words.map((w) => w.bbox).filter((b): b is BBox => Boolean(b));
+      box = unionPixelBoxes(words);
+    }
+    cached.set(lineIndex, box);
+    return box;
+  };
+
+  const covered: BBox[] = [];
+  for (const ev of field.evidence ?? []) {
+    if (typeof ev.lineIndex !== "number") continue;
+    const line = ocr?.lines[ev.lineIndex];
+    if (!line) continue;
+    let box: BBox | null = null;
+    if (ev.quote && line.words.length) {
+      const span = matchQuoteWords(line.words, ev.quote);
+      const wordBoxes = span.map((w) => w.bbox).filter((b): b is BBox => Boolean(b));
+      box = unionPixelBoxes(wordBoxes);
+    }
+    if (!box) box = lineBox(ev.lineIndex);
+    if (box) covered.push(box);
+  }
+  return unionPixelBoxes(covered);
 }
 
 /**
