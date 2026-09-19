@@ -76,6 +76,56 @@ const POLL_INTERVAL = 1600;
 const MAX_POLLS = 150;
 
 /**
+ * Upload for the Documents pipeline: the browser streams the file straight to
+ * Supabase Storage via a signed upload URL, so large non-image files never
+ * cross the serverless request-body ceiling. Falls back to the legacy multipart
+ * relay when the signing endpoint is unavailable. Returns the files row id.
+ */
+async function uploadFile(file: File, signal: AbortSignal): Promise<string> {
+  const startRes = await fetch("/api/upload/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: file.name,
+      mimeType: file.type,
+      size: file.size,
+    }),
+    signal,
+  });
+  if (startRes.ok) {
+    const up = await startRes.json();
+    const putRes = await fetch(up.uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: file.type ? { "Content-Type": file.type } : {},
+      signal,
+    });
+    if (!putRes.ok) {
+      throw new Error(`Upload failed (${putRes.status})`);
+    }
+    return up.id as string;
+  }
+
+  // Signing unavailable — retry through the legacy server relay.
+  const body = await startRes.json().catch(() => null);
+  const legacyRes = await fetch("/api/upload", {
+    method: "POST",
+    body: (() => {
+      const form = new FormData();
+      form.append("file", file);
+      return form;
+    })(),
+    signal,
+  });
+  if (!legacyRes.ok) {
+    const legacyBody = await legacyRes.json().catch(() => null);
+    throw new Error(legacyBody?.error ?? body?.error ?? "Upload failed");
+  }
+  const legacyUp = await legacyRes.json();
+  return legacyUp.id as string;
+}
+
+/**
  * Client-side driver for the Documents inbox:
  * loads the extraction list, uploads + runs documents, polls running jobs,
  * and exposes replace / delete / re-run / save-fields actions.
@@ -174,19 +224,7 @@ export function useDocuments() {
 
       let fileId: string;
       try {
-        const form = new FormData();
-        form.append("file", file);
-        const upRes = await fetch("/api/upload", {
-          method: "POST",
-          body: form,
-          signal: controller.signal,
-        });
-        if (!upRes.ok) {
-          const body = await upRes.json().catch(() => null);
-          throw new Error(body?.error ?? "Upload failed");
-        }
-        const up = await upRes.json();
-        fileId = up.id;
+        fileId = await uploadFile(file, controller.signal);
       } catch (err) {
         aborters.current.delete(key);
         const aborted =
@@ -248,19 +286,12 @@ export function useDocuments() {
     async (id: string, file: File) => {
       patchDoc(id, { replacing: true, localError: undefined });
       try {
-        const form = new FormData();
-        form.append("file", file);
-        const upRes = await fetch("/api/upload", { method: "POST", body: form });
-        if (!upRes.ok) {
-          const body = await upRes.json().catch(() => null);
-          throw new Error(body?.error ?? "Upload failed");
-        }
-        const up = await upRes.json();
+        const fileId = await uploadFile(file, new AbortController().signal);
 
         const res = await fetch(`/api/pipeline/extractions/${id}/replace`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileId: up.id }),
+          body: JSON.stringify({ fileId }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => null);
