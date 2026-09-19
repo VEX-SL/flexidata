@@ -84,6 +84,7 @@
     "removeFile": "Retirer",
     "confirm": "Confirmer",
     "other": "Autre",
+    "passages": "lignes",
     "loadingHistory": "Chargement...",
     "stage": {
       "queued": "En file",

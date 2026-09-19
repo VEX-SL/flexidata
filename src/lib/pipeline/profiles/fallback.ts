@@ -1,4 +1,4 @@
-import type { ExtractionProfile, ProfilePlugin } from "../types";
+import type { ExtractionProfile, ProfilePlugin, ValidationRule } from "../types";
 
 /**
  * Fallback profile used when the classifier returns "unknown".
@@ -8,7 +8,7 @@ import type { ExtractionProfile, ProfilePlugin } from "../types";
 const schema = {
   version: 1,
   fields: [
-    { key: "document_title", type: "string" as const, label: "Document title", required: true },
+    { key: "document_title", type: "string" as const, label: "Document title" },
     { key: "document_date", type: "date" as const, label: "Document date" },
     { key: "author_name", type: "string" as const, label: "Author / sender name" },
     { key: "recipient_name", type: "string" as const, label: "Recipient name" },
@@ -45,9 +45,7 @@ Schema:
 Document:
 {{document}}`;
 
-const validationRules = [
-  { key: "document_title", kind: "string" as const, required: true },
-];
+const validationRules: ValidationRule[] = [];
 
 export const fallbackProfile: ExtractionProfile = {
   id: "unknown",

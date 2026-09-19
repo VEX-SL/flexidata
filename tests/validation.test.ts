@@ -50,3 +50,16 @@ test("a receipt wrongly extracted as an invoice fails invoice validation", () =>
   equal(result.ok, false);
   equal(result.missing, ["invoice_number", "invoice_date", "seller_name", "buyer_name", "total_amount"]);
 });
+
+test("free-form unknown documents never require a title (document_title is optional)", () => {
+  const result = validateExtraction({
+    profileType: "unknown",
+    profileVersion: 1,
+    fields: [],
+    fieldsMap: {},
+    cleanFields: {},
+    droppedFields: {},
+  });
+  equal(result.missing.length, 0, "no schema/rule may force document_title in free-form docs");
+  equal(result.ok, true);
+});

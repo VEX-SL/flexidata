@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Clipboard,
   FileClock,
+  ChevronDown,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import {
@@ -471,6 +472,42 @@ export default function DocumentsPage() {
           font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
           color: var(--color-muted-foreground); margin-bottom: .5rem;
         }
+        .fd-doc-drawer {
+          border: 1px solid var(--color-border); border-radius: 16px;
+          background: var(--color-card); overflow: hidden;
+        }
+        .fd-doc-drawer-toggle {
+          display: flex; align-items: center; gap: .7rem; width: 100%;
+          padding: .85rem 1.05rem; border: none; cursor: pointer; font: inherit;
+          color: var(--color-foreground); text-align: left;
+          background: linear-gradient(135deg, rgba(140,140,140,.07), rgba(115,115,115,.04));
+          transition: background .2s;
+        }
+        [dir="rtl"] .fd-doc-drawer-toggle { text-align: right; }
+        .fd-doc-drawer-toggle:hover { background: linear-gradient(135deg, rgba(140,140,140,.12), rgba(115,115,115,.08)); }
+        .fd-doc-drawer-icon {
+          width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center;
+          background: rgba(140,140,140,.1); color: #7a7a7a;
+        }
+        [data-theme="light"] .fd-doc-drawer-icon { color: #555; }
+        .fd-doc-drawer-title { flex: 1; font-size: .84rem; font-weight: 700; }
+        .fd-doc-drawer-chevron {
+          flex-shrink: 0; color: var(--color-muted-foreground);
+          transition: transform .3s cubic-bezier(.16,1,.3,1);
+        }
+        .fd-doc-drawer-toggle.open .fd-doc-drawer-chevron { transform: rotate(180deg); }
+        .fd-doc-drawer-body {
+          display: grid; grid-template-rows: 0fr;
+          transition: grid-template-rows .38s cubic-bezier(.16,1,.3,1);
+        }
+        .fd-doc-drawer-body.open { grid-template-rows: 1fr; }
+        .fd-doc-drawer-inner { overflow: hidden; }
+        .fd-doc-drawer-body.open .fd-doc-drawer-inner { animation: fd-doc-drawer-in .38s cubic-bezier(.16,1,.3,1) both; }
+        @keyframes fd-doc-drawer-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
       `}</style>
 
       <div className="fd-doc-root h-full overflow-auto p-6" suppressHydrationWarning>
@@ -883,7 +920,18 @@ function ReviewWorkspace(props: ReviewProps) {
   // Fallback OCR rows aren't persisted server-side (their keys only exist in
   // the job's stored fields) so editing them would fail on save.
   const storedKeys = new Set((job.fields ?? []).map((f) => f.key));
-  const missing = job.validation?.missing ?? [];
+  // A title is not a hard requirement for free-form documents (the doc IS the
+  // content, whatever the top line says), so drop it from the stored missing
+  // list — existing rows may still have flagged it before the rule was lifted.
+  const missing = (job.validation?.missing ?? []).filter((k) => k !== "document_title");
+  // Mirror that on the stored confidence breakdown: no missing key → the
+  // "Missing required fields" bar has nothing left to measure.
+  const summary =
+    missing.length > 0
+      ? (job.confidence?.summary ?? [])
+      : (job.confidence?.summary ?? []).filter(
+          (s) => BREAKDOWN_KEY[s.label] !== "missing"
+        );
   const fieldLabel = (key: string) =>
     schema?.fields.find((f) => f.key === key)?.label ??
     byKey.get(key)?.label ??
@@ -1027,13 +1075,13 @@ function ReviewWorkspace(props: ReviewProps) {
         ))}
 
         {/* Confidence breakdown */}
-        {view === "fields" && !!job.confidence?.summary?.length && (
+        {view === "fields" && summary.length > 0 && (
           <div className="fd-doc-banner mb-4" style={{ display: "block" }}>
             <p className="text-[.7rem] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">
               {t("documents.confidenceBreakdown.title")}
             </p>
             <div className="space-y-1">
-              {job.confidence.summary.map((s) => (
+              {summary.map((s) => (
                 <div key={s.label} className="flex items-center gap-2">
                   <span className="text-[.68rem] text-muted-foreground flex-1 truncate">
                     {t(`documents.confidenceBreakdown.${BREAKDOWN_KEY[s.label] ?? s.label}`) || s.label}
@@ -1077,40 +1125,59 @@ function ReviewWorkspace(props: ReviewProps) {
           <div className="text-center py-6 text-sm text-muted-foreground">{t("common.error")}</div>
         ) : (
           <div className="space-y-5">
-            {groups.map((g) => (
-              <div key={g.label || "root"}>
-                {g.label && (
-                  <p className="text-[.72rem] font-bold uppercase tracking-wider text-muted-foreground mb-2 px-1">
-                    {g.label}
-                  </p>
-                )}
-                <div className="space-y-1">
-                  {g.fields.map((field) => (
-                    <FieldRow
-                      key={field.key}
-                      field={field}
-                      label={fieldLabel(field.key)}
-                      def={
-                        schema?.fields.find((f) => f.key === field.key) ?? {
-                          key: field.key,
-                          type: field.type ?? "string",
-                          label: field.label ?? field.key,
+            {groups.map((g) =>
+              g.fields.length > 0 && g.fields.every(isOcrPassage) ? (
+                <PassagesDrawer
+                  key={g.label || "ocr"}
+                  label={g.label || t("documents.other")}
+                  fields={g.fields}
+                  storedKeys={storedKeys}
+                  fieldLabel={fieldLabel}
+                  schema={schema}
+                  t={t}
+                  editing={editing}
+                  savingKey={savingKey}
+                  fieldError={fieldError}
+                  onStartEdit={onStartEdit}
+                  onDraft={onDraft}
+                  onSave={onSave}
+                  onCancel={onCancel}
+                />
+              ) : (
+                <div key={g.label || "root"}>
+                  {g.label && (
+                    <p className="text-[.72rem] font-bold uppercase tracking-wider text-muted-foreground mb-2 px-1">
+                      {g.label}
+                    </p>
+                  )}
+                  <div className="space-y-1">
+                    {g.fields.map((field) => (
+                      <FieldRow
+                        key={field.key}
+                        field={field}
+                        label={fieldLabel(field.key)}
+                        def={
+                          schema?.fields.find((f) => f.key === field.key) ?? {
+                            key: field.key,
+                            type: field.type ?? "string",
+                            label: field.label ?? field.key,
+                          }
                         }
-                      }
-                      t={t}
-                      editing={editing?.key === field.key ? editing : null}
-                      saving={savingKey === field.key}
-                      fieldError={fieldError}
-                      onStartEdit={() => onStartEdit(field.key)}
-                      onDraft={onDraft}
-                      onSave={() => onSave(field.key)}
-                      onCancel={onCancel}
-                      readOnly={!storedKeys.has(field.key)}
-                    />
-                  ))}
+                        t={t}
+                        editing={editing?.key === field.key ? editing : null}
+                        saving={savingKey === field.key}
+                        fieldError={fieldError}
+                        onStartEdit={() => onStartEdit(field.key)}
+                        onDraft={onDraft}
+                        onSave={() => onSave(field.key)}
+                        onCancel={onCancel}
+                        readOnly={!storedKeys.has(field.key)}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
         )}
       </div>
@@ -1263,6 +1330,100 @@ function OcrPreview({
 }
 
 /* ─── Field row ───────────────────────────────────────────────────────── */
+
+/* ─── OCR passages drawer ────────────────────────────────────────────── */
+
+/** True for a review row that is an OCR passage (source "ocr", passage_N key). */
+function isOcrPassage(f: FieldDTO): boolean {
+  return f.source === "ocr" && f.key.startsWith("passage_");
+}
+
+interface PassagesDrawerProps {
+  label: string;
+  fields: FieldDTO[];
+  storedKeys: Set<string>;
+  fieldLabel: (key: string) => string;
+  schema?: ProfileSchemaDTO["schema"];
+  t: (key: string, params?: Record<string, string | number>) => string;
+  editing: { key: string; draft: string } | null;
+  savingKey: string | null;
+  fieldError: string | null;
+  onStartEdit: (key: string) => void;
+  onDraft: (draft: string) => void;
+  onSave: (key: string) => void;
+  onCancel: () => void;
+}
+
+/**
+ * The document's raw OCR reading, presented as a closed drawer. The readers'
+ * lines are the ground truth of the page — they live collapsed until asked
+ * for, so a free-form document doesn't dump its whole transcript on screen.
+ */
+function PassagesDrawer({
+  label,
+  fields,
+  storedKeys,
+  fieldLabel,
+  schema,
+  t,
+  editing,
+  savingKey,
+  fieldError,
+  onStartEdit,
+  onDraft,
+  onSave,
+  onCancel,
+}: PassagesDrawerProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="fd-doc-drawer">
+      <button
+        type="button"
+        className={`fd-doc-drawer-toggle ${open ? "open" : ""}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="fd-doc-drawer-icon">
+          <ScanText size={15} />
+        </span>
+        <span className="fd-doc-drawer-title">{label}</span>
+        <span className="fd-doc-chip" style={{ background: "rgba(140,140,140,.1)", color: "#7a7a7a" }}>
+          {fields.length} {t("documents.passages")}
+        </span>
+        <ChevronDown size={16} className="fd-doc-drawer-chevron" />
+      </button>
+      <div className={`fd-doc-drawer-body ${open ? "open" : ""}`}>
+        <div className="fd-doc-drawer-inner">
+          <div className="space-y-1 p-3">
+            {fields.map((field) => (
+              <FieldRow
+                key={field.key}
+                field={field}
+                label={fieldLabel(field.key)}
+                def={
+                  schema?.fields.find((f) => f.key === field.key) ?? {
+                    key: field.key,
+                    type: field.type ?? "string",
+                    label: field.label ?? field.key,
+                  }
+                }
+                t={t}
+                editing={editing?.key === field.key ? editing : null}
+                saving={savingKey === field.key}
+                fieldError={fieldError}
+                onStartEdit={() => onStartEdit(field.key)}
+                onDraft={onDraft}
+                onSave={() => onSave(field.key)}
+                onCancel={onCancel}
+                readOnly={!storedKeys.has(field.key)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface FieldRowProps {
   field: FieldDTO;
