@@ -29,7 +29,7 @@ const PARTICLES = [
   { id: 19, x: 76, y: 95, s: 1, d: 0.5, dur: 8 },
 ];
 
-const PARTICLE_COLORS = ["#818CF8", "#A78BFA", "#38BDF8", "#C4B5FD", "#818CF8"];
+const PARTICLE_COLORS = ["#D6B269", "#BD8C50", "#DEB879", "#D8AD72", "#B07D35"];
 
 // ─── Global styles injected once ─────────────────────────────────────────────
 function AuthStyles() {
@@ -67,12 +67,12 @@ function AuthStyles() {
         width: 54%;
         height: 100dvh;
         flex-shrink: 0;
-        background: #06060F;
+        background: #0C0A08;
       }
 
       @media (min-width: 1024px) { .fd-brand { display: flex; } }
 
-      [data-theme="light"] .fd-brand { background: #ECEBFF; }
+      [data-theme="light"] .fd-brand { background: #F1EBDE; }
 
       .fd-orb {
         position: absolute;
@@ -80,8 +80,8 @@ function AuthStyles() {
         top: 50%; left: -140px;
         transform: translateY(-50%);
         background: radial-gradient(circle,
-          rgba(99,102,241,.38) 0%,
-          rgba(139,92,246,.18) 36%,
+          rgba(176,125,53,.38) 0%,
+          rgba(163,88,40,.18) 36%,
           transparent 68%
         );
         border-radius: 50%;
@@ -92,8 +92,8 @@ function AuthStyles() {
 
       [data-theme="light"] .fd-orb {
         background: radial-gradient(circle,
-          rgba(99,102,241,.22) 0%,
-          rgba(139,92,246,.10) 36%,
+          rgba(176,125,53,.22) 0%,
+          rgba(163,88,40,.10) 36%,
           transparent 68%
         );
       }
@@ -106,19 +106,19 @@ function AuthStyles() {
       }
       .fd-ring-a {
         width: 360px; height: 360px;
-        border: 1px solid rgba(129,140,248,.20);
+        border: 1px solid rgba(214,178,105,.20);
         transform: translate(-50%,-50%);
         animation: fd-ring-spin 24s linear infinite;
       }
       .fd-ring-b {
         width: 560px; height: 560px;
-        border: 1px solid rgba(129,140,248,.09);
+        border: 1px solid rgba(214,178,105,.09);
         transform: translate(-50%,-50%);
         animation: fd-ring-spin 38s linear infinite reverse;
       }
       .fd-ring-c {
         width: 190px; height: 190px;
-        border: 1px solid rgba(167,139,250,.28);
+        border: 1px solid rgba(189,140,80,.28);
         transform: translate(-50%,-50%);
         animation: fd-ring-spin 14s linear infinite;
       }
@@ -143,10 +143,10 @@ function AuthStyles() {
 
       .fd-logo-mark {
         width: 50px; height: 50px;
-        background: linear-gradient(135deg, #6366F1, #8B5CF6);
+        background: linear-gradient(135deg, #B07D35, #A35828);
         border-radius: 13px;
         display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 8px 28px rgba(99,102,241,.45);
+        box-shadow: 0 8px 28px rgba(176,125,53,.45);
         margin-bottom: 1.1rem;
         flex-shrink: 0;
       }
@@ -155,7 +155,7 @@ function AuthStyles() {
         font-size: 1.45rem;
         font-weight: 700;
         letter-spacing: -.025em;
-        color: #F0F0FF;
+        color: #F4EFE2;
         margin-bottom: 2.75rem;
       }
       [data-theme="light"] .fd-brand-wordmark { color: #1E1B4B; }
@@ -165,13 +165,13 @@ function AuthStyles() {
         font-weight: 800;
         line-height: 1.07;
         letter-spacing: -.038em;
-        color: #F0F0FF;
+        color: #F4EFE2;
         margin: 0 0 1.4rem;
       }
       [data-theme="light"] .fd-hero-h1 { color: #1E1B4B; }
 
       .fd-shimmer {
-        background: linear-gradient(90deg, #818CF8, #A78BFA, #60A5FA, #818CF8);
+        background: linear-gradient(90deg, #D6B269, #BD8C50, #DEB879, #D6B269);
         background-size: 300% auto;
         -webkit-background-clip: text;
         background-clip: text;
@@ -182,7 +182,7 @@ function AuthStyles() {
       .fd-hero-sub {
         font-size: 1.02rem;
         line-height: 1.78;
-        color: #94A3B8;
+        color: #9C907D;
         max-width: 390px;
         margin: 0 0 2.5rem;
         font-weight: 400;
@@ -195,8 +195,8 @@ function AuthStyles() {
         gap: 11px;
         padding: 12px 17px;
         border-radius: 13px;
-        background: rgba(129,140,248,.07);
-        border: 1px solid rgba(129,140,248,.14);
+        background: rgba(214,178,105,.07);
+        border: 1px solid rgba(214,178,105,.14);
         color: #CBD5E1;
         font-size: .875rem;
         font-weight: 500;
@@ -205,13 +205,13 @@ function AuthStyles() {
         animation: fd-fade-up .6s ease both;
       }
       [data-theme="light"] .fd-pill {
-        background: rgba(99,102,241,.06);
-        border-color: rgba(99,102,241,.15);
+        background: rgba(176,125,53,.06);
+        border-color: rgba(176,125,53,.15);
         color: #374151;
       }
       .fd-pill:hover {
-        background: rgba(129,140,248,.13);
-        border-color: rgba(129,140,248,.28);
+        background: rgba(214,178,105,.13);
+        border-color: rgba(214,178,105,.28);
       }
 
       /* ── Form side ───────────────────── */
@@ -244,13 +244,13 @@ function AuthStyles() {
         padding: 2.5rem;
         border-radius: 22px;
         background: rgba(255,255,255,.03);
-        border: 1px solid rgba(129,140,248,.14);
+        border: 1px solid rgba(214,178,105,.14);
         backdrop-filter: blur(20px);
       }
       [data-theme="light"] .fd-card-inner {
         background: rgba(255,255,255,.96);
-        border-color: rgba(99,102,241,.12);
-        box-shadow: 0 24px 56px rgba(99,102,241,.08), 0 4px 14px rgba(0,0,0,.04);
+        border-color: rgba(176,125,53,.12);
+        box-shadow: 0 24px 56px rgba(176,125,53,.08), 0 4px 14px rgba(0,0,0,.04);
       }
 
       /* Mobile logo (hidden on desktop because brand panel shows) */
@@ -282,7 +282,7 @@ function AuthStyles() {
         font-size: .95rem;
         font-family: inherit;
         background: rgba(255,255,255,.05);
-        border: 1px solid rgba(129,140,248,.20);
+        border: 1px solid rgba(214,178,105,.20);
         color: var(--color-foreground);
         transition: border-color .2s, background .2s, box-shadow .2s;
         outline: none;
@@ -292,13 +292,13 @@ function AuthStyles() {
       }
       [data-theme="light"] .fd-input {
         background: rgba(238,242,255,.6);
-        border-color: rgba(99,102,241,.18);
+        border-color: rgba(176,125,53,.18);
       }
       .fd-input::placeholder { color: var(--color-muted-foreground); }
       .fd-input:focus {
-        border-color: rgba(129,140,248,.55);
-        background: rgba(129,140,248,.07);
-        box-shadow: 0 0 0 3px rgba(129,140,248,.10);
+        border-color: rgba(214,178,105,.55);
+        background: rgba(214,178,105,.07);
+        box-shadow: 0 0 0 3px rgba(214,178,105,.10);
       }
       [data-theme="light"] .fd-input:focus { background: rgba(238,242,255,.92); }
 
@@ -313,7 +313,7 @@ function AuthStyles() {
         color: #fff;
         border: none;
         cursor: pointer;
-        background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+        background: linear-gradient(135deg, #B07D35 0%, #A35828 100%);
         position: relative;
         overflow: hidden;
         transition: transform .2s, box-shadow .2s, opacity .2s;
@@ -329,7 +329,7 @@ function AuthStyles() {
       }
       .fd-btn-primary:hover:not(:disabled) {
         transform: translateY(-2px);
-        box-shadow: 0 12px 32px rgba(99,102,241,.45);
+        box-shadow: 0 12px 32px rgba(176,125,53,.45);
       }
       .fd-btn-primary:active:not(:disabled) { transform: translateY(0); }
       .fd-btn-primary:disabled { opacity: .6; cursor: not-allowed; }
@@ -341,9 +341,9 @@ function AuthStyles() {
       }
       .fd-divider-line {
         flex: 1; height: 1px;
-        background: rgba(129,140,248,.15);
+        background: rgba(214,178,105,.15);
       }
-      [data-theme="light"] .fd-divider-line { background: rgba(99,102,241,.15); }
+      [data-theme="light"] .fd-divider-line { background: rgba(176,125,53,.15); }
       .fd-divider-text {
         font-size: .78rem;
         color: var(--color-muted-foreground);
@@ -361,18 +361,18 @@ function AuthStyles() {
         cursor: pointer;
         display: flex; align-items: center; justify-content: center; gap: 10px;
         background: rgba(255,255,255,.04);
-        border: 1px solid rgba(129,140,248,.18);
+        border: 1px solid rgba(214,178,105,.18);
         color: var(--color-foreground);
         transition: background .2s, border-color .2s, transform .2s;
         margin-bottom: 9px;
       }
       [data-theme="light"] .fd-btn-oauth {
         background: rgba(238,242,255,.5);
-        border-color: rgba(99,102,241,.2);
+        border-color: rgba(176,125,53,.2);
       }
       .fd-btn-oauth:hover {
-        background: rgba(129,140,248,.10);
-        border-color: rgba(129,140,248,.35);
+        background: rgba(214,178,105,.10);
+        border-color: rgba(214,178,105,.35);
         transform: translateY(-1px);
       }
 
@@ -382,7 +382,7 @@ function AuthStyles() {
         border-radius: 10px;
         background: rgba(239,68,68,.10);
         border: 1px solid rgba(239,68,68,.22);
-        color: #FCA5A5;
+        color: #EFACA4;
         font-size: .875rem;
         margin-bottom: 1rem;
         animation: fd-fade-up .3s ease;
@@ -397,10 +397,10 @@ function AuthStyles() {
         margin-top: 1.5rem;
       }
       .fd-footer-txt a {
-        color: #818CF8; font-weight: 600;
+        color: #D6B269; font-weight: 600;
         text-decoration: none; transition: color .15s;
       }
-      .fd-footer-txt a:hover { color: #A78BFA; text-decoration: underline; }
+      .fd-footer-txt a:hover { color: #BD8C50; text-decoration: underline; }
 
       /* ── Keyframes ───────────────────── */
       @keyframes fd-orb-breathe {
@@ -489,7 +489,7 @@ function BrandPanel() {
             <div key={i} className="fd-pill" style={{ animationDelay: `${0.1 + i * 0.15}s` }}>
               <span style={{ display: "inline-flex", alignItems: "center" }}>
                 {f.icon === "doc" && (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D6B269" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
@@ -498,7 +498,7 @@ function BrandPanel() {
                   </svg>
                 )}
                 {f.icon === "agent" && (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D6B269" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="11" width="18" height="10" rx="2" />
                     <circle cx="12" cy="5" r="2" />
                     <path d="M12 7v4" />
@@ -507,7 +507,7 @@ function BrandPanel() {
                   </svg>
                 )}
                 {f.icon === "multi" && (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818CF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D6B269" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                   </svg>
                 )}

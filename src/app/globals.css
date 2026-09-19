@@ -3,44 +3,44 @@
 @import "highlight.js/styles/github-dark.css";
 
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #0a0a0a;
+  --color-background: #fbf9f4;
+  --color-foreground: #17130d;
   --color-card: #ffffff;
-  --color-card-foreground: #0a0a0a;
-  --color-primary: #2563eb;
+  --color-card-foreground: #17130d;
+  --color-primary: #b07d35;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0a0a0a;
-  --color-muted: #f1f5f9;
-  --color-muted-foreground: #64748b;
-  --color-accent: #f1f5f9;
-  --color-accent-foreground: #0a0a0a;
-  --color-destructive: #ef4444;
+  --color-secondary: #f0ebe0;
+  --color-secondary-foreground: #2a241b;
+  --color-muted: #f0ebe0;
+  --color-muted-foreground: #8a7f6b;
+  --color-accent: #efe9dc;
+  --color-accent-foreground: #2a241b;
+  --color-destructive: #c4553e;
   --color-destructive-foreground: #ffffff;
-  --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
-  --color-ring: #2563eb;
+  --color-border: #e4dccb;
+  --color-input: #e4dccb;
+  --color-ring: #b07d35;
   --radius: 0.5rem;
 }
 
 [data-theme="dark"] {
-  --color-background: #09090b;
-  --color-foreground: #e4e4e7;
-  --color-card: #0f0f11;
-  --color-card-foreground: #e4e4e7;
-  --color-primary: #3b82f6;
-  --color-primary-foreground: #fafafa;
-  --color-secondary: #18181b;
-  --color-secondary-foreground: #e4e4e7;
-  --color-muted: #131316;
-  --color-muted-foreground: #71717a;
-  --color-accent: #1a1a1e;
-  --color-accent-foreground: #e4e4e7;
-  --color-destructive: #dc2626;
-  --color-destructive-foreground: #fafafa;
-  --color-border: #1c1c20;
-  --color-input: #1c1c20;
-  --color-ring: #3b82f6;
+  --color-background: #0c0a07;
+  --color-foreground: #eae3d6;
+  --color-card: #14110c;
+  --color-card-foreground: #eae3d6;
+  --color-primary: #c99a4e;
+  --color-primary-foreground: #17130d;
+  --color-secondary: #1c1812;
+  --color-secondary-foreground: #eae3d6;
+  --color-muted: #171310;
+  --color-muted-foreground: #9c907d;
+  --color-accent: #201a13;
+  --color-accent-foreground: #eae3d6;
+  --color-destructive: #c4553e;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #2b241a;
+  --color-input: #2b241a;
+  --color-ring: #c99a4e;
 }
 
 * {

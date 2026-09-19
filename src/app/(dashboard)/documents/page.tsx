@@ -291,16 +291,16 @@ export default function DocumentsPage() {
         .fd-doc-hero {
           position: relative; overflow: hidden;
           border-radius: 20px; padding: 1.8rem 1.75rem;
-          background: linear-gradient(135deg, rgba(16,185,129,.1) 0%, rgba(99,102,241,.08) 50%, rgba(59,130,246,.06) 100%);
-          border: 1px solid rgba(129,140,248,.12);
+          background: linear-gradient(135deg, rgba(172,150,96,.1) 0%, rgba(176,125,53,.08) 50%, rgba(140,96,52,.06) 100%);
+          border: 1px solid rgba(214,178,105,.12);
         }
         [data-theme="light"] .fd-doc-hero {
-          background: linear-gradient(135deg, rgba(16,185,129,.05) 0%, rgba(99,102,241,.04) 50%, rgba(59,130,246,.03) 100%);
-          border-color: rgba(99,102,241,.1);
+          background: linear-gradient(135deg, rgba(172,150,96,.05) 0%, rgba(176,125,53,.04) 50%, rgba(140,96,52,.03) 100%);
+          border-color: rgba(176,125,53,.1);
         }
         .fd-doc-hero-orb {
           position: absolute; width: 380px; height: 380px; border-radius: 50%;
-          background: radial-gradient(circle, rgba(16,185,129,.14) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(172,150,96,.14) 0%, transparent 70%);
           filter: blur(60px); top: -130px; right: -90px; pointer-events: none;
         }
         .fd-doc-card {
@@ -316,20 +316,20 @@ export default function DocumentsPage() {
         }
         .fd-doc-btn:disabled { opacity: .5; cursor: not-allowed; }
         .fd-doc-btn-primary {
-          background: linear-gradient(135deg, #10B981, #059669);
-          color: #fff; box-shadow: 0 4px 14px rgba(16,185,129,.22);
+          background: linear-gradient(135deg, #AC9660, #059669);
+          color: #fff; box-shadow: 0 4px 14px rgba(172,150,96,.22);
         }
-        .fd-doc-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(16,185,129,.32); }
+        .fd-doc-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(172,150,96,.32); }
         .fd-doc-btn-indigo {
-          background: linear-gradient(135deg, #6366F1, #8B5CF6);
-          color: #fff; box-shadow: 0 4px 14px rgba(99,102,241,.25);
+          background: linear-gradient(135deg, #B07D35, #A35828);
+          color: #fff; box-shadow: 0 4px 14px rgba(176,125,53,.25);
         }
-        .fd-doc-btn-indigo:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,102,241,.35); }
+        .fd-doc-btn-indigo:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(176,125,53,.35); }
         .fd-doc-btn-secondary {
           background: var(--color-card); color: var(--color-foreground);
           border: 1px solid var(--color-border);
         }
-        .fd-doc-btn-secondary:hover:not(:disabled) { border-color: rgba(99,102,241,.3); background: var(--color-accent); }
+        .fd-doc-btn-secondary:hover:not(:disabled) { border-color: rgba(176,125,53,.3); background: var(--color-accent); }
         .fd-doc-btn-danger {
           background: rgba(239,68,68,.12); color: #EF4444;
           border: 1px solid rgba(239,68,68,.3);
@@ -345,11 +345,11 @@ export default function DocumentsPage() {
           border: 2px dashed var(--color-border); text-align: center;
           transition: border-color .25s, background .25s; cursor: pointer;
         }
-        .fd-doc-upload:hover { border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.03); }
-        .fd-doc-upload.dragging { border-color: rgba(16,185,129,.55); background: rgba(16,185,129,.06); }
+        .fd-doc-upload:hover { border-color: rgba(172,150,96,.4); background: rgba(172,150,96,.03); }
+        .fd-doc-upload.dragging { border-color: rgba(172,150,96,.55); background: rgba(172,150,96,.06); }
         .fd-doc-upload-icon {
           width: 54px; height: 54px; border-radius: 16px; margin: 0 auto .85rem;
-          background: linear-gradient(135deg, rgba(16,185,129,.12), rgba(99,102,241,.08));
+          background: linear-gradient(135deg, rgba(172,150,96,.12), rgba(176,125,53,.08));
           display: flex; align-items: center; justify-content: center;
         }
         .fd-doc-row {
@@ -358,8 +358,8 @@ export default function DocumentsPage() {
           border: 1px solid var(--color-border); background: var(--color-card);
           cursor: pointer; transition: background .15s, border-color .15s;
         }
-        .fd-doc-row:hover { background: var(--color-accent); border-color: rgba(129,140,248,.25); }
-        .fd-doc-row.active { border-color: rgba(99,102,241,.45); background: rgba(99,102,241,.05); }
+        .fd-doc-row:hover { background: var(--color-accent); border-color: rgba(214,178,105,.25); }
+        .fd-doc-row.active { border-color: rgba(176,125,53,.45); background: rgba(176,125,53,.05); }
         .fd-doc-row-icon {
           width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center;
@@ -370,7 +370,7 @@ export default function DocumentsPage() {
           border: 1px solid transparent; transition: background .15s, border-color .15s;
         }
         .fd-doc-field-row:hover { background: var(--color-accent); }
-        .fd-doc-field-row.editing { border-color: rgba(99,102,241,.3); background: rgba(99,102,241,.05); }
+        .fd-doc-field-row.editing { border-color: rgba(176,125,53,.3); background: rgba(176,125,53,.05); }
         .fd-doc-field-value {
           font-size: .88rem; font-weight: 600; color: var(--color-foreground);
           word-break: break-word; margin: 0;
@@ -390,7 +390,7 @@ export default function DocumentsPage() {
           color: var(--color-foreground); outline: none; box-sizing: border-box;
           transition: border-color .2s, box-shadow .2s;
         }
-        .fd-doc-input:focus { border-color: rgba(99,102,241,.45); box-shadow: 0 0 0 3px rgba(99,102,241,.08); }
+        .fd-doc-input:focus { border-color: rgba(176,125,53,.45); box-shadow: 0 0 0 3px rgba(176,125,53,.08); }
         .fd-doc-select {
           padding: .55rem .7rem; border-radius: 10px;
           font-size: .85rem; font-family: inherit;
@@ -428,7 +428,7 @@ export default function DocumentsPage() {
         }
         .fd-doc-ocr-line { display: flex; align-items: baseline; gap: .6rem; padding: .14rem .5rem; border-radius: 6px; }
         .fd-doc-ocr-line.uncertain { background: rgba(239,68,68,.08); }
-        .fd-doc-ocr-line.evidence { background: rgba(16,185,129,.1); box-shadow: inset 2px 0 0 rgba(16,185,129,.65); }
+        .fd-doc-ocr-line.evidence { background: rgba(172,150,96,.1); box-shadow: inset 2px 0 0 rgba(172,150,96,.65); }
         .fd-doc-ocr-line-no { flex-shrink: 0; width: 2.2rem; text-align: right; color: var(--color-muted-foreground); font-size: .68rem; }
         .fd-doc-ocr-line-text { flex: 1; word-break: break-word; }
         .fd-doc-ocr-word { padding: 0 .1rem; border-radius: 3px; cursor: default; }
@@ -436,7 +436,7 @@ export default function DocumentsPage() {
         .fd-doc-ocr-line-conf { flex-shrink: 0; font-size: .66rem; color: var(--color-muted-foreground); }
         .fd-doc-ocr-legend { display: flex; flex-wrap: wrap; gap: .9rem; font-size: .68rem; color: var(--color-muted-foreground); margin-top: .5rem; }
         .fd-doc-ocr-legend i { display: inline-block; width: .6rem; height: .6rem; border-radius: 3px; margin-right: .3rem; vertical-align: middle; }
-        .fd-doc-ocr-legend .lg-evidence { background: rgba(16,185,129,.35); }
+        .fd-doc-ocr-legend .lg-evidence { background: rgba(172,150,96,.35); }
         .fd-doc-ocr-legend .lg-uncertain { background: rgba(239,68,68,.25); }
         .fd-doc-preview-img { max-width: 100%; border-radius: 12px; border: 1px solid var(--color-border); }
         .fd-doc-preview-label {
@@ -455,11 +455,11 @@ export default function DocumentsPage() {
             <div className="flex flex-wrap items-center gap-3 relative z-[2]">
               <h1 className="text-2xl font-extrabold tracking-tight text-foreground m-0">
                 {t("documents.title")}{" "}
-                <ScanText size={22} style={{ color: "#10B981", verticalAlign: "middle" }} />
+                <ScanText size={22} style={{ color: "#AC9660", verticalAlign: "middle" }} />
               </h1>
               <div className="flex-1" />
               {docs.length > 0 && (
-                <span className="fd-doc-chip" style={{ background: "rgba(99,102,241,.1)", color: "#6366F1" }}>
+                <span className="fd-doc-chip" style={{ background: "rgba(176,125,53,.1)", color: "#B07D35" }}>
                   <FileClock size={13} />
                   {docs.length} · {runningDocs} {t("documents.running").toLowerCase()}
                 </span>
@@ -488,9 +488,9 @@ export default function DocumentsPage() {
             />
             <div className="fd-doc-upload-icon">
               {busy ? (
-                <Loader2 size={24} className="animate-spin" style={{ color: "#10B981" }} />
+                <Loader2 size={24} className="animate-spin" style={{ color: "#AC9660" }} />
               ) : (
-                <Upload size={24} style={{ color: "#10B981" }} />
+                <Upload size={24} style={{ color: "#AC9660" }} />
               )}
             </div>
             <p className="text-[.95rem] font-bold text-foreground m-0 mb-1">
@@ -522,8 +522,8 @@ export default function DocumentsPage() {
               </div>
             ) : docs.length === 0 ? (
               <div className="fd-doc-card fd-doc-card-pad text-center py-10">
-                <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(99,102,241,.08)" }}>
-                  <Clipboard size={20} style={{ color: "#6366F1" }} />
+                <div className="w-12 h-12 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ background: "rgba(176,125,53,.08)" }}>
+                  <Clipboard size={20} style={{ color: "#B07D35" }} />
                 </div>
                 <p className="text-sm font-bold text-foreground m-0 mb-1">{t("documents.noHistory")}</p>
                 <p className="text-xs text-muted-foreground m-0">{t("documents.noHistorySub")}</p>
@@ -608,8 +608,8 @@ export default function DocumentsPage() {
           {activeDoc && activeJob && RUNNING.has(activeJob.status) && (
             <div className="fd-doc-card fd-doc-card-pad fd-doc-enter">
               <div className="flex items-center gap-3">
-                <div className="fd-doc-row-icon" style={{ background: "rgba(99,102,241,.12)" }}>
-                  <Loader2 size={18} className="animate-spin" style={{ color: "#6366F1" }} />
+                <div className="fd-doc-row-icon" style={{ background: "rgba(176,125,53,.12)" }}>
+                  <Loader2 size={18} className="animate-spin" style={{ color: "#B07D35" }} />
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-foreground m-0 truncate">{activeDoc.fileName}</p>
@@ -694,9 +694,9 @@ function DocRow({
   const iconBg = error
     ? "rgba(239,68,68,.12)"
     : complete
-      ? "rgba(16,185,129,.12)"
+      ? "rgba(172,150,96,.12)"
       : "rgba(245,158,11,.12)";
-  const iconColor = error ? "#EF4444" : complete ? "#10B981" : "#F59E0B";
+  const iconColor = error ? "#EF4444" : complete ? "#AC9660" : "#F59E0B";
 
   const subtitle = job
     ? `${profileLabel(job.profileType)} · ${new Date(job.createdAt).toLocaleString()}`
@@ -706,7 +706,7 @@ function DocRow({
     <div className={`fd-doc-row ${active ? "active" : ""}`} onClick={onSelect}>
       <div className="fd-doc-row-icon" style={{ background: iconBg }}>
         {uploading ? (
-          <Loader2 size={18} className="animate-spin" style={{ color: "#6366F1" }} />
+          <Loader2 size={18} className="animate-spin" style={{ color: "#B07D35" }} />
         ) : running ? (
           <Loader2 size={18} className="animate-spin" style={{ color: iconColor }} />
         ) : error ? (
@@ -727,7 +727,7 @@ function DocRow({
               t("documents.title")}
           </p>
           {complete && (
-            <span className="fd-doc-chip flex-shrink-0" style={{ background: "rgba(16,185,129,.1)", color: "#10B981" }}>
+            <span className="fd-doc-chip flex-shrink-0" style={{ background: "rgba(172,150,96,.1)", color: "#AC9660" }}>
               <ShieldCheck size={12} />
               {Math.round((job.overallConfidence ?? 0) * 100)}%
             </span>
@@ -922,8 +922,8 @@ function ReviewWorkspace(props: ReviewProps) {
       <div className="fd-doc-card fd-doc-card-pad">
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="fd-doc-row-icon" style={{ background: "rgba(16,185,129,.12)" }}>
-              <FileText size={16} style={{ color: "#10B981" }} />
+            <div className="fd-doc-row-icon" style={{ background: "rgba(172,150,96,.12)" }}>
+              <FileText size={16} style={{ color: "#AC9660" }} />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-foreground m-0 truncate">
@@ -939,12 +939,12 @@ function ReviewWorkspace(props: ReviewProps) {
             </div>
           </div>
           <div className="flex-1" />
-          <span className="fd-doc-chip" style={{ background: "rgba(16,185,129,.1)", color: "#10B981" }}>
+          <span className="fd-doc-chip" style={{ background: "rgba(172,150,96,.1)", color: "#AC9660" }}>
             <ShieldCheck size={13} />
             {Math.round((job.overallConfidence ?? 0) * 100)}% {t("documents.confidence").toLowerCase()}
           </span>
           {job.model && (
-            <span className="fd-doc-chip" style={{ background: "rgba(99,102,241,.08)", color: "#6366F1" }}>
+            <span className="fd-doc-chip" style={{ background: "rgba(176,125,53,.08)", color: "#B07D35" }}>
               <Sparkles size={12} />
               {job.model}
             </span>
@@ -1082,7 +1082,7 @@ function ReviewWorkspace(props: ReviewProps) {
       {/* Actions + export */}
       <div className="fd-doc-card fd-doc-card-pad flex flex-wrap items-center gap-3">
         <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
-          <Download size={15} style={{ color: "#6366F1" }} />
+          <Download size={15} style={{ color: "#B07D35" }} />
           {t("documents.export")}
         </span>
         <select
@@ -1264,14 +1264,14 @@ function FieldRow({
 
   const statusColor =
     field.status === "edited"
-      ? "#8B5CF6"
+      ? "#A35828"
       : field.status === "verified"
         ? "#22C55E"
         : field.status === "flagged"
           ? "#EF4444"
           : field.status === "ambiguous"
             ? "#F59E0B"
-            : "#6366F1";
+            : "#B07D35";
 
   const uncertaintyReasons = field.reasons ?? [];
   const hasUncertainty = uncertaintyReasons.length > 0 ||

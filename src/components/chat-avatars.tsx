@@ -12,7 +12,7 @@ export function AIAvatar({ size = 28, className = "" }: AIAvatarProps) {
       style={{
         width: size,
         height: size,
-        background: "linear-gradient(135deg, var(--color-primary), rgba(139,92,246,.8))",
+        background: "linear-gradient(135deg, var(--color-primary), rgba(163,88,40,.8))",
       }}
     >
       <svg width={size * 0.46} height={size * 0.46} fill="none" viewBox="0 0 24 24">

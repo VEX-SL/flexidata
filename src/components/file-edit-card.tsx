@@ -183,15 +183,15 @@ export function FileEditCard({
 
           {editing ? (
             <div>
-              <div className="text-xs font-medium text-blue-500/80 mb-1.5 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
+              <div className="text-xs font-medium text-amber-600/80 mb-1.5 flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600" />
                 Editing
               </div>
               <textarea
                 ref={textareaRef}
                 value={editCode}
                 onChange={(e) => setEditCode(e.target.value)}
-                className="w-full text-xs bg-blue-500/5 border border-blue-500/15 rounded-lg p-3 overflow-x-auto text-foreground whitespace-pre-wrap font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-blue-500/30 min-h-[200px]"
+                className="w-full text-xs bg-amber-600/5 border border-amber-600/15 rounded-lg p-3 overflow-x-auto text-foreground whitespace-pre-wrap font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-amber-600/30 min-h-[200px]"
                 spellCheck={false}
               />
             </div>
@@ -352,23 +352,23 @@ export function NewFileCard({
 
   if (applied) {
     return (
-      <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+      <div className="rounded-xl border border-amber-600/30 bg-amber-600/5 p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-blue-500 text-sm">
+          <div className="flex items-center gap-2 text-amber-600 text-sm">
             <Check size={16} />
             <span className="font-medium">Created {edit.filename}</span>
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-blue-500 hover:bg-blue-500/10 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-amber-600 hover:bg-amber-600/10 transition-colors"
             >
               {copied ? <Check size={12} /> : <Copy size={12} />}
               {copied ? "Copied" : "Copy"}
             </button>
             <button
               onClick={handleDownload}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-blue-500 hover:bg-blue-500/10 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-amber-600 hover:bg-amber-600/10 transition-colors"
             >
               <Download size={12} />
               Download
@@ -400,15 +400,15 @@ export function NewFileCard({
   }
 
   return (
-    <div className="rounded-xl border border-blue-500/25 bg-card overflow-hidden shadow-sm">
+    <div className="rounded-xl border border-amber-600/25 bg-card overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-blue-500/5 border-b border-blue-500/15">
+      <div className="flex items-center justify-between px-4 py-3 bg-amber-600/5 border-b border-amber-600/15">
         <div className="flex items-center gap-2 min-w-0">
-          <FileText size={16} className="text-blue-500 shrink-0" />
+          <FileText size={16} className="text-amber-600 shrink-0" />
           <span className="text-sm font-medium text-foreground truncate">
             {edit.filename}
           </span>
-          <span className="text-xs text-blue-500 shrink-0 px-1.5 py-0.5 rounded bg-blue-500/10 font-medium">
+          <span className="text-xs text-amber-600 shrink-0 px-1.5 py-0.5 rounded bg-amber-600/10 font-medium">
             new file
           </span>
         </div>
@@ -427,25 +427,25 @@ export function NewFileCard({
         <div className="p-4 space-y-3">
           {editing ? (
             <div>
-              <div className="text-xs font-medium text-blue-500/80 mb-1.5 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
+              <div className="text-xs font-medium text-amber-600/80 mb-1.5 flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600" />
                 Editing
               </div>
               <textarea
                 ref={textareaRef}
                 value={editCode}
                 onChange={(e) => setEditCode(e.target.value)}
-                className="w-full text-xs bg-blue-500/5 border border-blue-500/15 rounded-lg p-3 overflow-x-auto text-foreground whitespace-pre-wrap font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-blue-500/30 min-h-[200px]"
+                className="w-full text-xs bg-amber-600/5 border border-amber-600/15 rounded-lg p-3 overflow-x-auto text-foreground whitespace-pre-wrap font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-amber-600/30 min-h-[200px]"
                 spellCheck={false}
               />
             </div>
           ) : (
             <div>
-              <div className="text-xs font-medium text-blue-500/80 mb-1.5 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
+              <div className="text-xs font-medium text-amber-600/80 mb-1.5 flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-600" />
                 New file content
               </div>
-              <pre className="text-xs bg-blue-500/5 border border-blue-500/15 rounded-lg p-3 overflow-x-auto text-foreground/80 whitespace-pre-wrap max-h-96 overflow-y-auto font-mono leading-relaxed">
+              <pre className="text-xs bg-amber-600/5 border border-amber-600/15 rounded-lg p-3 overflow-x-auto text-foreground/80 whitespace-pre-wrap max-h-96 overflow-y-auto font-mono leading-relaxed">
                 {editCode}
               </pre>
             </div>
@@ -458,7 +458,7 @@ export function NewFileCard({
         <button
           onClick={handleApply}
           disabled={applying || editing}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 disabled:opacity-50 transition-colors shadow-sm"
         >
           {applying ? (
             <Loader2 size={13} className="animate-spin" />
