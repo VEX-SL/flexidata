@@ -72,12 +72,12 @@ interface SessionVerdict {
  * True when the request carries a Supabase session whose access token is
  * structurally valid and not expired. Runs fully locally (no network).
  *
- * - The session cookie (`sb-<ref>-auth-token`) holds a JSON blob with the
- *   access token. When the JSON is large — e.g. OAuth provider tokens in the
- *   session — @supabase/ssr splits it into chunked cookies named
- *   `sb-<ref>-auth-token.0`, `.1`, ... (MAX chunk ~3180 chars each); we
- *   recombine them before parsing. We decode it all without contacting
- *   Supabase.
+ * - The session cookie (`sb-<ref>-auth-token`) holds a base64url-encoded JSON
+ *   blob with the access token (format prefix `base64-`). When the JSON is
+ *   large — e.g. OAuth provider tokens in the session — @supabase/ssr splits
+ *   it into chunked cookies named `sb-<ref>-auth-token.0`, `.1`, ... (MAX
+ *   chunk ~3180 chars each); we recombine them before parsing. We decode it
+ *   all without contacting Supabase.
  * - The JWT payload is base64-decoded and its `exp` claim is checked against
  *   the current time (with a small clock-skew window).
  * - We do NOT verify the JWT signature here: a locally-configured secret can
@@ -161,18 +161,41 @@ function collectSessionCookieValue(request: NextRequest): string | null {
   return chunks.map((c) => c.value).join("");
 }
 
-/** Decodes a (possibly percent-encoded) cookie value into the session blob. */
+/**
+ * Decodes a Supabase session cookie value back into the session blob.
+ *
+ * @supabase/ssr 0.12 writes the value as `base64-<base64url(JSON)>` (newer
+ * versions) or, in older versions, as percent-encoded JSON. Chunked cookies
+ * are already recombined before this runs, so the incoming value is the full
+ * serialized session either way.
+ */
 function parseSessionValue(value: string): SessionCookieValue | null {
-  let decoded = value;
-  if (decoded.includes("%")) {
+  let raw = value;
+
+  if (raw.startsWith("base64-")) {
+    const b64 = raw
+      .slice("base64-".length)
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+    const padded = b64.padEnd(Math.ceil(b64.length / 4) * 4, "=");
     try {
-      decoded = decodeURIComponent(decoded);
+      const binary = atob(padded);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      raw = new TextDecoder().decode(bytes); // cookie is base64url of UTF-8
+    } catch {
+      return null;
+    }
+  } else if (raw.includes("%")) {
+    try {
+      raw = decodeURIComponent(raw);
     } catch {
       return null;
     }
   }
+
   try {
-    return JSON.parse(decoded) as SessionCookieValue;
+    return JSON.parse(raw) as SessionCookieValue;
   } catch {
     return null;
   }
