@@ -158,6 +158,48 @@ async function loadPdfJs(): Promise<any> {
   }
 }
 
+/**
+ * Tier-1 OCR for scanned/garbage PDFs: send the PDF file itself to Gemini as
+ * `application/pdf` (inline data) — the model reads the whole document, so no
+ * pdfjs rendering or canvas is involved and it cannot break on serverless
+ * runtimes. Per-page geometry is unavailable in this mode (multi-page
+ * normalized boxes are meaningless), so the returned document carries lines
+ * without bboxes; the reviewer just shows no overlay for them.
+ */
+async function ocrPdfInline(buffer: Buffer): Promise<OcrDocument> {
+  if (buffer.length > 20 * 1024 * 1024) return { text: "", lines: [] };
+  const vision = await runVisionOCR(buffer, "auto", {
+    mimeType: "application/pdf",
+    attemptTimeoutMs: 60_000,
+    maxOutputTokens: 8192,
+  });
+  if (!vision.success || vision.data.length === 0) {
+    return { text: "", lines: [] };
+  }
+  const text = vision.data
+    .map((l: { text: string }) => l.text)
+    .join("\n")
+    .trim();
+  let ocr: OcrDocument = {
+    text,
+    language: vision.detected_language || undefined,
+    lines: vision.data.map(
+      (l: { text: string; confidence: number }) => ({
+        text: l.text,
+        confidence: l.confidence,
+        words: l.text
+          .split(/\s+/)
+          .filter((w: string) => w.length > 0)
+          .map((w: string) => ({ text: w, confidence: l.confidence })),
+      })
+    ),
+  };
+  if (countArabicLetters(text) > 0) {
+    ocr = postProcessOcr(ocr).doc;
+  }
+  return ocr;
+}
+
 async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
   try {
     const { extractText } = await import("unpdf");
@@ -172,19 +214,34 @@ async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
       (countArabicLetters(cleaned) > 0 && isGarbageArabicTextLayer(cleaned));
 
     if (needsReOcr) {
+      const isGarbage =
+        countArabicLetters(cleaned) > 0 && isGarbageArabicTextLayer(cleaned);
+      // Tier 1: hand the whole PDF straight to Gemini as application/pdf. No
+      // pdfjs/canvas in the loop, so it cannot break on serverless runtimes.
+      try {
+        const inline = await ocrPdfInline(buffer);
+        if (
+          inline.text.trim() &&
+          (isGarbage || inline.text.length > cleaned.length)
+        ) {
+          console.debug(
+            `[Parser] PDF whole-file Vision OCR: ${inline.lines.length} lines`
+          );
+          return { text: inline.text.slice(0, 500_000), ocr: inline };
+        }
+      } catch (e) {
+        console.error("[Parser] PDF inline Vision failed:", e);
+      }
+      // Tier 2: per-page rendering (pdfjs + canvas) — Vision-first per page,
+      // tesseract fallback. The old length check stays only for scanned PDFs;
+      // garbage text layers accept any non-empty reading.
       try {
         const ocr = await ocrPdfPages(buffer);
-        if (ocr.text.trim()) {
-          const isGarbage =
-            countArabicLetters(cleaned) > 0 &&
-            isGarbageArabicTextLayer(cleaned);
-          // Garbage text layers are glyph dumps far longer than any real
-          // reading, so length alone is the wrong yardstick there: accept the
-          // page-OCR result whenever it produced anything. The length check
-          // stays only for the scanned-PDF case (short text layer).
-          if (isGarbage || ocr.text.length > cleaned.length) {
-            return { text: ocr.text.slice(0, 500_000), ocr };
-          }
+        if (
+          ocr.text.trim() &&
+          (isGarbage || ocr.text.length > cleaned.length)
+        ) {
+          return { text: ocr.text.slice(0, 500_000), ocr };
         }
       } catch (e) {
         console.error("[Parser] PDF OCR failed:", e);

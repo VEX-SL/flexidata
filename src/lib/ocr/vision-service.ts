@@ -249,26 +249,33 @@ function mimeTypeOf(file: File | Blob | Buffer): string {
 /**
  * Run OCR + structured extraction on an image via a Vision LLM.
  *
- * @param file - Image to analyze (File, Blob, or Node Buffer).
+ * @param file - Content to analyze (File, Blob, or Node Buffer). The API
+ *               accepts both images and PDF documents inline.
  * @param lang - Language hint: "auto" (default), "ar", or "en".
+ * @param options - Optional overrides: `mimeType` (e.g. "application/pdf" for
+ *                  whole-PDF OCR), `attemptTimeoutMs` (per-model timeout; PDFs
+ *                  need far longer than images), `maxOutputTokens`.
  * @returns A resolved `OCRResponse`; on ANY failure a resolved
  *          `{ success: false, error }` object (never throws).
  */
 export async function runVisionOCR(
   file: File | Blob | Buffer,
-  lang: OCRLanguage = DEFAULT_OCR_LANGUAGE
+  lang: OCRLanguage = DEFAULT_OCR_LANGUAGE,
+  options?: { mimeType?: string; attemptTimeoutMs?: number; maxOutputTokens?: number }
 ): Promise<OCRResponse> {
   const apiKey = geminiApiKeyFromEnv();
   if (!apiKey) {
     return ocrFailure("Vision service is not configured (GEMINI_API_KEY missing)");
   }
 
+  const attemptTimeoutMs = options?.attemptTimeoutMs ?? VISION_ATTEMPT_TIMEOUT_MS;
+  const maxTokens = options?.maxOutputTokens ?? 4096;
   let base64: string;
   let mimeType: string;
   try {
     const bytes = await toBytes(file);
     base64 = Buffer.from(bytes).toString("base64");
-    mimeType = mimeTypeOf(file);
+    mimeType = options?.mimeType ?? mimeTypeOf(file);
   } catch {
     return ocrFailure("Failed to encode image for the Vision service");
   }
@@ -291,7 +298,7 @@ export async function runVisionOCR(
     systemInstruction: { parts: [{ text: prompt }] },
     generationConfig: {
       temperature: 0,
-      maxOutputTokens: 4096,
+      maxOutputTokens: maxTokens,
       responseMimeType: "application/json",
     },
   };
@@ -307,7 +314,7 @@ export async function runVisionOCR(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(VISION_ATTEMPT_TIMEOUT_MS),
+          signal: AbortSignal.timeout(attemptTimeoutMs),
         }
       );
     } catch (err) {
@@ -315,8 +322,8 @@ export async function runVisionOCR(
       // and immediately try the next model. Any other network failure is not
       // retryable via model fallback and is surfaced directly.
       if (isTimeoutError(err)) {
-        console.warn(`[Vision OCR] Model ${model} timed out after ${VISION_ATTEMPT_TIMEOUT_MS}ms, trying fallback...`);
-        lastFailure = `Model ${model} timed out after ${VISION_ATTEMPT_TIMEOUT_MS}ms`;
+        console.warn(`[Vision OCR] Model ${model} timed out after ${attemptTimeoutMs}ms, trying fallback...`);
+        lastFailure = `Model ${model} timed out after ${attemptTimeoutMs}ms`;
         continue;
       }
       return ocrFailure(describeNetworkError(err));
@@ -361,7 +368,14 @@ export async function runVisionOCR(
   // ── Final fallback: OpenRouter vision (OpenAI-compatible) ────────────────
   const openrouterKey = openrouterVisionKeyFromEnv();
   if (openrouterKey) {
-    const result = await tryOpenRouterFallback(openrouterKey, prompt, base64, mimeType, lang);
+    const result = await tryOpenRouterFallback(
+      openrouterKey,
+      prompt,
+      base64,
+      mimeType,
+      lang,
+      attemptTimeoutMs
+    );
     if (result) return result;
   }
 
@@ -602,7 +616,8 @@ async function tryOpenRouterFallback(
   prompt: string,
   base64: string,
   mimeType: string,
-  lang: OCRLanguage
+  lang: OCRLanguage,
+  attemptTimeoutMs: number
 ): Promise<OCRResponse | null> {
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
@@ -630,7 +645,7 @@ async function tryOpenRouterFallback(
             },
           ],
         }),
-        signal: AbortSignal.timeout(VISION_ATTEMPT_TIMEOUT_MS),
+        signal: AbortSignal.timeout(attemptTimeoutMs),
       });
     } catch (err) {
       console.warn(`[Vision OCR] OpenRouter ${model} failed (${err instanceof Error ? err.name : "network"}), trying next...`);
