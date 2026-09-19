@@ -168,7 +168,7 @@ export default function DashboardPage() {
           .from("profiles")
           .select("name, avatar_url")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
         if (profile) {
           if (!metaName && profile.name) setUserName(profile.name);
           setAvatarUrl(profile.avatar_url || null);
