@@ -78,8 +78,9 @@ const MAX_POLLS = 150;
 /**
  * Upload for the Documents pipeline: the browser streams the file straight to
  * Supabase Storage via a signed upload URL, so large non-image files never
- * cross the serverless request-body ceiling. Falls back to the legacy multipart
- * relay when the signing endpoint is unavailable. Returns the files row id.
+ * cross the serverless request-body ceiling. Failures surface their real
+ * reason (server message or the storage HTTP status) instead of an opaque
+ * server relay error. Returns the files row id.
  */
 async function uploadFile(file: File, signal: AbortSignal): Promise<string> {
   const startRes = await fetch("/api/upload/start", {
@@ -92,40 +93,22 @@ async function uploadFile(file: File, signal: AbortSignal): Promise<string> {
     }),
     signal,
   });
-  if (startRes.ok) {
-    const up = await startRes.json();
-    const putRes = await fetch(up.uploadUrl, {
-      method: "PUT",
-      body: file,
-      headers: file.type ? { "Content-Type": file.type } : {},
-      signal,
-    });
-    if (!putRes.ok) {
-      const putText = await putRes.text();
-      throw new Error(
-        `Upload failed (${putRes.status}${putText ? `: ${putText.slice(0, 200)}` : ""})`
-      );
-    }
-    return up.id as string;
+  if (!startRes.ok) {
+    const body = await startRes.json().catch(() => null);
+    throw new Error(body?.error ?? `Upload failed (${startRes.status})`);
   }
+  const up = await startRes.json();
 
-  // Signing unavailable — retry through the legacy server relay.
-  const body = await startRes.json().catch(() => null);
-  const legacyRes = await fetch("/api/upload", {
-    method: "POST",
-    body: (() => {
-      const form = new FormData();
-      form.append("file", file);
-      return form;
-    })(),
+  const putRes = await fetch(up.uploadUrl, {
+    method: "PUT",
+    body: file,
+    headers: file.type ? { "Content-Type": file.type } : {},
     signal,
   });
-  if (!legacyRes.ok) {
-    const legacyBody = await legacyRes.json().catch(() => null);
-    throw new Error(legacyBody?.error ?? body?.error ?? "Upload failed");
+  if (!putRes.ok) {
+    throw new Error(`Upload to storage failed (${putRes.status})`);
   }
-  const legacyUp = await legacyRes.json();
-  return legacyUp.id as string;
+  return up.id as string;
 }
 
 /**
