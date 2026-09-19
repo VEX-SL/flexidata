@@ -8,7 +8,8 @@ import fs from "fs";
 
 import { recognizeMainThread } from "@/lib/tesseract-main";
 import type { OcrDocument } from "@/lib/pipeline/types";
-import { runVisionOCR } from "@/lib/ocr/vision-service";
+import { runVisionOCR, visionNormalizedBBoxToPixelBox } from "@/lib/ocr/vision-service";
+import { imageDimensionsFromBuffer } from "@/lib/ocr/image-dims";
 import type { ReceiptExtraction } from "@/lib/ocr/vision-service";
 import { OCR_TIMEOUT_MS } from "@/lib/ocr/recall";
 
@@ -245,15 +246,24 @@ async function extractImageText(buffer: Buffer): Promise<ParseResult> {
       .join("\n")
       .trim();
 
+    // Convert each line's normalized bbox (0..1000) into the pipeline's
+    // pixel-space BBox so the inspector can draw regions on the image.
+    // No pixels are lost when the model omits coordinates — lines simply keep
+    // no bbox and the inspector falls back to no overlay for that field.
+    const dims = imageDimensionsFromBuffer(buffer);
+
     // Build a minimal OcrDocument from Gemini lines so the grounding stage
-    // still has structured OCR evidence (no bboxes — grounding uses text
-    // matching instead of spatial alignment when bboxes are absent).
+    // still has structured OCR evidence; lines carry pixel bboxes when the
+    // model returned normalized coordinates.
     const ocr: OcrDocument = {
       text,
       language: vision.detected_language || undefined,
-      lines: vision.data.map((l: { text: string; confidence: number }) => ({
+      lines: vision.data.map((l: { text: string; confidence: number; bbox?: [number, number, number, number] }) => ({
         text: l.text,
         confidence: l.confidence,
+        ...(dims !== null && l.bbox !== undefined
+          ? { bbox: visionNormalizedBBoxToPixelBox(l.bbox, dims.w, dims.h) }
+          : {}),
         words: l.text
           .split(/\s+/)
           .filter((w: string) => w.length > 0)

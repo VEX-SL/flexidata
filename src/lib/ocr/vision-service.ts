@@ -25,6 +25,8 @@
  * as a final fallback so extraction never returns 0 chars.
  */
 
+import type { BBox } from "@/lib/pipeline/types";
+
 // ─── Config ─────────────────────────────────────────────────────────────────
 
 /** Overall budget, not used per-attempt (see VISION_ATTEMPT_TIMEOUT_MS). */
@@ -94,6 +96,13 @@ export interface OCRResultItem {
   text: string;
   /** Recognition confidence, normalized to [0, 1] (model-reported). */
   confidence: number;
+  /**
+   * Approximate printed extent of the line in the image, as a normalized
+   * bounding box `[ymin, xmin, ymax, xmax]` in a 0..1000 coordinate space
+   * covering the whole image (0 = top/left, 1000 = bottom/right). Optional —
+   * absent for models that do not return coordinates.
+   */
+  bbox?: [number, number, number, number];
 }
 
 /** Structured fields extracted from a thermal receipt. */
@@ -180,7 +189,7 @@ const SYSTEM_PROMPT = [
   "Respond with STRICT JSON only — no markdown fences, no commentary — shaped",
   "exactly like:",
   "{",
-  '  "lines": [ { "text": "<verbatim line>", "confidence": 0.98 } ],',
+  '  "lines": [ { "text": "<verbatim line>", "confidence": 0.98, "bbox": [ymin, xmin, ymax, xmax] } ],',
   '  "extraction": {',
   '    "transaction_id": "...",',
   '    "reference_number": "...",',
@@ -198,6 +207,12 @@ const SYSTEM_PROMPT = [
   '"lines" must contain each distinct printed line of the receipt (the raw OCR',
   "text). Every value in \"extraction\" must be grounded in a printed value you",
   "actually saw on the image.",
+  'For EVERY line, "bbox" is REQUIRED: the approximate printed extent of that line',
+  "as a normalized bounding box [ymin, xmin, ymax, xmax] in a 0..1000 coordinate",
+  "space covering the ENTIRE image (0 = top edge or left edge, 1000 = bottom edge",
+  "or right edge). ymin <= ymax and xmin <= xmax. The box should tightly cover the",
+  'line\'s own text (including surrounding whitespace it spans), e.g. a line printed',
+  "in the middle-left of the receipt is roughly like [410, 40, 470, 700].",
 ].join("\n");
 
 // ─── Payload helpers ────────────────────────────────────────────────────────
@@ -398,7 +413,7 @@ function parseTextToResponse(text: string, lang: OCRLanguage): OCRResponse {
   };
 }
 
-function parseLines(value: unknown): OCRResultItem[] {
+export function parseLines(value: unknown): OCRResultItem[] {
   if (!Array.isArray(value)) return [];
   const out: OCRResultItem[] = [];
   for (const item of value) {
@@ -407,12 +422,83 @@ function parseLines(value: unknown): OCRResultItem[] {
     const text = typeof it.text === "string" ? it.text : "";
     if (!text.trim()) continue;
     const confidence = Number(it.confidence);
+    const bbox = parseBBox(it.bbox);
     out.push({
       text,
       confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 1,
+      ...(bbox !== undefined ? { bbox } : {}),
     });
   }
   return out;
+}
+
+/**
+ * Tolerant parser for a Vision model's normalized line bounding box. Accepts
+ * the canonical `[ymin, xmin, ymax, xmax]` array (0..1000 space) plus common
+ * alternative shapes the model may drift toward (object forms, 0..1 scale).
+ * Returns undefined on anything unusable so per-line geometry degrades
+ * gracefully instead of failing the whole response.
+ */
+export function parseBBox(value: unknown): [number, number, number, number] | undefined {
+  let ymin: number;
+  let xmin: number;
+  let ymax: number;
+  let xmax: number;
+
+  if (Array.isArray(value) && value.length === 4) {
+    const nums = value.map(Number);
+    if (!nums.every((n) => Number.isFinite(n))) return undefined;
+    [ymin, xmin, ymax, xmax] = nums;
+  } else if (value !== null && typeof value === "object") {
+    const v = value as Record<string, unknown>;
+    const num = (k: string): number => Number(v[k]);
+    if (v.ymin !== undefined) {
+      [ymin, xmin, ymax, xmax] = [num("ymin"), num("xmin"), num("ymax"), num("xmax")];
+      if (![ymin, xmin, ymax, xmax].every(Number.isFinite)) return undefined;
+    } else if (v.x1 !== undefined) {
+      [ymin, xmin, ymax, xmax] = [num("y1"), num("x1"), num("y2"), num("x2")];
+      if (![ymin, xmin, ymax, xmax].every(Number.isFinite)) return undefined;
+    } else if (v.x !== undefined && v.width !== undefined) {
+      [ymin, xmin, ymax, xmax] = [num("y"), num("x"), num("y") + num("height"), num("x") + num("width")];
+      if (![ymin, xmin, ymax, xmax].every(Number.isFinite)) return undefined;
+    } else {
+      return undefined;
+    }
+  } else {
+    return undefined;
+  }
+
+  if (ymin < 0 || xmin < 0 || ymax < 0 || xmax < 0) return undefined;
+  // Models sometimes default to a 0..1 plane; scale it into 0..1000.
+  if (Math.max(ymin, xmin, ymax, xmax) <= 1) {
+    ymin *= 1000;
+    xmin *= 1000;
+    ymax *= 1000;
+    xmax *= 1000;
+  }
+  if (ymax <= ymin || xmax <= xmin) return undefined;
+  return [round1(ymin), round1(xmin), round1(Math.min(ymax, 1000)), round1(Math.min(xmax, 1000))];
+}
+
+/** Convert a Vision normalized line bbox (0..1000) into a pixel-space BBox. */
+export function visionNormalizedBBoxToPixelBox(
+  bbox: [number, number, number, number],
+  imgWidth: number,
+  imgHeight: number
+): BBox {
+  const [ymin, xmin, ymax, xmax] = bbox;
+  const sx = imgWidth / 1000;
+  const sy = imgHeight / 1000;
+  return {
+    x: xmin * sx,
+    y: ymin * sy,
+    width: Math.max(0, (xmax - xmin) * sx),
+    height: Math.max(0, (ymax - ymin) * sy),
+  };
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
 }
 
 function sanitizeExtraction(value: unknown): ReceiptExtraction | undefined {
