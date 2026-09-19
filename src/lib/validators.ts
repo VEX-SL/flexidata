@@ -95,6 +95,24 @@ export function isAllowedFileSize(sizeBytes: number): boolean {
   return sizeBytes > 0 && sizeBytes <= MAX_FILE_SIZE;
 }
 
+export function sanitizeStorageKeyPart(part: string): string {
+  return (
+    part
+      .replace(/[^A-Za-z0-9_.-]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^[._]+|[._]+$/g, "") || "file"
+  );
+}
+
+export function buildStorageKey(userId: string, fileName: string): string {
+  const lastDot = fileName.lastIndexOf(".");
+  const base = lastDot > 0 ? fileName.slice(0, lastDot) : fileName;
+  const ext = lastDot > 0 ? fileName.slice(lastDot + 1) : "";
+  const safeBase = sanitizeStorageKeyPart(base);
+  const safeExt = (sanitizeStorageKeyPart(ext) || "bin").toLowerCase();
+  return `${userId}/${Date.now()}_${safeBase}.${safeExt}`;
+}
+
 export function isValidEmail(email: unknown): boolean {
   if (typeof email !== "string") return false;
   return (

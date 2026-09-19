@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { checkRateLimit, getClientIdentifier } from "@/lib/rate-limit";
-import { isAllowedMimeType, isAllowedFileSize } from "@/lib/validators";
+import { isAllowedMimeType, isAllowedFileSize, buildStorageKey } from "@/lib/validators";
 import { parseFileBuffer } from "@/lib/file-parser";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
 
   // Upload to Supabase Storage
   const fileBuffer = Buffer.from(await file.arrayBuffer());
-  const storagePath = `${user.id}/${Date.now()}_${file.name}`;
+  const storagePath = buildStorageKey(user.id, file.name);
 
   const { error: uploadError } = await supabase.storage
     .from("files")
@@ -67,11 +67,7 @@ export async function POST(request: Request) {
 
   if (uploadError) {
     console.error("[Upload] Storage error:", uploadError);
-    const detail =
-      typeof (uploadError as { message?: unknown })?.message === "string"
-        ? `: ${(uploadError as { message: string }).message}`
-        : "";
-    return NextResponse.json({ error: `File upload failed${detail}` }, { status: 502 });
+    return NextResponse.json({ error: "File upload failed" }, { status: 502 });
   }
 
   const {

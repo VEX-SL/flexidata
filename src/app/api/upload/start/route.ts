@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { checkRateLimit, getClientIdentifier } from "@/lib/rate-limit";
-import { isAllowedMimeType, isAllowedFileSize } from "@/lib/validators";
+import {
+  isAllowedMimeType,
+  isAllowedFileSize,
+  buildStorageKey,
+} from "@/lib/validators";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -60,7 +64,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = createAdminClient();
-  const storagePath = `${user.id}/${Date.now()}_${name}`;
+  const storagePath = buildStorageKey(user.id, name);
 
   const { data: signed, error: signError } = await supabase.storage
     .from("files")
