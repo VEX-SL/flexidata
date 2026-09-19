@@ -14,7 +14,37 @@ import type { ReceiptExtraction } from "@/lib/ocr/vision-service";
 import { OCR_TIMEOUT_MS } from "@/lib/ocr/recall";
 import { postProcessOcr } from "@/lib/ocr/arabic";
 import { countArabicLetters } from "@/lib/ocr/arabic/scripts";
-import { matchVisionLinesToGeometry } from "@/lib/ocr/vision-geometry";
+
+const ARABIC_PRESENTATION_FORMS = /[\uFB50-\uFDFF\uFE70-\uFEFF]/gu;
+
+const VISION_PDF_MAX_PAGES = 24;
+
+/**
+ * Arabic PDF text layers are often glyph-level garbage: exporters encode each
+ * Arabic letter as its isolated presentation form (U+FB50–U+FEFF) and drop the
+ * word separators, so the extracted "text" is presentation forms glued into one
+ * unreadable run (plus stray Latin from a broken ToUnicode map). Such a layer
+ * must not feed the extractor — it deserves a real OCR pass instead.
+ */
+export function isGarbageArabicTextLayer(text: string): boolean {
+  const arabicCount = countArabicLetters(text);
+  if (arabicCount === 0) return false;
+  const presentation = (text.match(ARABIC_PRESENTATION_FORMS) || []).length;
+  if (presentation / arabicCount > 0.25) return true;
+  let arabicTokens = 0;
+  let arabicLettersInTokens = 0;
+  for (const token of text.split(/\s+/)) {
+    const n = countArabicLetters(token);
+    if (n > 0) {
+      arabicTokens += 1;
+      arabicLettersInTokens += n;
+    }
+  }
+  if (arabicTokens === 0) return false;
+  // Real Arabic words are ~4–8 letters; 25+ letters per whitespace token means
+  // the layer glued whole lines together with no separators.
+  return arabicLettersInTokens / arabicTokens > 25;
+}
 
 // Bound every OCR call with a hard timeout so the pipeline can never get
 // stuck; on failure the caller falls back to the "no text" path. The same
@@ -126,8 +156,14 @@ async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
     const result = await extractText(new Uint8Array(buffer));
     const cleaned = (result.text || []).join("\n").trim();
 
-    // If text is short (scanned/image PDF), render each page to image then OCR
-    if (cleaned.length < 500) {
+    // Re-OCR when the PDF looks scanned (little embedded text) OR when its
+    // Arabic text layer is glyph-level garbage (presentation forms, glued
+    // words) — common with exported RTL PDFs whose ToUnicode map is broken.
+    const needsReOcr =
+      cleaned.length < 500 ||
+      (countArabicLetters(cleaned) > 0 && isGarbageArabicTextLayer(cleaned));
+
+    if (needsReOcr) {
       try {
         const ocr = await ocrPdfPages(buffer);
         if (ocr.text.length > cleaned.length) {
@@ -171,8 +207,12 @@ async function ocrPdfPages(buffer: Buffer): Promise<OcrDocument> {
   // can never blow its OCR time budget.
   const PDF_RECOVERY_BUDGET_MS = 6_000;
   let pdfRecoverySpentMs = 0;
+  let visionAvailable = true;
 
   for (let i = 1; i <= doc.numPages; i++) {
+    if (visionAvailable && doc.numPages > VISION_PDF_MAX_PAGES) {
+      visionAvailable = false;
+    }
     const page = await doc.getPage(i);
     const viewport = page.getViewport({ scale: 2.0 });
 
@@ -184,6 +224,27 @@ async function ocrPdfPages(buffer: Buffer): Promise<OcrDocument> {
       canvas: canvas as any,
       viewport,
     } as any).promise;
+
+    // Vision-first per page — the same Gemini OCR the image path uses, which
+    // reads clear Arabic far better than tesseract. On any failure we degrade
+    // to the legacy tesseract branch for the rest of the document.
+    if (visionAvailable && typeof canvas.toBuffer === "function") {
+      try {
+        const pageDoc = await visionOcrPdfPage(
+          canvas,
+          viewport.width,
+          viewport.height
+        );
+        if (pageDoc.text.trim()) {
+          chunks.push(pageDoc.text);
+          allLines.push(...pageDoc.lines);
+          continue;
+        }
+      } catch (e) {
+        console.error(`[PDF Vision] page ${i} failed:`, e);
+        visionAvailable = false;
+      }
+    }
 
     const imageData = ctx.getImageData(0, 0, viewport.width, viewport.height);
     const pageOcr = await withOcrTimeout(
@@ -205,6 +266,47 @@ async function ocrPdfPages(buffer: Buffer): Promise<OcrDocument> {
   }
 
   return { text: chunks.join("\n").trim(), lines: allLines };
+}
+
+async function visionOcrPdfPage(
+  canvas: unknown,
+  width: number,
+  height: number
+): Promise<OcrDocument> {
+  const png = (canvas as any).toBuffer("image/png") as Buffer;
+  const vision = await runVisionOCR(png, "auto");
+  if (!vision.success) {
+    throw new Error(vision.error || "Vision OCR failed");
+  }
+  const text = vision.data
+    .map((l: { text: string }) => l.text)
+    .join("\n")
+    .trim();
+  let ocr: OcrDocument = {
+    text,
+    language: vision.detected_language || undefined,
+    lines: vision.data.map(
+      (l: {
+        text: string;
+        confidence: number;
+        bbox?: [number, number, number, number];
+      }) => ({
+        text: l.text,
+        confidence: l.confidence,
+        ...(l.bbox !== undefined
+          ? { bbox: visionNormalizedBBoxToPixelBox(l.bbox, width, height) }
+          : {}),
+        words: l.text
+          .split(/\s+/)
+          .filter((w: string) => w.length > 0)
+          .map((w: string) => ({ text: w, confidence: l.confidence })),
+      })
+    ),
+  };
+  if (countArabicLetters(text) > 0) {
+    ocr = postProcessOcr(ocr).doc;
+  }
+  return ocr;
 }
 
 async function extractDocxText(buffer: Buffer): Promise<string> {
@@ -286,42 +388,6 @@ async function extractImageText(buffer: Buffer): Promise<ParseResult> {
       if (repaired.report.linesChanged > 0) {
         console.debug(
           `[Vision OCR] Arabic repair applied to ${repaired.report.linesChanged} line(s)`
-        );
-      }
-    }
-
-    // Geometry recovery: the Vision model is a strong reader but often returns
-    // NO per-line bbox (screenshots, glyph-heavy images). Without pixel boxes
-    // the Inspector has nothing to highlight, so when coverage is missing we
-    // borrow real word boxes from the local Tesseract engine by matching each
-    // Vision line's tokens to the Tesseract rows. Text stays the Vision
-    // reading — only the coordinates are supplemented.
-    const boxedLines = ocr.lines.filter(
-      (l) => l.bbox !== undefined && l.bbox.width > 0 && l.bbox.height > 0
-    ).length;
-    const geometryCoverage =
-      ocr.lines.length === 0 ? 1 : boxedLines / ocr.lines.length;
-    if (geometryCoverage < 0.8 && ocr.lines.length > 0) {
-      try {
-        const geo = await withOcrTimeout(
-          recognizeMainThread(buffer, "ara+eng", { preprocess: true })
-        );
-        const boxes = matchVisionLinesToGeometry(ocr.lines, geo.lines);
-        if (boxes.size > 0) {
-          ocr = {
-            ...ocr,
-            lines: ocr.lines.map((line, i) =>
-              boxes.get(i) === undefined ? line : { ...line, bbox: boxes.get(i) }
-            ),
-          };
-          console.debug(
-            `[Vision OCR] geometry recovered for ${boxes.size}/${ocr.lines.length} line(s) via Tesseract`
-          );
-        }
-      } catch (err) {
-        console.debug(
-          "[Vision OCR] geometry recovery skipped:",
-          err instanceof Error ? err.message : err
         );
       }
     }
