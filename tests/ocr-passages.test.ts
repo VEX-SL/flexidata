@@ -4,11 +4,11 @@ import { ocrPassagesStage, MAX_OCR_PASSAGES } from "@/lib/pipeline/stages/ocr-pa
 import { test, ok, equal, assert } from "./harness.ts";
 
 /**
- * OCR-passages fallback: a dynamic extraction that surfaced NO fields must
- * still hand the reviewer the document's content. The OCR lines themselves
- * become label-less passages, each with line-indexed (and boxed) evidence, so
- * the Inspector highlights every line of text regardless of what the model
- * returned. Only dynamic mode, only when zero fields exist, verbatim lines.
+ * OCR-content fallback: a dynamic extraction that surfaced NO fields must
+ * still hand the reviewer the document's content. The OCR's unrecovered lines
+ * are folded into ONE label-less `content` field whose evidence still anchors
+ * every source line, so the review shows a single reviewable block while the
+ * Inspector can highlight the whole region. Dynamic mode only, verbatim text.
  */
 
 function fakeAI(content: string): AIClient {
@@ -35,7 +35,7 @@ const SURAH_OCR: OcrDocument = {
   })),
 };
 
-test("fallback: a zero-field dynamic extraction surfaces every OCR line as a passage", async () => {
+test("fallback: a zero-field dynamic extraction surfaces the OCR as ONE content field", async () => {
   const out = await runPipeline(
     {
       sourceText: SURAH_LINES.join("\n"),
@@ -49,18 +49,18 @@ test("fallback: a zero-field dynamic extraction surfaces every OCR line as a pas
   ok(out.status === "complete", `pipeline must complete: ${JSON.stringify(out.error)}`);
   const extraction = out.job!.extraction;
 
-  equal(extraction.fields.length, SURAH_LINES.length, "every non-empty OCR line surfaced");
-  equal(extraction.cleanFields.passage_1, SURAH_LINES[0], "first line verbatim");
-  equal(extraction.cleanFields.passage_4, SURAH_LINES[3], "last line verbatim");
-  assert(
-    extraction.fields.every((f) => f.field.label === ""),
-    "passages are label-less — no invented titles"
-  );
+  equal(extraction.fields.length, 1, "the whole reading is one field");
+  const content = extraction.fields[0];
+  equal(content.field.key, "content", "single content field key");
+  equal(content.field.label, "", "content is label-less — no invented titles");
+  equal(extraction.cleanFields.content, SURAH_LINES.join("\n"), "full OCR text verbatim");
+  equal(content.value.value, SURAH_LINES.join("\n"), "value holds the whole reading");
 
-  const ev = extraction.fields[2].value.evidence?.[0];
-  equal(ev?.lineIndex, 2, "evidence points at the OCR line it came from");
-  ok(ev?.bbox !== undefined, "boxed evidence so the overlay can highlight the line");
-  ok(ev?.quote === SURAH_LINES[2], "evidence quote is the verbatim OCR line");
+  const evidence = content.value.evidence ?? [];
+  equal(evidence.length, SURAH_LINES.length, "every line is still anchored");
+  equal(evidence[0]?.lineIndex, 0, "evidence points at the OCR line it came from");
+  ok(evidence[0]?.bbox !== undefined, "boxed evidence so the overlay can highlight the line");
+  equal(evidence[2]?.quote, SURAH_LINES[2], "evidence quotes the verbatim OCR line");
 });
 
 test("fallback: never duplicates lines the extraction already surfaced", async () => {
@@ -96,21 +96,17 @@ test("fallback: never duplicates lines the extraction already surfaced", async (
   equal(extraction.cleanFields["سورة"], SURAH_LINES[0]);
 
   // The title line is already represented by the field → skipped; the other
-  // verses are free-form content → each still appears as a passage.
-  assert(
-    !("passage_1" in extraction.cleanFields),
-    "the covered title line is not re-surfaced as a passage"
-  );
+  // verses are free-form content → they land in the single content block.
   equal(
-    extraction.cleanFields.passage_2,
-    SURAH_LINES[1],
-    "the first real verse appears as a passage"
+    extraction.cleanFields.content,
+    SURAH_LINES.slice(1).join("\n"),
+    "only the unrecovered lines form the content field"
   );
-  ok("passage_4" in extraction.cleanFields, "later verses are surfaced too");
+  const content = extraction.fields.find((f) => f.field.key === "content")!;
   equal(
-    extraction.fields.filter((f) => f.field.label === "").length,
+    (content.value.evidence ?? []).length,
     SURAH_LINES.length - 1,
-    "every unrecovered verse is a label-less passage"
+    "covered title line has no evidence entry"
   );
 });
 
@@ -123,12 +119,12 @@ test("fallback: legacy (schema) mode is untouched", async () => {
   ok(out.status === "complete", `pipeline must complete: ${JSON.stringify(out.error)}`);
   const extraction = out.job!.extraction;
   assert(
-    extraction.fields.every((f) => !f.field.key.startsWith("passage_")),
-    "legacy mode never synthesizes OCR passages"
+    !("content" in extraction.fieldsMap),
+    "legacy mode never synthesizes the OCR content field"
   );
 });
 
-test("fallback: skips blank lines and caps the review list", () => {
+test("fallback: skips blank lines and caps the content field", () => {
   const ocr: OcrDocument = {
     text: "",
     confidence: 0.8,
@@ -151,9 +147,10 @@ test("fallback: skips blank lines and caps the review list", () => {
   // run the stage standalone through a minimal pipeline state
   return runStage(state).then((out) => {
     const fvs = out.extraction.fields as Array<{ field: { key: string }; value: { value: string } }>;
-    equal(fvs.length, 1, "only the non-empty line becomes a passage");
-    equal(fvs[0].field.key, "passage_2", "keys follow the original line index");
-    equal(MAX_OCR_PASSAGES, 80, "cap keeps infinite documents reviewable");
+    equal(fvs.length, 1, "only the non-empty line becomes the content field");
+    equal(fvs[0].field.key, "content", "single content field");
+    equal(fvs[0].value.value, "only this one", "blank lines are dropped");
+    equal(MAX_OCR_PASSAGES, 500, "cap keeps enormous documents reviewable");
   });
 
   async function runStage(state: PipelineState): Promise<{ extraction: PipelineState["extraction"] }> {

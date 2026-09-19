@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   Clipboard,
   FileClock,
-  ChevronDown,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import {
@@ -118,28 +117,31 @@ function confidenceColor(c: number): string {
   return "#EF4444";
 }
 
-/** Cap for OCR fallback rows (mirrors the server ocr-passages stage). */
-const OCR_PASSAGE_MAX = 80;
-
 /**
  * The fields that drive the review UI. When an extraction produced no fields
  * but the OCR actually read lines, the OCR is the document's content: present
- * it as label-less passage rows (one per line) so the review + inspector
- * always surface the text instead of an empty panel.
+ * it as ONE label-less content field (the whole reading, plus one evidence
+ * anchor per source line so the Inspector can highlight the region) instead of
+ * an empty panel.
  */
 function reviewFields(job: JobDTO | null): FieldDTO[] {
   const stored = job?.fields ?? [];
   if (stored.length > 0) return stored;
   const lines = (job?.ocr?.lines ?? []).filter((l) => l.text.trim().length > 0);
-  return lines.slice(0, OCR_PASSAGE_MAX).map((line, i) => ({
-    key: `passage_${i + 1}`,
-    value: line.text.trim(),
-    confidence: line.confidence ?? job?.overallConfidence ?? 0.99,
-    source: "ocr",
-    status: "extracted",
-    label: "",
-    evidence: [{ quote: line.text, lineIndex: i }],
-  }));
+  if (lines.length === 0) return [];
+  const confidence =
+    typeof job?.ocr?.confidence === "number" ? job.ocr.confidence : job?.overallConfidence ?? 0.9;
+  return [
+    {
+      key: "content",
+      value: lines.map((l) => l.text.trim()).join("\n"),
+      confidence,
+      source: "ocr",
+      status: "extracted",
+      label: "",
+      evidence: lines.map((l, i) => ({ quote: l.text, lineIndex: i })),
+    },
+  ];
 }
 
 const BREAKDOWN_KEY: Record<string, string> = {
@@ -471,42 +473,6 @@ export default function DocumentsPage() {
         .fd-doc-preview-label {
           font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
           color: var(--color-muted-foreground); margin-bottom: .5rem;
-        }
-        .fd-doc-drawer {
-          border: 1px solid var(--color-border); border-radius: 16px;
-          background: var(--color-card); overflow: hidden;
-        }
-        .fd-doc-drawer-toggle {
-          display: flex; align-items: center; gap: .7rem; width: 100%;
-          padding: .85rem 1.05rem; border: none; cursor: pointer; font: inherit;
-          color: var(--color-foreground); text-align: left;
-          background: linear-gradient(135deg, rgba(140,140,140,.07), rgba(115,115,115,.04));
-          transition: background .2s;
-        }
-        [dir="rtl"] .fd-doc-drawer-toggle { text-align: right; }
-        .fd-doc-drawer-toggle:hover { background: linear-gradient(135deg, rgba(140,140,140,.12), rgba(115,115,115,.08)); }
-        .fd-doc-drawer-icon {
-          width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
-          display: flex; align-items: center; justify-content: center;
-          background: rgba(140,140,140,.1); color: #7a7a7a;
-        }
-        [data-theme="light"] .fd-doc-drawer-icon { color: #555; }
-        .fd-doc-drawer-title { flex: 1; font-size: .84rem; font-weight: 700; }
-        .fd-doc-drawer-chevron {
-          flex-shrink: 0; color: var(--color-muted-foreground);
-          transition: transform .3s cubic-bezier(.16,1,.3,1);
-        }
-        .fd-doc-drawer-toggle.open .fd-doc-drawer-chevron { transform: rotate(180deg); }
-        .fd-doc-drawer-body {
-          display: grid; grid-template-rows: 0fr;
-          transition: grid-template-rows .38s cubic-bezier(.16,1,.3,1);
-        }
-        .fd-doc-drawer-body.open { grid-template-rows: 1fr; }
-        .fd-doc-drawer-inner { overflow: hidden; }
-        .fd-doc-drawer-body.open .fd-doc-drawer-inner { animation: fd-doc-drawer-in .38s cubic-bezier(.16,1,.3,1) both; }
-        @keyframes fd-doc-drawer-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
         }
       `}</style>
 
@@ -932,10 +898,17 @@ function ReviewWorkspace(props: ReviewProps) {
       : (job.confidence?.summary ?? []).filter(
           (s) => BREAKDOWN_KEY[s.label] !== "missing"
         );
-  const fieldLabel = (key: string) =>
-    schema?.fields.find((f) => f.key === key)?.label ??
-    byKey.get(key)?.label ??
-    humanize(key);
+  const fieldLabel = (key: string) => {
+    const real =
+      schema?.fields.find((f) => f.key === key)?.label ??
+      byKey.get(key)?.label ??
+      "";
+    if (real.trim()) return real;
+    // Synthesized OCR content/rows carry no label — render as a bare text
+    // block (no fabricated "Content" / "Passage 1" header).
+    if (key === "content" || key.startsWith("passage_")) return "";
+    return humanize(key);
+  };
   const [view, setView] = useState<"fields" | "preview" | "inspector">("fields");
   const [fileIsImage, setFileIsImage] = useState(false);
 
@@ -1125,59 +1098,40 @@ function ReviewWorkspace(props: ReviewProps) {
           <div className="text-center py-6 text-sm text-muted-foreground">{t("common.error")}</div>
         ) : (
           <div className="space-y-5">
-            {groups.map((g) =>
-              g.fields.length > 0 && g.fields.every(isOcrPassage) ? (
-                <PassagesDrawer
-                  key={g.label || "ocr"}
-                  label={g.label || t("documents.other")}
-                  fields={g.fields}
-                  storedKeys={storedKeys}
-                  fieldLabel={fieldLabel}
-                  schema={schema}
-                  t={t}
-                  editing={editing}
-                  savingKey={savingKey}
-                  fieldError={fieldError}
-                  onStartEdit={onStartEdit}
-                  onDraft={onDraft}
-                  onSave={onSave}
-                  onCancel={onCancel}
-                />
-              ) : (
-                <div key={g.label || "root"}>
-                  {g.label && (
-                    <p className="text-[.72rem] font-bold uppercase tracking-wider text-muted-foreground mb-2 px-1">
-                      {g.label}
-                    </p>
-                  )}
-                  <div className="space-y-1">
-                    {g.fields.map((field) => (
-                      <FieldRow
-                        key={field.key}
-                        field={field}
-                        label={fieldLabel(field.key)}
-                        def={
-                          schema?.fields.find((f) => f.key === field.key) ?? {
-                            key: field.key,
-                            type: field.type ?? "string",
-                            label: field.label ?? field.key,
-                          }
+            {groups.map((g) => (
+              <div key={g.label || "root"}>
+                {g.label && (
+                  <p className="text-[.72rem] font-bold uppercase tracking-wider text-muted-foreground mb-2 px-1">
+                    {g.label}
+                  </p>
+                )}
+                <div className="space-y-1">
+                  {g.fields.map((field) => (
+                    <FieldRow
+                      key={field.key}
+                      field={field}
+                      label={fieldLabel(field.key)}
+                      def={
+                        schema?.fields.find((f) => f.key === field.key) ?? {
+                          key: field.key,
+                          type: field.type ?? "string",
+                          label: field.label ?? field.key,
                         }
-                        t={t}
-                        editing={editing?.key === field.key ? editing : null}
-                        saving={savingKey === field.key}
-                        fieldError={fieldError}
-                        onStartEdit={() => onStartEdit(field.key)}
-                        onDraft={onDraft}
-                        onSave={() => onSave(field.key)}
-                        onCancel={onCancel}
-                        readOnly={!storedKeys.has(field.key)}
-                      />
-                    ))}
-                  </div>
+                      }
+                      t={t}
+                      editing={editing?.key === field.key ? editing : null}
+                      saving={savingKey === field.key}
+                      fieldError={fieldError}
+                      onStartEdit={() => onStartEdit(field.key)}
+                      onDraft={onDraft}
+                      onSave={() => onSave(field.key)}
+                      onCancel={onCancel}
+                      readOnly={!storedKeys.has(field.key)}
+                    />
+                  ))}
                 </div>
-              )
-            )}
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -1330,100 +1284,6 @@ function OcrPreview({
 }
 
 /* ─── Field row ───────────────────────────────────────────────────────── */
-
-/* ─── OCR passages drawer ────────────────────────────────────────────── */
-
-/** True for a review row that is an OCR passage (source "ocr", passage_N key). */
-function isOcrPassage(f: FieldDTO): boolean {
-  return f.source === "ocr" && f.key.startsWith("passage_");
-}
-
-interface PassagesDrawerProps {
-  label: string;
-  fields: FieldDTO[];
-  storedKeys: Set<string>;
-  fieldLabel: (key: string) => string;
-  schema?: ProfileSchemaDTO["schema"];
-  t: (key: string, params?: Record<string, string | number>) => string;
-  editing: { key: string; draft: string } | null;
-  savingKey: string | null;
-  fieldError: string | null;
-  onStartEdit: (key: string) => void;
-  onDraft: (draft: string) => void;
-  onSave: (key: string) => void;
-  onCancel: () => void;
-}
-
-/**
- * The document's raw OCR reading, presented as a closed drawer. The readers'
- * lines are the ground truth of the page — they live collapsed until asked
- * for, so a free-form document doesn't dump its whole transcript on screen.
- */
-function PassagesDrawer({
-  label,
-  fields,
-  storedKeys,
-  fieldLabel,
-  schema,
-  t,
-  editing,
-  savingKey,
-  fieldError,
-  onStartEdit,
-  onDraft,
-  onSave,
-  onCancel,
-}: PassagesDrawerProps) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="fd-doc-drawer">
-      <button
-        type="button"
-        className={`fd-doc-drawer-toggle ${open ? "open" : ""}`}
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        <span className="fd-doc-drawer-icon">
-          <ScanText size={15} />
-        </span>
-        <span className="fd-doc-drawer-title">{label}</span>
-        <span className="fd-doc-chip" style={{ background: "rgba(140,140,140,.1)", color: "#7a7a7a" }}>
-          {fields.length} {t("documents.passages")}
-        </span>
-        <ChevronDown size={16} className="fd-doc-drawer-chevron" />
-      </button>
-      <div className={`fd-doc-drawer-body ${open ? "open" : ""}`}>
-        <div className="fd-doc-drawer-inner">
-          <div className="space-y-1 p-3">
-            {fields.map((field) => (
-              <FieldRow
-                key={field.key}
-                field={field}
-                label={fieldLabel(field.key)}
-                def={
-                  schema?.fields.find((f) => f.key === field.key) ?? {
-                    key: field.key,
-                    type: field.type ?? "string",
-                    label: field.label ?? field.key,
-                  }
-                }
-                t={t}
-                editing={editing?.key === field.key ? editing : null}
-                saving={savingKey === field.key}
-                fieldError={fieldError}
-                onStartEdit={() => onStartEdit(field.key)}
-                onDraft={onDraft}
-                onSave={() => onSave(field.key)}
-                onCancel={onCancel}
-                readOnly={!storedKeys.has(field.key)}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 interface FieldRowProps {
   field: FieldDTO;
