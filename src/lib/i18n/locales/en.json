@@ -151,7 +151,6 @@
       "verified": "Verified",
       "uncertain": "Uncertain",
       "missing": "Missing",
-      "noBox": "no region on image",
       "hint": "Hover or click a region to inspect the matching field"
     }
   },

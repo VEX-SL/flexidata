@@ -33,7 +33,6 @@ export interface DocumentInspectorProps {
     verified: string;
     uncertain: string;
     missing: string;
-    noBox: string;
     hint: string;
   };
 }
@@ -127,9 +126,8 @@ export default function DocumentInspector({
         value: f.value,
         confidence: f.confidence,
         tone: fieldTone(f.confidence, f.value !== ""),
-        hasBox: fieldBoxes.get(f.key) !== undefined && fieldBoxes.get(f.key) !== null,
       })),
-    [fields, fieldBoxes]
+    [fields]
   );
 
   const handleEnter = (key: string) => setHoveredKey(key);

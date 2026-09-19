@@ -897,7 +897,6 @@ function ReviewWorkspace(props: ReviewProps) {
     verified: t("documents.inspector.verified"),
     uncertain: t("documents.inspector.uncertain"),
     missing: t("documents.inspector.missing"),
-    noBox: t("documents.inspector.noBox"),
     hint: t("documents.inspector.hint"),
   };
 

@@ -118,7 +118,6 @@
       "verified": "Vérifié",
       "uncertain": "Incertain",
       "missing": "Manquant",
-      "noBox": "aucune zone sur l'image",
       "hint": "Survolez ou cliquez une zone pour inspecter le champ correspondant"
     }
   },

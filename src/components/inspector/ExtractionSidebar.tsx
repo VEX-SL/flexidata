@@ -10,7 +10,6 @@ export interface SidebarField {
   value: string;
   confidence: number;
   tone: FieldTone;
-  hasBox: boolean;
 }
 
 interface ExtractionSidebarProps {
@@ -24,7 +23,6 @@ interface ExtractionSidebarProps {
     verified: string;
     uncertain: string;
     missing: string;
-    noBox: string;
   };
 }
 
@@ -51,7 +49,6 @@ export default function ExtractionSidebar({
     verified: "Verified",
     uncertain: "Uncertain",
     missing: "Missing",
-    noBox: "no region on image",
     ...labels,
   };
 
@@ -94,7 +91,6 @@ export default function ExtractionSidebar({
           flex-shrink: 0; font-size: .68rem; font-weight: 800;
           font-variant-numeric: tabular-nums; padding: .18rem .5rem; border-radius: 999px;
         }
-        .fd-inspector-row-nobox { font-size: .62rem; color: var(--color-muted-foreground); font-weight: 600; }
         .fd-inspector-sidebar-empty {
           padding: 1.5rem; text-align: center; font-size: .78rem;
           color: var(--color-muted-foreground); border: 1px dashed var(--color-border); border-radius: 12px;
@@ -133,7 +129,6 @@ export default function ExtractionSidebar({
                       <div className="fd-inspector-row-label" title={f.label}>{f.label}</div>
                       <div className={`fd-inspector-row-value ${f.value ? "" : "empty"}`}>
                         {f.value || "—"}
-                        {!f.hasBox && <span className="fd-inspector-row-nobox"> · {L.noBox}</span>}
                       </div>
                     </div>
                     {f.tone !== "missing" && (
