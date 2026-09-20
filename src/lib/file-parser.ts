@@ -173,7 +173,12 @@ async function ocrPdfInline(buffer: Buffer): Promise<OcrDocument> {
     attemptTimeoutMs: 60_000,
     maxOutputTokens: 8192,
   });
-  if (!vision.success || vision.data.length === 0) {
+  if (!vision.success) {
+    console.warn("[Parser] PDF inline Vision unavailable:", vision.error);
+    return { text: "", lines: [] };
+  }
+  if (vision.data.length === 0) {
+    console.warn("[Parser] PDF inline Vision returned no lines");
     return { text: "", lines: [] };
   }
   const text = vision.data
@@ -246,6 +251,9 @@ async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
       } catch (e) {
         console.error("[Parser] PDF OCR failed:", e);
       }
+      console.warn(
+        `[Parser] PDF OCR produced no usable text; serving the broken text layer (${cleaned.length} chars)`
+      );
     }
 
     if (cleaned.length >= 50) {
