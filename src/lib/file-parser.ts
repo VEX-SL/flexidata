@@ -8,7 +8,7 @@ import fs from "fs";
 
 import { recognizeMainThread } from "@/lib/tesseract-main";
 import type { OcrDocument } from "@/lib/pipeline/types";
-import { runVisionOCR, visionNormalizedBBoxToPixelBox } from "@/lib/ocr/vision-service";
+import { runVisionOCR, visionNormalizedBBoxToPixelBox, VISION_MODEL } from "@/lib/ocr/vision-service";
 import { imageDimensionsFromBuffer } from "@/lib/ocr/image-dims";
 import type { ReceiptExtraction } from "@/lib/ocr/vision-service";
 import { OCR_TIMEOUT_MS } from "@/lib/ocr/recall";
@@ -170,8 +170,13 @@ async function ocrPdfInline(buffer: Buffer): Promise<OcrDocument> {
   if (buffer.length > 20 * 1024 * 1024) return { text: "", lines: [] };
   const vision = await runVisionOCR(buffer, "auto", {
     mimeType: "application/pdf",
-    attemptTimeoutMs: 60_000,
+    attemptTimeoutMs: 22_000,
     maxOutputTokens: 8192,
+    // Synchronous phase: a single best-model attempt with a hard cap instead
+    // of rotating through the whole fallback list, so a slow/crowded model
+    // cannot burn the function's 60s budget.
+    models: [VISION_MODEL],
+    skipOpenRouter: true,
   });
   if (!vision.success) {
     console.warn("[Parser] PDF inline Vision unavailable:", vision.error);
@@ -221,6 +226,10 @@ async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
     if (needsReOcr) {
       const isGarbage =
         countArabicLetters(cleaned) > 0 && isGarbageArabicTextLayer(cleaned);
+      // Synchronous pipeline phase runs inside a 60s function budget, so the
+      // whole recovery must fit: inline PDF OCR (≤22s) + at most 12s of page
+      // OCR, otherwise we surface the text layer rather than 504-ing.
+      const ocrStartedAt = Date.now();
       // Tier 1: hand the whole PDF straight to Gemini as application/pdf. No
       // pdfjs/canvas in the loop, so it cannot break on serverless runtimes.
       try {
@@ -238,18 +247,29 @@ async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
         console.error("[Parser] PDF inline Vision failed:", e);
       }
       // Tier 2: per-page rendering (pdfjs + canvas) — Vision-first per page,
-      // tesseract fallback. The old length check stays only for scanned PDFs;
-      // garbage text layers accept any non-empty reading.
-      try {
-        const ocr = await ocrPdfPages(buffer);
-        if (
-          ocr.text.trim() &&
-          (isGarbage || ocr.text.length > cleaned.length)
-        ) {
-          return { text: ocr.text.slice(0, 500_000), ocr };
+      // tesseract fallback. Only when the inline attempt left room. The old
+      // length check stays only for scanned PDFs; garbage text layers accept
+      // any non-empty reading.
+      const elapsedMs = Date.now() - ocrStartedAt;
+      if (elapsedMs < 20_000) {
+        try {
+          const ocr = await ocrPdfPages(
+            buffer,
+            Date.now() + Math.min(12_000, 40_000 - elapsedMs)
+          );
+          if (
+            ocr.text.trim() &&
+            (isGarbage || ocr.text.length > cleaned.length)
+          ) {
+            return { text: ocr.text.slice(0, 500_000), ocr };
+          }
+        } catch (e) {
+          console.error("[Parser] PDF OCR failed:", e);
         }
-      } catch (e) {
-        console.error("[Parser] PDF OCR failed:", e);
+      } else {
+        console.warn(
+          `[Parser] skipping page OCR (inline already spent ${elapsedMs}ms)`
+        );
       }
       console.warn(
         `[Parser] PDF OCR produced no usable text; serving the broken text layer (${cleaned.length} chars)`
@@ -266,7 +286,10 @@ async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
   }
 }
 
-async function ocrPdfPages(buffer: Buffer): Promise<OcrDocument> {
+async function ocrPdfPages(
+  buffer: Buffer,
+  stopByMs?: number
+): Promise<OcrDocument> {
   const { isCanvasAvailable } = await import("@/lib/pdf-canvas");
   if (!isCanvasAvailable()) return { text: "", lines: [] };
 
@@ -292,6 +315,12 @@ async function ocrPdfPages(buffer: Buffer): Promise<OcrDocument> {
   let visionAvailable = true;
 
   for (let i = 1; i <= doc.numPages; i++) {
+    if (stopByMs !== undefined && Date.now() >= stopByMs) {
+      console.warn(
+        `[Parser] PDF page OCR budget exhausted after page ${i - 1}/${doc.numPages}`
+      );
+      break;
+    }
     if (visionAvailable && doc.numPages > VISION_PDF_MAX_PAGES) {
       visionAvailable = false;
     }

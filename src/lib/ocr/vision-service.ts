@@ -254,14 +254,21 @@ function mimeTypeOf(file: File | Blob | Buffer): string {
  * @param lang - Language hint: "auto" (default), "ar", or "en".
  * @param options - Optional overrides: `mimeType` (e.g. "application/pdf" for
  *                  whole-PDF OCR), `attemptTimeoutMs` (per-model timeout; PDFs
- *                  need far longer than images), `maxOutputTokens`.
+ *                  need far longer than images), `maxOutputTokens`, `models`
+ *                  (restrict the fallback list), `skipOpenRouter`.
  * @returns A resolved `OCRResponse`; on ANY failure a resolved
  *          `{ success: false, error }` object (never throws).
  */
 export async function runVisionOCR(
   file: File | Blob | Buffer,
   lang: OCRLanguage = DEFAULT_OCR_LANGUAGE,
-  options?: { mimeType?: string; attemptTimeoutMs?: number; maxOutputTokens?: number }
+  options?: {
+    mimeType?: string;
+    attemptTimeoutMs?: number;
+    maxOutputTokens?: number;
+    models?: readonly string[];
+    skipOpenRouter?: boolean;
+  }
 ): Promise<OCRResponse> {
   const apiKey = geminiApiKeyFromEnv();
   if (!apiKey) {
@@ -270,6 +277,7 @@ export async function runVisionOCR(
 
   const attemptTimeoutMs = options?.attemptTimeoutMs ?? VISION_ATTEMPT_TIMEOUT_MS;
   const maxTokens = options?.maxOutputTokens ?? 4096;
+  const models = options?.models ?? VISION_MODELS;
   let base64: string;
   let mimeType: string;
   try {
@@ -305,7 +313,7 @@ export async function runVisionOCR(
 
   let lastFailure: string | null = null;
 
-  for (const model of VISION_MODELS) {
+  for (const model of models) {
     let response: Response;
     try {
       response = await fetch(
@@ -367,7 +375,7 @@ export async function runVisionOCR(
 
   // ── Final fallback: OpenRouter vision (OpenAI-compatible) ────────────────
   const openrouterKey = openrouterVisionKeyFromEnv();
-  if (openrouterKey) {
+  if (!options?.skipOpenRouter && openrouterKey) {
     const result = await tryOpenRouterFallback(
       openrouterKey,
       prompt,
