@@ -8,7 +8,12 @@ import fs from "fs";
 
 import { recognizeMainThread } from "@/lib/tesseract-main";
 import type { OcrDocument } from "@/lib/pipeline/types";
-import { runVisionOCR, visionNormalizedBBoxToPixelBox, VISION_MODEL } from "@/lib/ocr/vision-service";
+import {
+  runVisionOCR,
+  visionNormalizedBBoxToPixelBox,
+  VISION_MODEL,
+  PDF_OCR_SYSTEM_PROMPT,
+} from "@/lib/ocr/vision-service";
 import { imageDimensionsFromBuffer } from "@/lib/ocr/image-dims";
 import type { ReceiptExtraction } from "@/lib/ocr/vision-service";
 import { OCR_TIMEOUT_MS } from "@/lib/ocr/recall";
@@ -177,6 +182,7 @@ async function ocrPdfInline(buffer: Buffer): Promise<OcrDocument> {
     // cannot burn the function's 60s budget.
     models: [VISION_MODEL],
     skipOpenRouter: true,
+    systemPrompt: PDF_OCR_SYSTEM_PROMPT,
   });
   if (!vision.success) {
     console.warn("[Parser] PDF inline Vision unavailable:", vision.error);

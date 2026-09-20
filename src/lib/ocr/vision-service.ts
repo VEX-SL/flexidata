@@ -216,6 +216,33 @@ const SYSTEM_PROMPT = [
   "in the middle-left of the receipt is roughly like [410, 40, 470, 700].",
 ].join("\n");
 
+/**
+ * Transcription prompt for whole-PDF OCR (scanned or broken-text-layer
+ * documents). The receipt prompt above tells the model the input is "a receipt
+ * image" — against a multi-page PDF that makes it summarize to a couple of
+ * lines (observed: an 8-page Arabic booklet collapsed to 2 headings). PDF
+ * documents get a dedicated contract: transcribe EVERYTHING, no bbox (normalized
+ * multi-page coordinates are meaningless per page), no extraction.
+ */
+export const PDF_OCR_SYSTEM_PROMPT = [
+  "You are a precise document transcription engine.",
+  "You are given a multi-page PDF document. TRANSCRIBE the ENTIRE document faithfully:",
+  "every line of text from every page, in reading order (right-to-left for Arabic),",
+  "exactly as printed.",
+  "",
+  "RULES:",
+  "1. NEVER summarize, paraphrase, or drop content - transcribe every word, number, diacritic and headline, INCLUDING repeated page headers/footers and page numbers.",
+  "2. Preserve line structure as printed: each visual text row is its own entry in 'lines'.",
+  "3. Keep Arabic verbatim (shaping and diacritics as printed).",
+  "4. Do NOT add commentary, titles, or sections that are not in the document.",
+  "5. Transcribe the WHOLE document, not just the first page or just the title.",
+  "",
+  "Respond with STRICT JSON only - no markdown fences, no commentary - shaped",
+  "exactly like:",
+  '{ "lines": [ { "text": "<verbatim line>", "confidence": 0.98 } ] }',
+  '"lines" must contain every distinct printed text row of the whole document.',
+].join("\n");
+
 // ─── Payload helpers ────────────────────────────────────────────────────────
 
 /** Runtime guard that also narrows for TypeScript (Node-only symbol). */
@@ -255,7 +282,8 @@ function mimeTypeOf(file: File | Blob | Buffer): string {
  * @param options - Optional overrides: `mimeType` (e.g. "application/pdf" for
  *                  whole-PDF OCR), `attemptTimeoutMs` (per-model timeout; PDFs
  *                  need far longer than images), `maxOutputTokens`, `models`
- *                  (restrict the fallback list), `skipOpenRouter`.
+ *                  (restrict the fallback list), `skipOpenRouter`,
+ *                  `systemPrompt` (replace the receipt prompt entirely).
  * @returns A resolved `OCRResponse`; on ANY failure a resolved
  *          `{ success: false, error }` object (never throws).
  */
@@ -268,6 +296,7 @@ export async function runVisionOCR(
     maxOutputTokens?: number;
     models?: readonly string[];
     skipOpenRouter?: boolean;
+    systemPrompt?: string;
   }
 ): Promise<OCRResponse> {
   const apiKey = geminiApiKeyFromEnv();
@@ -289,9 +318,10 @@ export async function runVisionOCR(
   }
 
   const prompt =
-    lang === "en"
+    options?.systemPrompt ??
+    (lang === "en"
       ? SYSTEM_PROMPT
-      : `${SYSTEM_PROMPT}\nThe receipt is in Arabic; keep Arabic values verbatim.`;
+      : `${SYSTEM_PROMPT}\nThe receipt is in Arabic; keep Arabic values verbatim.`);
 
   const body = {
     contents: [
