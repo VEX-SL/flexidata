@@ -167,9 +167,10 @@ async function loadPdfJs(): Promise<any> {
  * Tier-1 OCR for scanned/garbage PDFs: send the PDF file itself to Gemini as
  * `application/pdf` (inline data) — the model reads the whole document, so no
  * pdfjs rendering or canvas is involved and it cannot break on serverless
- * runtimes. Per-page geometry is unavailable in this mode (multi-page
- * normalized boxes are meaningless), so the returned document carries lines
- * without bboxes; the reviewer just shows no overlay for them.
+ * runtimes. Lines carry their 1-based page number plus a bbox normalized
+ * WITHIN that page (0..1000 space, stored as-is so a per-page viewer can
+ * scale them onto the rendered page). Lines without per-page geometry simply
+ * carry no bbox and the reviewer shows no overlay for them.
  */
 async function ocrPdfInline(buffer: Buffer): Promise<OcrDocument> {
   if (buffer.length > 20 * 1024 * 1024) return { text: "", lines: [] };
@@ -200,14 +201,35 @@ async function ocrPdfInline(buffer: Buffer): Promise<OcrDocument> {
     text,
     language: vision.detected_language || undefined,
     lines: vision.data.map(
-      (l: { text: string; confidence: number }) => ({
-        text: l.text,
-        confidence: l.confidence,
-        words: l.text
-          .split(/\s+/)
-          .filter((w: string) => w.length > 0)
-          .map((w: string) => ({ text: w, confidence: l.confidence })),
-      })
+      (l: {
+        text: string;
+        confidence: number;
+        page?: number;
+        bbox?: [number, number, number, number];
+      }) => {
+        const [ymin, xmin, ymax, xmax] = l.bbox ?? [0, 0, 0, 0];
+        return {
+          text: l.text,
+          confidence: l.confidence,
+          ...(l.page !== undefined ? { page: l.page } : {}),
+          // bbox is the model's normalized WITHIN-PAGE box kept in its own
+          // 0..1000 units; per-page viewers scale it by the page pixel size.
+          ...(l.bbox !== undefined
+            ? {
+                bbox: {
+                  x: xmin,
+                  y: ymin,
+                  width: Math.max(0, xmax - xmin),
+                  height: Math.max(0, ymax - ymin),
+                },
+              }
+            : {}),
+          words: l.text
+            .split(/\s+/)
+            .filter((w: string) => w.length > 0)
+            .map((w: string) => ({ text: w, confidence: l.confidence })),
+        };
+      }
     ),
   };
   if (countArabicLetters(text) > 0) {

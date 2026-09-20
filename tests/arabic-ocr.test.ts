@@ -317,3 +317,34 @@ test("confidence is never inflated by repair", () => {
   const split = repairLineWords([{ text: "رقم2013", confidence: 0.6 }]);
   for (const t of split.lines[0]) equal(t.confidence, 0.6, "split words keep original confidence");
 });
+
+test("repair preserves the per-page annotation of whole-PDF lines", () => {
+  const doc: OcrDocument = {
+    text: "فضل آية الكرسي\nمدرسة الحصون الخمسة",
+    lines: [
+      { text: "فضل آية الكرسي", page: 1, words: "فضل آية الكرسي".split(" ").map((w) => ({ text: w })) },
+      { text: "مدرسة الحصون الخمسة", page: 3, words: "مدرسة الحصون الخمسة".split(" ").map((w) => ({ text: w })) },
+    ],
+  };
+  const { doc: out } = postProcessOcr(doc);
+  equal(out.lines.length, 2);
+  equal(out.lines[0].page, 1);
+  equal(out.lines[1].page, 3);
+});
+
+test("repair carries a per-page bbox through unchanged (0..1000 page space)", () => {
+  const doc: OcrDocument = {
+    text: "سطر واحد",
+    lines: [
+      {
+        text: "سطر واحد",
+        page: 1,
+        bbox: { x: 100, y: 200, width: 700, height: 30 },
+        words: "سطر واحد".split(" ").map((w) => ({ text: w })),
+      },
+    ],
+  };
+  const { doc: out } = postProcessOcr(doc);
+  equal(out.lines[0].bbox, doc.lines[0].bbox);
+  equal(out.lines[0].page, 1);
+});

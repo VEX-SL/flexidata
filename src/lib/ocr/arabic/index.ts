@@ -70,6 +70,7 @@ export function postProcessOcr(
         words,
         confidence: confs.length > 0 ? mean(confs) : line.confidence,
         bbox: unionBoxes(boxes) ?? line.bbox,
+        ...(line.page !== undefined ? { page: line.page } : {}),
         originalText: line.text,
         repaired: changed,
         sourceLine,

@@ -119,7 +119,13 @@
       "verified": "Vérifié",
       "uncertain": "Incertain",
       "missing": "Manquant",
-      "hint": "Survolez ou cliquez une zone pour inspecter le champ correspondant"
+      "hint": "Survolez ou cliquez une zone pour inspecter le champ correspondant",
+      "page": "Page {{current}} sur {{total}}",
+      "prevPage": "Page précédente",
+      "nextPage": "Page suivante",
+      "loadError": "Impossible d'afficher cette page.",
+      "retry": "Réessayer",
+      "loading": "Rendu de la page…"
     }
   },
   "chat": {

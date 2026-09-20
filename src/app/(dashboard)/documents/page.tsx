@@ -29,6 +29,7 @@ import {
 } from "@/lib/hooks/use-documents";
 import { downloadBlob } from "@/lib/download";
 import DocumentInspector, { type InspectorField } from "@/components/inspector/DocumentInspector";
+import PdfInspector from "@/components/inspector/PdfInspector";
 
 const RUNNING = new Set(["queued", "classifying", "extracting", "validating"]);
 const EXPORT_FORMATS = ["json", "csv", "word"] as const;
@@ -938,6 +939,9 @@ function ReviewWorkspace(props: ReviewProps) {
   const isImage =
     fileIsImage ||
     (!!job.fileUrl && /\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(job.fileUrl));
+  // Whole-document PDF OCR annotates every line with a page number, so the
+  // reviewer can show per-page geometry even though the file is not an image.
+  const hasPageLines = !!job.ocr?.lines?.some((l) => l.page !== undefined);
   const inspectorFields: InspectorField[] = fields.map((f) => {
     // A real title is the schema label or the extraction's own label. A label
     // that merely duplicates the key's derived fallback (e.g. "Field 1" for
@@ -1038,7 +1042,7 @@ function ReviewWorkspace(props: ReviewProps) {
             <ScanText size={13} style={{ verticalAlign: "text-bottom", marginRight: 4 }} />
             {t("documents.preview.title")}
           </button>
-          {isImage && (
+          {(isImage || hasPageLines) && (
             <button
               className={`fd-doc-tab ${view === "inspector" ? "active" : ""}`}
               onClick={() => setView("inspector")}
@@ -1103,6 +1107,14 @@ function ReviewWorkspace(props: ReviewProps) {
               fields={inspectorFields}
               ocr={job.ocr}
               labels={inspectorLabels}
+            />
+          ) : hasPageLines ? (
+            <PdfInspector
+              fileUrl={job.fileUrl!}
+              fields={inspectorFields}
+              ocr={job.ocr}
+              labels={inspectorLabels}
+              t={t}
             />
           ) : (
             <OcrPreview job={job} t={t} isImage={isImage} />

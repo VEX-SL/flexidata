@@ -152,7 +152,13 @@
       "verified": "Verified",
       "uncertain": "Uncertain",
       "missing": "Missing",
-      "hint": "Hover or click a region to inspect the matching field"
+      "hint": "Hover or click a region to inspect the matching field",
+      "page": "Page {{current}} of {{total}}",
+      "prevPage": "Previous page",
+      "nextPage": "Next page",
+      "loadError": "Could not render this page.",
+      "retry": "Retry",
+      "loading": "Rendering page…"
     }
   },
   "chat": {

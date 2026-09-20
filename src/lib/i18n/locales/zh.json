@@ -119,7 +119,13 @@
       "verified": "已验证",
       "uncertain": "不确定",
       "missing": "缺失",
-      "hint": "悬停或点击区域以检查对应的字段"
+      "hint": "悬停或点击区域以检查对应的字段",
+      "page": "第 {{current}} 页 / 共 {{total}} 页",
+      "prevPage": "上一页",
+      "nextPage": "下一页",
+      "loadError": "无法渲染此页。",
+      "retry": "重试",
+      "loading": "正在渲染页面…"
     }
   },
   "chat": {

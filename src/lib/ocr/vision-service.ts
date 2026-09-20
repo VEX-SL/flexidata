@@ -103,6 +103,12 @@ export interface OCRResultItem {
    * absent for models that do not return coordinates.
    */
   bbox?: [number, number, number, number];
+  /**
+   * 1-based page number this line was read from. Present only for whole-PDF
+   * transcription, where `bbox` is normalized within that page's own
+   * 0..1000 space (per-page coordinates, never across the whole document).
+   */
+  page?: number;
 }
 
 /** Structured fields extracted from a thermal receipt. */
@@ -221,8 +227,9 @@ const SYSTEM_PROMPT = [
  * documents). The receipt prompt above tells the model the input is "a receipt
  * image" — against a multi-page PDF that makes it summarize to a couple of
  * lines (observed: an 8-page Arabic booklet collapsed to 2 headings). PDF
- * documents get a dedicated contract: transcribe EVERYTHING, no bbox (normalized
- * multi-page coordinates are meaningless per page), no extraction.
+ * documents get a dedicated contract: transcribe EVERYTHING, and annotate
+ * every line with the page it came from plus a bbox normalized WITHIN that
+ * page, so the reviewer can draw per-page geometry. No structured extraction.
  */
 export const PDF_OCR_SYSTEM_PROMPT = [
   "You are a precise document transcription engine.",
@@ -236,11 +243,12 @@ export const PDF_OCR_SYSTEM_PROMPT = [
   "3. Keep Arabic verbatim (shaping and diacritics as printed).",
   "4. Do NOT add commentary, titles, or sections that are not in the document.",
   "5. Transcribe the WHOLE document, not just the first page or just the title.",
+  `6. Every entry must carry "page": the 1-based page number that line is printed on, and "bbox": [ymin, xmin, ymax, xmax] in a 0..1000 coordinate space normalized WITHIN THAT PAGE ONLY (0 = top edge or left edge of the page, 1000 = bottom edge or right edge of the page). ymin <= ymax and xmin <= xmax; keep the box tight around that line's own text.`,
   "",
   "Respond with STRICT JSON only - no markdown fences, no commentary - shaped",
   "exactly like:",
-  '{ "lines": [ { "text": "<verbatim line>", "confidence": 0.98 } ] }',
-  '"lines" must contain every distinct printed text row of the whole document.',
+  '{ "lines": [ { "text": "<verbatim line>", "confidence": 0.98, "page": 1, "bbox": [ymin, xmin, ymax, xmax] } ] }',
+  '"lines" must contain every distinct printed text row of the whole document, each with its own page number and per-page bbox.',
 ].join("\n");
 
 // ─── Payload helpers ────────────────────────────────────────────────────────
@@ -476,10 +484,12 @@ export function parseLines(value: unknown): OCRResultItem[] {
     if (!text.trim()) continue;
     const confidence = Number(it.confidence);
     const bbox = parseBBox(it.bbox);
+    const page = Number(it.page);
     out.push({
       text,
       confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 1,
       ...(bbox !== undefined ? { bbox } : {}),
+      ...(Number.isInteger(page) && page >= 1 ? { page } : {}),
     });
   }
   return out;

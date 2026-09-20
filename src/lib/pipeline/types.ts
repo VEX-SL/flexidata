@@ -242,6 +242,14 @@ export interface OcrLine {
   words: OcrWord[];
   /** Union box of the line's words (processed-image space), when available. */
   bbox?: BBox;
+  /**
+   * Page number this line belongs to (1-based). Set only for whole-document
+   * PDF OCR (the inline Gemini path), where every line is annotated with its
+   * page so the reviewer can show per-page geometry. When set, `bbox` holds a
+   * box in a 0..1000 coordinate space NORMALIZED WITHIN that page (not raw
+   * pixel space); readers must scale it by the rendered page's pixel size.
+   */
+  page?: number;
   /** Verbatim line text before Arabic OCR repair (when the line changed). */
   originalText?: string;
   /** True when the Arabic OCR repair layer altered this line. */
