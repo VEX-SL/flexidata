@@ -16,7 +16,7 @@ export const runtime = "nodejs";
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string; page: string }> }
-): Promise<NextResponse> {
+): Promise<Response> {
   const authResult = await requireAuth();
   if (authResult instanceof NextResponse) return authResult;
   const { user } = authResult;
