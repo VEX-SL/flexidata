@@ -1,5 +1,7 @@
+import { randomUUID } from "node:crypto";
 import type { AIClient } from "@/lib/pipeline/types";
 import { PipelineService } from "@/lib/pipeline/service";
+import { INTERMEDIATE_STATUSES } from "@/lib/pipeline/constants";
 import { test, ok, equal, assert } from "./harness.ts";
 
 const TEST_DOC = [
@@ -44,62 +46,111 @@ function fakeAI(content: string): AIClient {
   };
 }
 
-/* ─── Minimal in-memory supabase double ─── */
+/* ─── In-memory supabase double (chained, supports the service's update flow) ─── */
 
 type Row = Record<string, unknown>;
 
+interface Filter {
+  col: string;
+  op: "eq" | "in" | "lt";
+  val: unknown;
+}
+
+interface FakeTable {
+  rows: Row[];
+}
+
+function matchesFilter(row: Row, f: Filter): boolean {
+  if (f.op === "eq") return row[f.col] === f.val;
+  if (f.op === "in") return Array.isArray(f.val) && f.val.includes(row[f.col] as never);
+  if (f.op === "lt") {
+    return new Date(row[f.col] as string).getTime() < new Date(f.val as string).getTime();
+  }
+  return false;
+}
+
 class FakeQuery {
-  private filters: Array<[string, unknown]> = [];
   private op:
     | { kind: "read" }
     | { kind: "insert"; payload: Row }
-    | { kind: "update"; payload: Row }
-    | { kind: "delete" } = { kind: "read" };
-  constructor(private table: { rows: Row[] }) {}
+    | { kind: "update"; payload: Row } = { kind: "read" };
+  private filters: Filter[] = [];
+  private rangeTo = -1;
 
-  select(cols?: string, opts?: unknown) {
-    void cols;
+  constructor(private readonly table: FakeTable) {}
+
+  select(_cols?: unknown, opts?: unknown) {
     void opts;
     return this;
   }
   eq(col: string, val: unknown) {
-    this.filters.push([col, val]);
+    this.filters.push({ col, op: "eq", val });
     return this;
   }
-  order(col?: string, opts?: unknown) {
-    void col;
-    void opts;
+  in(col: string, vals: unknown[]) {
+    this.filters.push({ col, op: "in", val: vals });
+    return this;
+  }
+  lt(col: string, val: unknown) {
+    this.filters.push({ col, op: "lt", val });
+    return this;
+  }
+  order(_col: string, _opts?: unknown) {
     return this;
   }
   range(from: number, to: number) {
     void from;
-    void to;
+    this.rangeTo = to;
     return this;
   }
-  async single() {
-    if (this.op.kind === "insert") {
-      return { data: this.op.payload, error: null };
-    }
-    const rows = this.table.rows.filter((r) =>
-      this.filters.every(([c, v]) => r[c] === v)
-    );
-    return { data: rows[0] ?? null, error: null };
-  }
-  async insert(payload: Row) {
+  insert(payload: Row) {
     this.op = { kind: "insert", payload };
-    this.table.rows.push(payload);
-    return { data: payload, error: null };
+    return this;
   }
-  async update(payload: Row) {
+  update(payload: Row) {
     this.op = { kind: "update", payload };
-    const idx = this.table.rows.findIndex((r) =>
-      this.filters.every(([c, v]) => r[c] === v)
-    );
-    if (idx >= 0) {
-      this.table.rows[idx] = { ...this.table.rows[idx], ...payload };
-      return { data: this.table.rows[idx], error: null };
+    return this;
+  }
+  single() {
+    return this;
+  }
+  maybeSingle() {
+    return this;
+  }
+
+  then<T>(
+    onfulfilled?: (v: unknown) => T | PromiseLike<T>,
+    onrejected?: (r: unknown) => T | PromiseLike<T>
+  ) {
+    return this.execute().then(onfulfilled, onrejected);
+  }
+
+  private async execute(): Promise<{ data: Row | Row[] | null; error: unknown }> {
+    const t = this.table;
+
+    if (this.op.kind === "insert") {
+      const row: Row = { ...this.op.payload };
+      if (row.id === undefined) row.id = randomUUID();
+      const now = new Date().toISOString();
+      row.created_at = row.created_at ?? now;
+      row.updated_at = row.updated_at ?? now;
+      t.rows.push(row);
+      return { data: row, error: null };
     }
-    return { data: null, error: null };
+
+    const matches = t.rows.filter((r) => this.filters.every((f) => matchesFilter(r, f)));
+
+    if (this.op.kind === "update") {
+      for (const row of matches) {
+        Object.assign(row, this.op.payload);
+        row.updated_at = new Date().toISOString();
+      }
+      return { data: matches[0] ?? null, error: null };
+    }
+
+    let out = [...matches];
+    if (this.rangeTo >= 0) out = out.slice(0, this.rangeTo + 1);
+    return { data: out[0] ?? null, error: null };
   }
 }
 
@@ -114,9 +165,15 @@ function makeService(ai: AIClient) {
   return new PipelineService(new FakeSupabase() as any, ai);
 }
 
+async function finish(svc: PipelineService, args: Parameters<PipelineService["run"]>[1]) {
+  const r = await svc.run("user-1", args);
+  const p = await svc.process("user-1", r.job.id);
+  return { ...r, job: p.job };
+}
+
 test("service persists raw_ai_response in dynamic mode", async () => {
   const svc = makeService(fakeAI(DYNAMIC_RESPONSE));
-  const { job } = await svc.run("user-1", {
+  const { job } = await finish(svc, {
     sourceText: TEST_DOC,
     profileType: "unknown",
     idempotencyKey: "test-raw-response-dynamic",
@@ -146,7 +203,7 @@ test("service persists raw_ai_response in legacy mode", async () => {
   });
 
   const svc = makeService(fakeAI(LEGACY_RESPONSE));
-  const { job } = await svc.run("user-1", {
+  const { job } = await finish(svc, {
     sourceText: TEST_DOC,
     profileType: "unknown",
     idempotencyKey: "test-raw-response-legacy",
@@ -163,7 +220,7 @@ test("service persists raw_ai_response in legacy mode", async () => {
 
 test("service does not expose raw_ai_response in public JobDTO", async () => {
   const svc = makeService(fakeAI(DYNAMIC_RESPONSE));
-  const { job } = await svc.run("user-1", {
+  const { job } = await finish(svc, {
     sourceText: TEST_DOC,
     profileType: "unknown",
     idempotencyKey: "test-raw-response-dto",
@@ -175,3 +232,6 @@ test("service does not expose raw_ai_response in public JobDTO", async () => {
   assert(!dtoKeys.includes("rawAIResponse"), "JobDTO must not expose rawAIResponse");
   assert(!dtoKeys.includes("raw_ai_response"), "JobDTO must not expose raw_ai_response");
 });
+
+// Kept for typing parity with the lifecycle suite; exercised implicitly above.
+void INTERMEDIATE_STATUSES;

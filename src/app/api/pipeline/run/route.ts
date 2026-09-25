@@ -8,9 +8,12 @@ import type { ProfileType } from "@/lib/pipeline/types";
 /**
  * POST /api/pipeline/run
  *
- * Async-by-design: returns a job DTO + status immediately. Clients poll
- * GET /api/pipeline/extractions/{id}. Phase 1 runs synchronously; switching
- * to queues later requires no frontend change.
+ * Dispatch-only: validates the request, applies idempotency and returns a
+ * `queued` job immediately. The heavy work is NOT performed here — it runs in
+ * resumable slices via POST /api/pipeline/extractions/{id}/process, which the
+ * client drives from its poll loop. This bounds every request under the
+ * platform's function-timeout regardless of how slow the source document's OCR
+ * turns out to be.
  *
  * Idempotent: passing the same `idempotencyKey` (or the same `fileId`) twice
  * returns the existing job (200) unless `force: true` requests an in-place

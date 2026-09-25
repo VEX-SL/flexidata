@@ -11,7 +11,7 @@ import {
   INTERMEDIATE_STATUSES,
   STALE_JOB_MS,
 } from "./constants";
-import { PipelineError } from "./errors";
+import { PipelineError, toStructuredError } from "./errors";
 import { toJobDTO } from "./dto";
 import { computeConfidence } from "./confidence";
 import { validateExtraction } from "./validator";
@@ -39,9 +39,12 @@ import { safeFieldKey } from "./extractor/dynamic";
 /**
  * PipelineService — transport-agnostic pipeline execution.
  * Called identically from HTTP routes, a cron job, a queue worker or a CLI
- * script; nothing here imports next/server, headers or cookies. Phase 1 runs
- * synchronously; callers can later switch to background execution without
- * changing the contract.
+ * script; nothing here imports next/server, headers or cookies. `run()` is a
+ * dispatch-only phase (validations + queued row creation) and `process()`
+ * performs the actual work in resumable slices — each slice runs inside its
+ * own caller budget and progress is persisted between slices, so callers can
+ * fan the work across multiple function invocations (the client drives it via
+ * POST /pipeline/extractions/{id}/process).
  */
 export class PipelineService {
   constructor(
@@ -49,10 +52,15 @@ export class PipelineService {
     private readonly ai?: AIClient
   ) {}
 
+  /** Best-effort per-instance single-flight guard for the heavy process() slices. */
+  private readonly processing = new Set<string>();
+
   /**
-   * Run the pipeline for a document. Idempotent: a repeat run for the same
-   * document (same idempotency key) returns the existing job instead of
-   * creating a duplicate, unless `force: true` explicitly requests a re-run.
+   * Prepare an extraction job (dispatch). Idempotent: a repeat dispatch for
+   * the same document (same idempotency key) returns the existing job instead
+   * of creating a duplicate, unless `force: true` explicitly requests a re-run.
+   * No file is read and no AI is called here — the returned `queued` row is
+   * advanced by `process()` (one or more slices).
    */
   async run(
     userId: string,
@@ -70,12 +78,15 @@ export class PipelineService {
     }
   ): Promise<{ job: JobDTO; created: boolean; rerun: boolean }> {
     // ── Resolve + validate input ─────────────────────────────────────
-    let sourceText = req.sourceText?.trim() ?? "";
-    let fileName = req.fileName;
-    let mimeType = req.mimeType;
-    let ocr = req.ocr;
-    let visionExtraction = req.visionExtraction;
+    const sourceText = req.sourceText?.trim() ?? "";
     const fileId = req.fileId;
+
+    if (!sourceText && !fileId) {
+      throw new PipelineError(
+        "Either sourceText or a readable fileId is required",
+        { code: "BAD_REQUEST", retryable: false }
+      );
+    }
 
     if (req.profileType) {
       const manager = getProfileManager();
@@ -108,11 +119,15 @@ export class PipelineService {
       }
       if (existing && req.force) {
         // Explicit re-run: recompute in place — same record, results wiped,
-        // completion metadata rewritten. Never duplicates the record.
+        // completion metadata rewritten. Never duplicates the record. The
+        // staged source text/OCR are cleared too so process() re-reads and
+        // re-OCRs the file instead of replaying stale content.
         await this.supabase
           .from("extractions")
           .update({
             status: "queued",
+            source_text: null,
+            ocr_json: null,
             overall_confidence: null,
             fields_json: null,
             validation_json: null,
@@ -130,21 +145,6 @@ export class PipelineService {
       }
     }
 
-    if (!sourceText && fileId) {
-      const resolved = await this.readFileText(userId, fileId);
-      sourceText = resolved.text;
-      fileName = resolved.fileName;
-      mimeType = resolved.mimeType;
-      ocr = resolved.ocr;
-      visionExtraction = resolved.visionExtraction;
-    }
-
-    if (!sourceText) {
-      throw new PipelineError(
-        "Either sourceText or a readable fileId is required",
-        { code: "BAD_REQUEST", retryable: false }
-      );
-    }
     if (sourceText.length > MAX_SOURCE_TEXT) {
       throw new PipelineError(
         `sourceText too long (max ${MAX_SOURCE_TEXT} characters)`,
@@ -153,7 +153,10 @@ export class PipelineService {
     }
 
     // ── Create job (queued) ──────────────────────────────────────────
-    const startedAt = Date.now();
+    // The file is never read here: dispatch only inserts the queued row, and
+    // process() performs the (potentially slow) download + OCR inside its own
+    // invocation budget. For fileId runs the row starts with an empty source
+    // text until a process slice stages the real content.
     if (!jobId) {
       const { data: row, error: insertError } = await this.supabase
         .from("extractions")
@@ -163,7 +166,7 @@ export class PipelineService {
           idempotency_key: idempotencyKey ?? null,
           pipeline_version: PIPELINE_VERSION,
           status: "queued",
-          source_text: sourceText.slice(0, 200_000),
+          source_text: sourceText ? sourceText.slice(0, 200_000) : null,
         })
         .select("id, created_at")
         .single();
@@ -194,97 +197,217 @@ export class PipelineService {
       });
     }
 
-    // ── Run (synchronous in phase 1; later: enqueue + poll) ──────────
-    const input: RunJobInput = {
-      sourceText,
-      fileName,
-      mimeType,
-      fileId,
-      profileType: req.profileType,
-      ocr,
-      visionExtraction,
-      extractionMode: req.extractionMode,
-    };
-
-    let out: RunJobOutput;
-    try {
-      out = await runPipeline(input, { ai: this.ai, onStage: this.buildOnStage(jobId) });
-    } catch (err) {
-      // In-process exception outside the stage loop (e.g. provider bootstrap,
-      // unexpected wiring failure): persist a diagnosable structured error,
-      // then rethrow the ORIGINAL error — never hide it.
-      await this.persistRunFailure(jobId, startedAt, err);
-      throw err;
-    }
-    const processingTimeMs = Date.now() - startedAt;
-
-    // ── Persist result (source_text is refresh-on-completion, never stale) ──
-    if (out.status === "complete" && out.job) {
-      const { classification, extraction, validation, confidence } = out.job;
-      const fields = serializeFields(extraction);
-      const payload = {
-        status: "complete",
-        source_text: sourceText.slice(0, 200_000),
-        profile_type: classification.profileType,
-        profile_version: extraction.profileVersion,
-        extraction_mode: extraction.extractionMode ?? "legacy",
-        provider: extraction.provider ?? null,
-        model: extraction.model ?? null,
-        raw_ai_response: extraction.rawAIResponse ?? null,
-        processing_time_ms: processingTimeMs,
-        overall_confidence: round4(confidence.overall),
-        fields_json: fields,
-        validation_json: { ok: validation.ok, missing: validation.missing },
-        confidence_json: {
-          overall: confidence.overall,
-          signals: confidence.signals,
-          summary: confidence.summary,
-        },
-        trace_json: out.trace,
-        completed_at: new Date().toISOString(),
-      } as Record<string, unknown>;
-
-      try {
-        const result = await this.supabase
-          .from("extractions")
-          .update({ ...payload, ocr_json: ocr ?? null })
-          .eq("id", jobId);
-        if (result.error) {
-          throw new Error(`persist failed: ${result.error.message}`);
-        }
-      } catch (err) {
-        // The run completed but the terminal write failed: leave a structured,
-        // recoverable error behind and surface the original failure.
-        await this.persistRunFailure(jobId, startedAt, err, out.trace);
-        throw err;
-      }
-
-      const finalRow = await this.getRow(userId, jobId);
-      return { job: toJobDTO(finalRow), created, rerun };
-    }
-
-    // Structured stage error (never a raw exception). Guarded against terminal
-    // statuses: if a NEWER run already resolved this row (complete/error), the
-    // late failure write must not regress that resolution.
-    const structured: StructuredError = out.error ?? {
-      code: "UNKNOWN_ERROR",
-      message: "Pipeline failed",
-      retryable: false,
-    };
-    await this.supabase
-      .from("extractions")
-      .update({
-        status: "error",
-        error_json: structured,
-        trace_json: out.trace,
-        processing_time_ms: processingTimeMs,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", jobId)
-      .in("status", INTERMEDIATE_STATUSES);
-
+    // ── Dispatch ────────────────────────────────────────────────────────
+    // Phase 1 (this method) only prepares the job row: validations, idempotency
+    // and the queued insert/force-reset. No file read, no AI call — the HTTP
+    // request returns immediately so a slow source document can never hit the
+    // platform's function-timeout. The heavy work (file download + OCR, then
+    // classification/extraction/validation) runs in process(), which the client
+    // polls into slices; each slice is a fresh invocation with its own budget,
+    // and progress is persisted between slices so a killed function resumes
+    // from where it stopped instead of redoing the expensive OCR.
     const finalRow = await this.getRow(userId, jobId);
     return { job: toJobDTO(finalRow), created, rerun };
+  }
+
+  /**
+   * Continue the work for a queued/intermediate job. Resumable by design:
+   *  - reads + OCRs the source file only when the row has no staged content yet
+   *    (persists source_text + ocr_json + status "extracting" BEFORE running the
+   *    pipeline, so a killed slice never loses the OCR);
+   *  - runs the remaining pipeline (classify → extract → ground → validate)
+   *    inside a fresh invocation budget and persists the terminal state;
+   *  - never rethrows structured failures — returns the error state so the
+   *    caller sees a diagnosable row instead of surfacing a 504 loop.
+   */
+  async process(userId: string, id: string): Promise<{ job: JobDTO }> {
+    if (!isValidUUID(id)) {
+      throw new PipelineError("Invalid extraction id", {
+        code: "BAD_REQUEST",
+        retryable: false,
+      });
+    }
+    // Best-effort single-flight per instance (no DB schema involved). If a
+    // parallel request is already advancing this row, return its current state.
+    if (this.processing.has(id)) {
+      const row = await this.getRow(userId, id);
+      return { job: toJobDTO(row) };
+    }
+    this.processing.add(id);
+    const startedAt = Date.now();
+    try {
+      let row = await this.getRow(userId, id);
+      if (row.status === "complete" || row.status === "error") {
+        return { job: toJobDTO(row) };
+      }
+
+      // ── Resolve source content (file download + OCR once per job) ────
+      let ocr = row.ocr_json;
+      let visionExtraction: ReceiptExtraction | undefined;
+      let fileName: string | undefined;
+      let mimeType: string | undefined;
+      let sourceText = row.source_text ?? "";
+      if (row.file_id) {
+        if (!row.ocr_json || !row.source_text) {
+          let resolved: Awaited<ReturnType<PipelineService["readFileText"]>>;
+          try {
+            resolved = await this.readFileText(userId, row.file_id);
+          } catch (err) {
+            // Unreadable/empty source: resolved into a terminal error row so
+            // the client's poll loop stops instead of spinning forever.
+            await this.failProcess(id, startedAt, toStructuredError(err, "ocr"));
+            const errRow = await this.getRow(userId, id);
+            return { job: toJobDTO(errRow) };
+          }
+          sourceText = resolved.text;
+          ocr = resolved.ocr;
+          visionExtraction = resolved.visionExtraction;
+          fileName = resolved.fileName;
+          mimeType = resolved.mimeType;
+          await this.supabase
+            .from("extractions")
+            .update({
+              source_text: sourceText.slice(0, MAX_SOURCE_TEXT),
+              ocr_json: ocr ?? null,
+              status: "extracting",
+            })
+            .eq("id", id);
+        } else if (row.source_text) {
+          sourceText = row.source_text;
+        }
+      }
+      if (!sourceText.trim()) {
+        await this.failProcess(id, startedAt, {
+          stage: "ocr",
+          code: "EMPTY_DOCUMENT",
+          message: "No text could be extracted from the file",
+          retryable: false,
+        });
+        const errRow = await this.getRow(userId, id);
+        return { job: toJobDTO(errRow) };
+      }
+
+      // ── Run the pipeline (fresh budget per slice) ─────────────────────
+      const input: RunJobInput = {
+        sourceText,
+        fileName,
+        mimeType,
+        fileId: row.file_id ?? undefined,
+        profileType: undefined,
+        ocr: ocr ?? undefined,
+        visionExtraction,
+        extractionMode: (row.extraction_mode as ExtractionMode | undefined) ?? undefined,
+      };
+
+      let out: RunJobOutput;
+      try {
+        out = await runPipeline(input, {
+          ai: this.ai,
+          onStage: this.buildOnStage(id),
+        });
+      } catch (err) {
+        // In-process exception outside the stage loop: persist a diagnosable
+        // structured error, then return it (never rethrow — an HTTP 500 here
+        // would only make the client re-drive and loop).
+        await this.persistRunFailure(id, startedAt, err);
+        const errRow = await this.getRow(userId, id);
+        return { job: toJobDTO(errRow) };
+      }
+      const processingTimeMs = Date.now() - startedAt;
+
+      // ── Persist result (source_text is refresh-on-completion, never stale) ──
+      if (out.status === "complete" && out.job) {
+        const { classification, extraction, validation, confidence } = out.job;
+        const fields = serializeFields(extraction);
+        const payload = {
+          status: "complete",
+          source_text: sourceText.slice(0, MAX_SOURCE_TEXT),
+          profile_type: classification.profileType,
+          profile_version: extraction.profileVersion,
+          extraction_mode: extraction.extractionMode ?? "legacy",
+          provider: extraction.provider ?? null,
+          model: extraction.model ?? null,
+          raw_ai_response: extraction.rawAIResponse ?? null,
+          processing_time_ms: processingTimeMs,
+          overall_confidence: round4(confidence.overall),
+          fields_json: fields,
+          validation_json: { ok: validation.ok, missing: validation.missing },
+          confidence_json: {
+            overall: confidence.overall,
+            signals: confidence.signals,
+            summary: confidence.summary,
+          },
+          trace_json: out.trace,
+          completed_at: new Date().toISOString(),
+        } as Record<string, unknown>;
+
+        try {
+          const result = await this.supabase
+            .from("extractions")
+            .update({ ...payload, ocr_json: ocr ?? null })
+            .eq("id", id);
+          if (result.error) {
+            throw new Error(`persist failed: ${result.error.message}`);
+          }
+        } catch (err) {
+          // The run completed but the terminal write failed: leave a structured,
+          // recoverable error behind and surface the original failure.
+          await this.persistRunFailure(id, startedAt, err, out.trace);
+          const failRow = await this.getRow(userId, id);
+          return { job: toJobDTO(failRow) };
+        }
+
+        const completeRow = await this.getRow(userId, id);
+        return { job: toJobDTO(completeRow) };
+      }
+
+      // Structured stage error (never a raw exception). Guarded against terminal
+      // statuses: if a NEWER run already resolved this row (complete/error), the
+      // late failure write must not regress that resolution.
+      const structured: StructuredError = out.error ?? {
+        code: "UNKNOWN_ERROR",
+        message: "Pipeline failed",
+        retryable: false,
+      };
+      await this.supabase
+        .from("extractions")
+        .update({
+          status: "error",
+          error_json: structured,
+          trace_json: out.trace,
+          processing_time_ms: processingTimeMs,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .in("status", INTERMEDIATE_STATUSES);
+
+      const errorRow = await this.getRow(userId, id);
+      return { job: toJobDTO(errorRow) };
+    } finally {
+      this.processing.delete(id);
+    }
+  }
+
+  /** Persist a terminal error for a non-stage failure inside process(). */
+  private async failProcess(
+    id: string,
+    startedAt: number,
+    structured: StructuredError
+  ): Promise<void> {
+    try {
+      await this.supabase
+        .from("extractions")
+        .update({
+          status: "error",
+          error_json: structured,
+          processing_time_ms: Date.now() - startedAt,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .in("status", INTERMEDIATE_STATUSES);
+    } catch (err) {
+      console.error("[Pipeline] failed to persist process error:", err);
+    }
   }
 
   /** Persist a real phase transition, guarded so it can never regress a terminal status. */

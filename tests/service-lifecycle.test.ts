@@ -7,6 +7,8 @@ import { test, ok, equal, assert, includes } from "./harness.ts";
 /**
  * M25 crash-safe pipeline lifecycle. Verifies:
  *  - idempotency runs BEFORE any file read (no re-download on duplicates)
+ *  - run() is dispatch-only (queued row, zero file reads) and the heavy work
+ *    happens in resumable process() slices (file read + OCR once per job)
  *  - staged/terminal persist with a guarded onStage write (no terminal regress)
  *  - structured, persisted failures (stage errors + terminal-write failures)
  *  - stale-run reconciliation on read paths (get / list / run duplicate)
@@ -256,6 +258,13 @@ const RUN_ARGS = {
 const FILE_ID = "00000000-0000-0000-0000-000000000001";
 const JOB_ID = "11111111-1111-1111-1111-111111111111";
 
+/** Dispatch then drive the job to a terminal state (the client's flow). */
+async function finish(svc: PipelineService, args: Parameters<PipelineService["run"]>[1]) {
+  const r = await svc.run("user-1", args);
+  const p = await svc.process("user-1", r.job.id);
+  return { ...r, job: p.job };
+}
+
 /* ─── Tests ─── */
 
 test("stage failure is persisted as a structured STAGE_FAILED error", async () => {
@@ -269,7 +278,8 @@ test("stage failure is persisted as a structured STAGE_FAILED error", async () =
     },
   };
   const { svc } = makeService(ai);
-  const { job } = await svc.run("user-1", { sourceText: TEST_DOC, idempotencyKey: "k-stage-error" });
+  const r = await svc.run("user-1", { sourceText: TEST_DOC, idempotencyKey: "k-stage-error" });
+  const { job } = await svc.process("user-1", r.job.id);
   equal(job.status, "error");
   equal(job.error?.code, "STAGE_FAILED");
   equal(job.error?.stage, "extract");
@@ -278,7 +288,7 @@ test("stage failure is persisted as a structured STAGE_FAILED error", async () =
 
 test("phase transitions persist in order and never regress a terminal status", async () => {
   const { svc, fake } = makeService(fakeAI(DYNAMIC_RESPONSE));
-  const { job } = await svc.run("user-1", { ...RUN_ARGS, idempotencyKey: "k-phases" });
+  const { job } = await finish(svc, { ...RUN_ARGS, idempotencyKey: "k-phases" });
   equal(job.status, "complete");
 
   const h = fake.tables.extractions.updateHistory;
@@ -302,23 +312,19 @@ test("phase transitions persist in order and never regress a terminal status", a
   equal(row.status, "complete", "guarded phase write must not regress complete");
 });
 
-test("terminal persist failure is recorded and the original error rethrown", async () => {
+test("terminal persist failure is recorded as an error job (never thrown)", async () => {
   const fake = new FakeSupabase();
   fake.tables.extractions.failUpdate = (payload) => payload.status === "complete";
   const { svc } = makeService(fakeAI(DYNAMIC_RESPONSE), fake);
 
-  let thrown: unknown = null;
-  try {
-    await svc.run("user-1", { ...RUN_ARGS, idempotencyKey: "k-persist-fail" });
-  } catch (err) {
-    thrown = err;
-  }
-  ok(thrown, "run must rethrow the terminal persist failure");
-  includes(thrown instanceof Error ? thrown.message : String(thrown), "persist failed");
+  const r = await svc.run("user-1", { ...RUN_ARGS, idempotencyKey: "k-persist-fail" });
+  const p = await svc.process("user-1", r.job.id);
+  equal(p.job.status, "error", "process() returns the failure, it does not throw");
+  equal((p.job.error as { code: string })?.code, "PIPELINE_RUN_FAILED");
+  includes(p.job.error?.message ?? "", "persist failed");
 
   const row = fake.tables.extractions.rows[0];
   equal(row.status, "error");
-  equal((row.error_json as { code: string }).code, "PIPELINE_RUN_FAILED");
 });
 
 test("duplicate run is idempotent and never re-reads the file", async () => {
@@ -333,19 +339,25 @@ test("duplicate run is idempotent and never re-reads the file", async () => {
   });
   const { svc } = makeService(fakeAI(DYNAMIC_RESPONSE), fake);
 
-  const r1 = await svc.run("user-1", { fileId: FILE_ID });
-  equal(r1.created, true);
-  equal(r1.job.status, "complete");
-  equal(fake.storageDownloads, 1, "first run downloads the file once");
+  const d1 = await svc.run("user-1", { fileId: FILE_ID });
+  equal(d1.created, true);
+  equal(d1.job.status, "queued", "run() is dispatch-only — no file read, no AI");
+  equal(fake.storageDownloads, 0, "dispatch must not download the file");
+
+  const p1 = await svc.process("user-1", d1.job.id);
+  equal(p1.job.status, "complete");
+  equal(fake.storageDownloads, 1, "first process slice downloads the file once");
 
   const r2 = await svc.run("user-1", { fileId: FILE_ID });
   equal(r2.created, false);
-  equal(r2.job.id, r1.job.id, "duplicate returns the same job");
+  equal(r2.job.id, d1.job.id, "duplicate returns the same job");
   equal(fake.storageDownloads, 1, "duplicate must not re-download (idempotency before file read)");
 
   const r3 = await svc.run("user-1", { fileId: FILE_ID, force: true });
   equal(r3.rerun, true);
-  equal(r3.job.id, r1.job.id, "force recomputes in place");
+  equal(r3.job.id, d1.job.id, "force recomputes in place");
+  const p3 = await svc.process("user-1", r3.job.id);
+  equal(p3.job.status, "complete", "force re-runs the pipeline via process");
   equal(fake.storageDownloads, 2, "force re-reads the file");
 });
 
@@ -365,7 +377,9 @@ test("concurrent duplicate (23505) returns the existing row", async () => {
   const r = await svc.run("user-1", { fileId: FILE_ID });
   equal(r.created, false);
   ok(r.job.id, "must return the existing job on insert conflict");
-  equal(fake.storageDownloads, 1, "file is read before the conflicting insert");
+  equal(fake.storageDownloads, 0, "dispatch performs no file read");
+  const p = await svc.process("user-1", r.job.id);
+  equal(p.job.status, "complete", "the recovered row can still be processed");
 });
 
 test("stale get() reconciles an intermediate row to a diagnosable error", async () => {
@@ -476,16 +490,20 @@ test("force=true reruns the same job record in place (no duplicate row)", async 
   });
   const { svc } = makeService(fakeAI(DYNAMIC_RESPONSE), fake);
 
-  const r1 = await svc.run("user-1", { fileId: FILE_ID });
-  equal(r1.created, true);
-  equal(r1.job.status, "complete");
+  const d1 = await svc.run("user-1", { fileId: FILE_ID });
+  equal(d1.created, true);
+  equal(d1.job.status, "queued");
+  equal(fake.storageDownloads, 0);
+  const p1 = await svc.process("user-1", d1.job.id);
+  equal(p1.job.status, "complete");
   equal(fake.storageDownloads, 1);
 
-  const r2 = await svc.run("user-1", { fileId: FILE_ID, force: true });
-  equal(r2.rerun, true, "force must be reported as rerun");
-  equal(r2.created, false);
-  equal(r2.job.id, r1.job.id, "force must reuse the same job id");
-  equal(r2.job.status, "complete", "pipeline must actually run again");
+  const d2 = await svc.run("user-1", { fileId: FILE_ID, force: true });
+  equal(d2.rerun, true, "force must be reported as rerun");
+  equal(d2.created, false);
+  equal(d2.job.id, d1.job.id, "force must reuse the same job id");
+  const p2 = await svc.process("user-1", d2.job.id);
+  equal(p2.job.status, "complete", "pipeline must actually run again");
   equal(fake.storageDownloads, 2, "force must re-read the file");
   equal(
     fake.tables.extractions.rows.length,

@@ -74,6 +74,8 @@ export interface DocItem {
 const RUNNING = new Set(["queued", "classifying", "extracting", "validating"]);
 const POLL_INTERVAL = 1600;
 const MAX_POLLS = 150;
+/** Cap on contiguous /process slices (each slice is one serverless invocation). */
+const MAX_PROCESS = 120;
 
 /**
  * Upload for the Documents pipeline: the browser streams the file straight to
@@ -130,6 +132,8 @@ export function useDocuments() {
   const attempts = useRef<Map<string, number>>(new Map());
   const aborters = useRef<Map<string, AbortController>>(new Map());
   const nextKey = useRef(0);
+  const processInFlight = useRef<Set<string>>(new Set());
+  const processAttempts = useRef<Map<string, number>>(new Map());
 
   const patchDoc = useCallback((key: string, patch: Partial<DocItem>) => {
     setDocs((prev) => prev.map((d) => (d.key === key ? { ...d, ...patch } : d)));
@@ -156,6 +160,49 @@ export function useDocuments() {
     refresh();
   }, [refresh]);
 
+  // Advance a running job by one serverless slice. Resumable: the POST does
+  // bounded work and returns the current state; if a slice is killed by the
+  // platform timeout, the next poll tick simply re-drives. At most one slice
+  // per id is in flight.
+  const drive = useCallback(async (id: string) => {
+    if (processInFlight.current.has(id)) return;
+    const n = processAttempts.current.get(id) ?? 0;
+    if (n >= MAX_PROCESS) {
+      processAttempts.current.delete(id);
+      return;
+    }
+    processAttempts.current.set(id, n + 1);
+    processInFlight.current.add(id);
+    try {
+      const res = await fetch(`/api/pipeline/extractions/${id}/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        // Slightly above the serverless cap: a platform-killed slice releases
+        // the in-flight guard quickly so the poll loop can re-drive it.
+        signal: AbortSignal.timeout(70_000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const job = data.job as JobDTO;
+        setDocs((prev) =>
+          prev.map((d) => (d.job?.id === id ? { ...d, job } : d))
+        );
+        if (!RUNNING.has(job.status)) {
+          processAttempts.current.delete(id);
+        }
+      } else {
+        // Structured rejection (e.g. the row is gone) — stop driving; the GET
+        // poll will surface the authoritative state.
+        processAttempts.current.delete(id);
+      }
+    } catch {
+      // Timeout/serverless kill: nothing to do — the GET poll re-drives.
+    } finally {
+      processInFlight.current.delete(id);
+    }
+  }, []);
+
   const poll = useCallback(async (id: string) => {
     if (inFlight.current.has(id)) return;
     const n = attempts.current.get(id) ?? 0;
@@ -179,13 +226,20 @@ export function useDocuments() {
       setDocs((prev) =>
         prev.map((d) => (d.job?.id === id ? { ...d, job } : d))
       );
-      if (!RUNNING.has(job.status)) attempts.current.delete(id);
+      if (!RUNNING.has(job.status)) {
+        attempts.current.delete(id);
+        processAttempts.current.delete(id);
+      } else {
+        // Drive the next work slice; the GET poll keeps the row fresh while
+        // the long-running process slice writes its stage transitions.
+        void drive(id);
+      }
     } catch {
       // transient network error — retry on the next tick
     } finally {
       inFlight.current.delete(id);
     }
-  }, []);
+  }, [drive]);
 
   // Poll every running job until it reaches a terminal state.
   useEffect(() => {

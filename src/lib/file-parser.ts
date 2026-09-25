@@ -11,7 +11,6 @@ import type { OcrDocument } from "@/lib/pipeline/types";
 import {
   runVisionOCR,
   visionNormalizedBBoxToPixelBox,
-  VISION_MODEL,
   PDF_OCR_SYSTEM_PROMPT,
 } from "@/lib/ocr/vision-service";
 import { imageDimensionsFromBuffer } from "@/lib/ocr/image-dims";
@@ -164,6 +163,24 @@ async function loadPdfJs(): Promise<any> {
 }
 
 /**
+ * Model order for whole-PDF transcription. `gemini-3.1-flash-lite` is the one
+ * that reliably reads PDF input (measured: 80 lines + per-page bbox in ~17s on
+ * an 8-page scanned booklet), while `gemini-3.5-flash-lite` can return an
+ * EMPTY success for the same file and the full flash tier is often busy (503).
+ * We therefore lead with the proven model and fall through on any failure or
+ * empty result — never pin a single model.
+ */
+const PDF_VISION_MODELS: readonly string[] = [
+  "gemini-3.1-flash-lite",
+  "gemini-3.5-flash-lite",
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+];
+
+/** Hard budget for the whole-PDF OCR attempt (must fit one 60s invocation). */
+const PDF_OCR_BUDGET_MS = 55_000;
+
+/**
  * Tier-1 OCR for scanned/garbage PDFs: send the PDF file itself to Gemini as
  * `application/pdf` (inline data) — the model reads the whole document, so no
  * pdfjs rendering or canvas is involved and it cannot break on serverless
@@ -174,19 +191,39 @@ async function loadPdfJs(): Promise<any> {
  */
 async function ocrPdfInline(buffer: Buffer): Promise<OcrDocument> {
   if (buffer.length > 20 * 1024 * 1024) return { text: "", lines: [] };
-  const vision = await runVisionOCR(buffer, "auto", {
-    mimeType: "application/pdf",
-    attemptTimeoutMs: 22_000,
-    maxOutputTokens: 8192,
-    // Synchronous phase: a single best-model attempt with a hard cap instead
-    // of rotating through the whole fallback list, so a slow/crowded model
-    // cannot burn the function's 60s budget.
-    models: [VISION_MODEL],
-    skipOpenRouter: true,
-    systemPrompt: PDF_OCR_SYSTEM_PROMPT,
-  });
-  if (!vision.success) {
-    console.warn("[Parser] PDF inline Vision unavailable:", vision.error);
+
+  const startedAt = Date.now();
+  let vision: Awaited<ReturnType<typeof runVisionOCR>> | null = null;
+  for (const model of PDF_VISION_MODELS) {
+    const remaining = PDF_OCR_BUDGET_MS - (Date.now() - startedAt);
+    if (remaining < 10_000) {
+      console.warn("[Parser] PDF inline Vision budget exhausted, giving up");
+      return { text: "", lines: [] };
+    }
+    const attempt = await runVisionOCR(buffer, "auto", {
+      mimeType: "application/pdf",
+      attemptTimeoutMs: Math.min(remaining, 35_000),
+      maxOutputTokens: 8192,
+      // One bounded attempt per model; the manual loop skips empty/error
+      // results instead of trusting a single pinned model (which can return a
+      // successful but zero-line read, or time out) — that made OCR silently
+      // degrade to the broken text layer in production.
+      models: [model],
+      skipOpenRouter: true,
+      systemPrompt: PDF_OCR_SYSTEM_PROMPT,
+    });
+    if (attempt.success && attempt.data.length > 0) {
+      vision = attempt;
+      break;
+    }
+    console.warn(
+      `[Parser] PDF inline Vision model ${model} unusable` +
+        (attempt.success ? " (empty result)" : ` (${attempt.error})`) +
+        `, ${((PDF_OCR_BUDGET_MS - (Date.now() - startedAt)) / 1000).toFixed(0)}s budget left`
+    );
+  }
+  if (!vision) {
+    console.warn("[Parser] PDF inline Vision unavailable: all models unusable");
     return { text: "", lines: [] };
   }
   if (vision.data.length === 0) {
@@ -254,9 +291,12 @@ async function extractPdfText(buffer: Buffer): Promise<ParseResult> {
     if (needsReOcr) {
       const isGarbage =
         countArabicLetters(cleaned) > 0 && isGarbageArabicTextLayer(cleaned);
-      // Synchronous pipeline phase runs inside a 60s function budget, so the
-      // whole recovery must fit: inline PDF OCR (≤22s) + at most 12s of page
-      // OCR, otherwise we surface the text layer rather than 504-ing.
+      // OCR runs inside a caller slice (see PipelineService.process), so the
+      // whole recovery must fit the invocation budget that remains: the inline
+      // whole-PDF attempt self-limits to PDF_OCR_BUDGET_MS and falls back to at
+      // most ~12s of per-page OCR when it left room, otherwise we surface the
+      // text layer rather than blowing the slice. If this slice dies, the
+      // resumable process() retries it fresh.
       const ocrStartedAt = Date.now();
       // Tier 1: hand the whole PDF straight to Gemini as application/pdf. No
       // pdfjs/canvas in the loop, so it cannot break on serverless runtimes.
