@@ -35,6 +35,13 @@ export interface FieldDTO {
     role?: string;
     confidence?: number;
     context?: string;
+    /**
+     * 1-based page the anchor was read from, for whole-document PDF OCR.
+     * Present on the wire (the service serializes evidence verbatim) so a
+     * client can scope anchors to a page without re-deriving it from
+     * `lineIndex`.
+     */
+    page?: number;
   }>;
   confidence: number;
   source: string;

@@ -28,6 +28,11 @@ import {
   type FieldDTO,
 } from "@/lib/hooks/use-documents";
 import { downloadBlob } from "@/lib/download";
+import {
+  contentPageOf,
+  groupOcrLinesByPage,
+  isOcrContentKey,
+} from "@/lib/pipeline/content-fields";
 import DocumentInspector, { type InspectorField } from "@/components/inspector/DocumentInspector";
 import PdfInspector from "@/components/inspector/PdfInspector";
 
@@ -121,64 +126,31 @@ function confidenceColor(c: number): string {
 /**
  * The fields that drive the review UI. When an extraction produced no fields
  * but the OCR actually read lines, the OCR is the document's content: present
- * it as ONE label-less content field (the whole reading, plus one evidence
- * anchor per source line so the Inspector can highlight the region) instead of
- * an empty panel.
+ * it as label-less content field(s) (one evidence anchor per source line so
+ * the Inspector can highlight the region) instead of an empty panel.
+ *
+ * Paginated OCR is distributed one field per page, via the SAME shared
+ * grouping the pipeline's ocr-passages stage uses — so an unsaved document
+ * shows exactly the field keys and line anchors it will show after a save,
+ * instead of a second, subtly different implementation drifting apart.
  */
 function reviewFields(job: JobDTO | null): FieldDTO[] {
   const stored = job?.fields ?? [];
   if (stored.length > 0) return stored;
-  const lines = (job?.ocr?.lines ?? []).filter((l) => l.text.trim().length > 0);
+  const lines = job?.ocr?.lines ?? [];
   if (lines.length === 0) return [];
   const confidence =
     typeof job?.ocr?.confidence === "number" ? job.ocr.confidence : job?.overallConfidence ?? 0.9;
-  // Per-page OCR is distributed one field per page (same convention as the
-  // pipeline's ocr-passages stage) so the reviewer sees page by page instead
-  // of one unreadable blob spanning the whole document.
-  const pages = [...new Set(lines.map((l) => l.page).filter((p): p is number => typeof p === "number"))].sort(
-    (a, b) => a - b
-  );
-  if (pages.length > 1) {
-    return pages.map((page) => {
-      const pageLines = lines.map((l, i) => ({ l, i })).filter((e) => e.l.page === page);
-      return {
-        key: contentPageKey(page),
-        value: pageLines.map((e) => e.l.text.trim()).join("\n"),
-        confidence,
-        source: "ocr",
-        status: "extracted",
-        label: "",
-        evidence: pageLines.map((e) => ({ quote: e.l.text, lineIndex: e.i })),
-      };
-    });
-  }
-  return [
-    {
-      key: "content",
-      value: lines.map((l) => l.text.trim()).join("\n"),
-      confidence,
-      source: "ocr",
-      status: "extracted",
-      label: "",
-      evidence: lines.map((l, i) => ({ quote: l.text, lineIndex: i })),
-    },
-  ];
-}
 
-/** Field key the pipeline uses for one page of OCR content. */
-function contentPageKey(page: number): string {
-  return `content_page_${page}`;
-}
-
-/** The page a `content_page_N` field belongs to, or null for other keys. */
-function contentPageOf(key: string): number | null {
-  const m = /^content_page_(\d+)$/.exec(key);
-  return m ? Number(m[1]) : null;
-}
-
-/** True for the label-less OCR content fields (single or per-page). */
-function isOcrContentKey(key: string, source: string): boolean {
-  return source === "ocr" && (key === "content" || contentPageOf(key) !== null);
+  return groupOcrLinesByPage(lines).map(([key, group]) => ({
+    key,
+    value: group.map(({ line }) => line.text.trim()).join("\n"),
+    confidence,
+    source: "ocr",
+    status: "extracted",
+    label: "",
+    evidence: group.map(({ line, lineIndex }) => ({ quote: line.text, lineIndex })),
+  }));
 }
 
 const BREAKDOWN_KEY: Record<string, string> = {

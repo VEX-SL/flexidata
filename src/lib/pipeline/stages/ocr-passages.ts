@@ -4,6 +4,12 @@ import type {
   PipelineStage,
 } from "../types";
 import { buildOcrDocument } from "../ocr";
+import {
+  CONTENT_KEY_PREFIX,
+  SINGLE_CONTENT_KEY,
+  groupOcrLinesByPage,
+  type IndexedOcrLine,
+} from "../content-fields";
 
 /**
  * Stage: ocr-passages. The OCR is a ground-truth reading of the document, and
@@ -57,12 +63,13 @@ export function ocrPassagesStage(): PipelineStage {
       const pageConfidence =
         typeof ocr.confidence === "number" ? ocr.confidence : 0.9;
 
-      // Nothing is covered (no fields) — every non-empty line is content.
-      const lines = ocr.lines.filter((line) => line.text.trim().length > 0);
-      if (lines.length === 0) return;
-      const taken = lines.slice(0, MAX_OCR_PASSAGES);
+      // Nothing is covered (no fields) — every non-empty line is content,
+      // grouped one field per page. The grouping keeps each line's index in
+      // the ORIGINAL `ocr.lines` array, which is what the Inspector's per-page
+      // remap and the bbox resolver index by.
+      const groups = groupOcrLinesByPage(ocr.lines, { limit: MAX_OCR_PASSAGES });
+      if (groups.length === 0) return;
 
-      const groups = groupLinesByPage(taken);
       const added: NormalizedField[] = [];
       for (const [key, group] of groups) {
         added.push(
@@ -94,51 +101,9 @@ export function ocrPassagesStage(): PipelineStage {
 /** True when any per-page `content*` field is already present. */
 function hasContentField(extraction: ExtractionResult): boolean {
   for (const key of Object.keys(extraction.fieldsMap)) {
-    if (key === "content" || key.startsWith(CONTENT_KEY_PREFIX)) return true;
+    if (key === SINGLE_CONTENT_KEY || key.startsWith(CONTENT_KEY_PREFIX)) return true;
   }
   return false;
-}
-
-const CONTENT_KEY_PREFIX = "content_page_";
-const SINGLE_CONTENT_KEY = "content";
-
-/** One line plus the index it had in `ocr.lines` (its evidence anchor). */
-interface IndexedLine {
-  line: import("../types").OcrLine;
-  lineIndex: number;
-}
-
-/**
- * Group lines by page, preserving OCR order. Lines without a page number are
- * all collected under `null`, which renders as the single un-paginated
- * `content` field. Pages are returned in ascending numeric order so the
- * reviewer's field list always reads page 1, 2, 3 … regardless of the order
- * the OCR happened to emit them in.
- */
-function groupLinesByPage(
-  lines: import("../types").OcrLine[]
-): Array<[string, IndexedLine[]]> {
-  const buckets = new Map<number | null, IndexedLine[]>();
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const page = typeof line.page === "number" ? line.page : null;
-    const bucket = buckets.get(page);
-    if (bucket) bucket.push({ line, lineIndex: i });
-    else buckets.set(page, [{ line, lineIndex: i }]);
-  }
-
-  const numbered = [...buckets.entries()]
-    .filter((entry): entry is [number, IndexedLine[]] => entry[0] !== null)
-    .sort((a, b) => a[0] - b[0]);
-  const unnumbered = buckets.get(null);
-
-  const groups: Array<[string, IndexedLine[]]> = numbered.map(
-    ([page, group]) => [`${CONTENT_KEY_PREFIX}${page}`, group]
-  );
-  if (unnumbered && unnumbered.length > 0) {
-    groups.push([SINGLE_CONTENT_KEY, unnumbered]);
-  }
-  return groups;
 }
 
 /**
@@ -149,7 +114,7 @@ function groupLinesByPage(
  */
 function buildContentField(
   key: string,
-  group: IndexedLine[],
+  group: IndexedOcrLine[],
   opts: { page?: number; pageConfidence: number }
 ): NormalizedField {
   const { page, pageConfidence } = opts;

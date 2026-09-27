@@ -1,6 +1,7 @@
 import type { AIClient, OcrDocument, PipelineState } from "@/lib/pipeline/types";
 import { runPipeline } from "@/lib/pipeline/defaults";
 import { ocrPassagesStage, MAX_OCR_PASSAGES } from "@/lib/pipeline/stages/ocr-passages";
+import { groupOcrLinesByPage } from "@/lib/pipeline/content-fields";
 import { test, ok, equal, assert } from "./harness.ts";
 
 /**
@@ -157,7 +158,7 @@ test("fallback: per-page evidence lineIndex points at the original OCR line", as
   }
 });
 
-test("fallback: a single-page OCR still uses one plain `content` field", async () => {
+test("fallback: a single-page OCR still gets one per-page content field", async () => {
   const ocr = pagedOcr();
   const single: OcrDocument = {
     ...ocr,
@@ -311,4 +312,89 @@ test("fallback: skips blank lines and caps the content field", () => {
     await stage.run(state);
     return { extraction: state.extraction };
   }
+});
+
+/**
+ * The evidence anchor `lineIndex` indexes the ORIGINAL `ocr.lines` array —
+ * PdfInspector builds its per-page remap from those indices and bbox-utils
+ * reads `ocr.lines[lineIndex]`. A blank line anywhere above the content used
+ * to shift every index by one (the index was taken from a filtered array),
+ * which stranded each field's highlights on the wrong lines: no page chips
+ * and no boxes at all. A leading blank line is the minimal repro.
+ */
+test("fallback: evidence lineIndex survives blank lines above the content", async () => {
+  const ocr = pagedOcr();
+  // Interleave blank lines between pages, and lead with one.
+  const withBlanks: OcrDocument = {
+    ...ocr,
+    lines: [
+      { text: "", words: [] },
+      ...ocr.lines.slice(0, 2),
+      { text: "   ", words: [] },
+      ...ocr.lines.slice(2),
+    ],
+  };
+  const out = await runPipeline(
+    { sourceText: ocr.text, ocr: withBlanks, profileType: "unknown", extractionMode: "dynamic" },
+    { ai: fakeAI(JSON.stringify({ data: {} })) }
+  );
+
+  ok(out.status === "complete", `pipeline must complete: ${JSON.stringify(out.error)}`);
+  const fields = out.job!.extraction.fields;
+  equal(
+    fields.map((f) => f.field.key),
+    ["content_page_1", "content_page_2", "content_page_3"],
+    "blank lines do not create a field of their own"
+  );
+
+  let anchored = 0;
+  for (const f of fields) {
+    const page = (f.value.meta as { page?: number }).page;
+    for (const e of f.value.evidence ?? []) {
+      const line = withBlanks.lines[e.lineIndex!];
+      ok(line !== undefined, `lineIndex ${e.lineIndex} is a real index into ocr.lines`);
+      equal(line.text, e.quote, "evidence anchors the line it actually points at");
+      equal(line.page, page, "anchor lands on the field's own page");
+      anchored++;
+    }
+  }
+  equal(anchored, 5, "every non-blank line stays anchored (2 + 2 + 1 lines, one anchor each)");
+});
+
+test("grouping: un-paginated lines stay in one `content` field alongside per-page ones", () => {
+  const lines: OcrDocument["lines"] = [
+    { text: "no page here", words: [] },
+    { text: "page two line", words: [], page: 2 },
+    { text: "page one line", words: [], page: 1 },
+    { text: "another un-paginated line", words: [] },
+  ];
+  const groups = groupOcrLinesByPage(lines);
+  equal(
+    groups.map(([key]) => key),
+    ["content_page_1", "content_page_2", "content"],
+    "numbered pages ascend, un-paginated lines collect under `content`"
+  );
+  equal(groups[0][1][0].line.text, "page one line", "page 1 grouped correctly");
+  equal(groups[0][1][0].lineIndex, 2, "index is the position in the original array");
+  equal(
+    groups[2][1].map((e) => e.lineIndex),
+    [0, 3],
+    "un-paginated lines keep their original indices"
+  );
+});
+
+test("grouping: the limit caps non-empty lines, not array positions", () => {
+  const lines: OcrDocument["lines"] = Array.from({ length: 10 }, (_, i) => ({
+    text: i % 2 === 0 ? `kept ${i}` : "",
+    words: [],
+  }));
+  const groups = groupOcrLinesByPage(lines, { limit: 3 });
+  const taken = groups.flatMap(([, g]) => g);
+  equal(taken.length, 3, "limit honoured across blank lines");
+  equal(
+    taken.map((e) => e.line.text),
+    ["kept 0", "kept 2", "kept 4"],
+    "blank lines do not consume the budget"
+  );
+  equal(taken[1].lineIndex, 2, "index still points at the original slot");
 });
