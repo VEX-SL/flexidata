@@ -149,6 +149,12 @@ export interface FieldEvidence {
   source?: "ocr" | "text" | "ai" | "derived";
   /** Mean OCR word confidence over the quoted span (0..1), when known. */
   confidence?: number;
+  /**
+   * 1-based page this evidence was read from, when the OCR carries per-page
+   * geometry (whole-document PDF OCR). Lets the review group a field under the
+   * page it belongs to without re-deriving it from `lineIndex`.
+   */
+  page?: number;
   /** The full OCR line for human review. */
   context?: string;
 }

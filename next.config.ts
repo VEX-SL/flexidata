@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
       "./node_modules/tesseract.js-core/tesseract-core-relaxedsimd-lstm.wasm",
       "./node_modules/wasm-feature-detect/**/*",
       "./node_modules/bmp-js/**/*",
+      // Page rendering loads the @napi-rs/canvas native binding from a
+      // per-platform package (@napi-rs/canvas-<os>-<arch>) through an opaque
+      // binding loader NFT cannot follow, so trace every platform subpackage.
+      "./node_modules/@napi-rs/canvas-*/**/*",
     ],
   },
 };

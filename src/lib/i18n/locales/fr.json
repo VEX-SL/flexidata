@@ -85,6 +85,7 @@
     "confirm": "Confirmer",
     "other": "Autre",
     "fullContent": "Contenu complet",
+    "pageContent": "Page {{page}}",
     "loadingHistory": "Chargement...",
     "stage": {
       "queued": "En file",

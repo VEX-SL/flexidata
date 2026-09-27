@@ -154,14 +154,6 @@ export async function parseFileBufferDetailed(
   throw new Error(`Unsupported file type: ${mimeType}`);
 }
 
-async function loadPdfJs(): Promise<any> {
-  try {
-    return await import("pdfjs-dist/legacy/build/pdf.mjs");
-  } catch {
-    return await import("pdfjs-dist/build/pdf.mjs");
-  }
-}
-
 /**
  * Model order for whole-PDF transcription. `gemini-3.1-flash-lite` is the one
  * that reliably reads PDF input (measured: 80 lines + per-page bbox in ~17s on
@@ -358,19 +350,21 @@ async function ocrPdfPages(
   buffer: Buffer,
   stopByMs?: number
 ): Promise<OcrDocument> {
-  const { isCanvasAvailable } = await import("@/lib/pdf-canvas");
+  const { isCanvasAvailable, createCanvas, loadImage } = await import(
+    "@/lib/pdf-canvas"
+  );
   if (!isCanvasAvailable()) return { text: "", lines: [] };
 
-  const pdfjsLib = await loadPdfJs();
-  const { createCanvas } = await import("@/lib/pdf-canvas");
+  // Rendering goes through unpdf, which owns the pdf.js worker + canvas
+  // bootstrap. Driving pdf.js directly here cannot work on Node: with no
+  // workerSrc, pdf.js tries to `import("")` for its fake worker and every
+  // getDocument() rejects, which used to throw this whole path away.
+  const { getDocumentProxy, renderPageAsImage } = await import("unpdf");
+  const { loadCanvas } = await import("@/lib/pdf-render");
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
-  const doc = await pdfjsLib.getDocument({
-    data: new Uint8Array(buffer),
-    useWorkerFetch: false,
-    isEvalSupported: false,
-    useSystemFonts: true,
-  }).promise;
+  // pdf.js takes ownership (detaches) of the bytes it is handed, so every call
+  // gets its own copy of the buffer.
+  const doc = await getDocumentProxy(new Uint8Array(buffer));
 
   const allLines: OcrDocument["lines"] = [];
   const chunks: string[] = [];
@@ -394,23 +388,20 @@ async function ocrPdfPages(
     }
     const page = await doc.getPage(i);
     const viewport = page.getViewport({ scale: 2.0 });
-
-    const canvas = createCanvas(viewport.width, viewport.height);
-    const ctx = canvas.getContext("2d");
-
-    await page.render({
-      canvasContext: ctx as any,
-      canvas: canvas as any,
-      viewport,
-    } as any).promise;
+    const png = Buffer.from(
+      await renderPageAsImage(new Uint8Array(buffer), i, {
+        canvasImport: loadCanvas,
+        scale: 2.0,
+      })
+    );
 
     // Vision-first per page — the same Gemini OCR the image path uses, which
     // reads clear Arabic far better than tesseract. On any failure we degrade
     // to the legacy tesseract branch for the rest of the document.
-    if (visionAvailable && typeof canvas.toBuffer === "function") {
+    if (visionAvailable) {
       try {
         const pageDoc = await visionOcrPdfPage(
-          canvas,
+          png,
           viewport.width,
           viewport.height
         );
@@ -425,6 +416,9 @@ async function ocrPdfPages(
       }
     }
 
+    const canvas = createCanvas(viewport.width, viewport.height);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(await loadImage(png), 0, 0);
     const imageData = ctx.getImageData(0, 0, viewport.width, viewport.height);
     const pageOcr = await withOcrTimeout(
       recognizeMainThread(imageData, "ara+eng", {
@@ -448,11 +442,10 @@ async function ocrPdfPages(
 }
 
 async function visionOcrPdfPage(
-  canvas: unknown,
+  png: Buffer,
   width: number,
   height: number
 ): Promise<OcrDocument> {
-  const png = (canvas as any).toBuffer("image/png") as Buffer;
   const vision = await runVisionOCR(png, "auto");
   if (!vision.success) {
     throw new Error(vision.error || "Vision OCR failed");

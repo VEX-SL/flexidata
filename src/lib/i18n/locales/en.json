@@ -85,6 +85,7 @@
     "confirm": "Confirm",
     "other": "Other",
     "fullContent": "Full content",
+    "pageContent": "Page {{page}}",
     "loadingHistory": "Loading...",
     "stage": {
       "queued": "Queued",

@@ -132,6 +132,26 @@ function reviewFields(job: JobDTO | null): FieldDTO[] {
   if (lines.length === 0) return [];
   const confidence =
     typeof job?.ocr?.confidence === "number" ? job.ocr.confidence : job?.overallConfidence ?? 0.9;
+  // Per-page OCR is distributed one field per page (same convention as the
+  // pipeline's ocr-passages stage) so the reviewer sees page by page instead
+  // of one unreadable blob spanning the whole document.
+  const pages = [...new Set(lines.map((l) => l.page).filter((p): p is number => typeof p === "number"))].sort(
+    (a, b) => a - b
+  );
+  if (pages.length > 1) {
+    return pages.map((page) => {
+      const pageLines = lines.map((l, i) => ({ l, i })).filter((e) => e.l.page === page);
+      return {
+        key: contentPageKey(page),
+        value: pageLines.map((e) => e.l.text.trim()).join("\n"),
+        confidence,
+        source: "ocr",
+        status: "extracted",
+        label: "",
+        evidence: pageLines.map((e) => ({ quote: e.l.text, lineIndex: e.i })),
+      };
+    });
+  }
   return [
     {
       key: "content",
@@ -143,6 +163,22 @@ function reviewFields(job: JobDTO | null): FieldDTO[] {
       evidence: lines.map((l, i) => ({ quote: l.text, lineIndex: i })),
     },
   ];
+}
+
+/** Field key the pipeline uses for one page of OCR content. */
+function contentPageKey(page: number): string {
+  return `content_page_${page}`;
+}
+
+/** The page a `content_page_N` field belongs to, or null for other keys. */
+function contentPageOf(key: string): number | null {
+  const m = /^content_page_(\d+)$/.exec(key);
+  return m ? Number(m[1]) : null;
+}
+
+/** True for the label-less OCR content fields (single or per-page). */
+function isOcrContentKey(key: string, source: string): boolean {
+  return source === "ocr" && (key === "content" || contentPageOf(key) !== null);
 }
 
 const BREAKDOWN_KEY: Record<string, string> = {
@@ -909,7 +945,13 @@ function ReviewWorkspace(props: ReviewProps) {
     // 1" for key "passage_1") is invented, not authored — render the value as a
     // bare text block instead of a fabricated header (mirrors the inspector).
     if (real.trim() && real.trim() !== humanized) return real.trim();
-    // Synthesized OCR content carries no label — render as a bare text block.
+    // Synthesized OCR content carries no label — render as a bare text block,
+    // except a per-page block, which is titled by its page so the fields list
+    // reads page by page instead of one undifferentiated block of text.
+    const page = contentPageOf(key);
+    if (page !== null && isOcrContentKey(key, byKey.get(key)?.source ?? "ocr")) {
+      return t("documents.pageContent", { page });
+    }
     if (key === "content" || key.startsWith("passage_")) return "";
     return humanized;
   };
@@ -951,9 +993,19 @@ function ReviewWorkspace(props: ReviewProps) {
       schema?.fields.find((s) => s.key === f.key)?.label ??
       byKey.get(f.key)?.label ??
       "";
+    // OCR content is label-less by design (it is the document's own words,
+    // not a named field). A per-page block is titled by its page so the
+    // sidebar reads "Page 3" instead of an undifferentiated wall of text.
+    const page = contentPageOf(f.key);
+    const label =
+      realLabel && realLabel !== humanize(f.key)
+        ? realLabel
+        : page !== null && isOcrContentKey(f.key, f.source)
+          ? t("documents.pageContent", { page })
+          : "";
     return {
       key: f.key,
-      label: realLabel && realLabel !== humanize(f.key) ? realLabel : "",
+      label,
       value: displayValue(f.value),
       confidence: f.confidence,
       evidence:
@@ -981,13 +1033,11 @@ function ReviewWorkspace(props: ReviewProps) {
     }
     const other = fields.filter((f) => !used.has(f.key));
     if (other.length) {
-      // A leftover group that is exactly the synthesized OCR content block is
-      // the whole document reading — say so, rather than dumping it under
-      // "Other" next to real extra fields.
-      const isFullContent =
-        other.length === 1 &&
-        other[0].key === "content" &&
-        other[0].source === "ocr";
+      // A leftover group made up entirely of synthesized OCR content blocks is
+      // the document reading itself — say so, rather than dumping it under
+      // "Other" next to real extra fields. Holds for both the single
+      // `content` block and the per-page `content_page_N` distribution.
+      const isFullContent = other.every((f) => isOcrContentKey(f.key, f.source));
       groups.push({
         label: isFullContent ? t("documents.fullContent") : t("documents.other"),
         fields: other,

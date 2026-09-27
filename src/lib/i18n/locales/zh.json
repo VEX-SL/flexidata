@@ -85,6 +85,7 @@
     "confirm": "确认",
     "other": "其他",
     "fullContent": "完整内容",
+    "pageContent": "第 {{page}} 页",
     "loadingHistory": "加载中...",
     "stage": {
       "queued": "排队中",

@@ -85,6 +85,7 @@
     "confirm": "تأكيد",
     "other": "أخرى",
     "fullContent": "المحتوى الكامل",
+    "pageContent": "صفحة {{page}}",
     "loadingHistory": "جاري التحميل...",
     "stage": {
       "queued": "في الانتظار",
