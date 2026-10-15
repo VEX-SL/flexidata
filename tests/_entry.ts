@@ -14,6 +14,7 @@ import "./entity-cleaner.test.ts";
 import "./sanitizers.test.ts";
 import "./arabic-ocr.test.ts";
 import "./arabic-corpus.test.ts";
+import "./arabic-visual.test.ts";
 import "./numeric-verify.test.ts";
 import "./layout-geometry.test.ts";
 import "./layout-models.test.ts";

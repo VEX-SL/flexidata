@@ -37,11 +37,13 @@ import DocumentInspector, { type InspectorField } from "@/components/inspector/D
 import PdfInspector from "@/components/inspector/PdfInspector";
 
 const RUNNING = new Set(["queued", "classifying", "extracting", "validating"]);
-const EXPORT_FORMATS = ["json", "csv", "word"] as const;
+const EXPORT_FORMATS = ["json", "csv", "word", "xlsx", "pdf"] as const;
 const EXPORT_LABELS: Record<(typeof EXPORT_FORMATS)[number], string> = {
   json: "JSON",
   csv: "CSV",
   word: "docx (word)",
+  xlsx: "Excel (xlsx)",
+  pdf: "PDF",
 };
 const ACCEPT =
   ".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.jpg,.jpeg,.png,.gif,.webp";

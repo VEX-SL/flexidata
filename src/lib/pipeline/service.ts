@@ -47,10 +47,13 @@ import { safeFieldKey } from "./extractor/dynamic";
  * POST /pipeline/extractions/{id}/process).
  */
 export class PipelineService {
-  constructor(
-    private readonly supabase: SupabaseClient = createAdminClient(),
-    private readonly ai?: AIClient
-  ) {}
+  private readonly supabase: SupabaseClient;
+  private readonly ai?: AIClient;
+
+  constructor(supabase: SupabaseClient = createAdminClient(), ai?: AIClient) {
+    this.supabase = supabase;
+    this.ai = ai;
+  }
 
   /** Best-effort per-instance single-flight guard for the heavy process() slices. */
   private readonly processing = new Set<string>();
@@ -548,12 +551,6 @@ export class PipelineService {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      if (/phase 2/i.test(message)) {
-        throw new PipelineError(message, {
-          code: "UNSUPPORTED_FORMAT",
-          retryable: false,
-        });
-      }
       throw new PipelineError(message, {
         code: "EXTRACTION_FAILED",
         retryable: false,

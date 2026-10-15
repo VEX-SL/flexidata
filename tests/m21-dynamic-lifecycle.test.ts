@@ -34,7 +34,11 @@ class FakeQuery {
     | { kind: "delete" } = { kind: "read" };
   private countExact = false;
 
-  constructor(private table: { rows: Row[] }) {}
+  private table: { rows: Row[] };
+
+  constructor(table: { rows: Row[] }) {
+    this.table = table;
+  }
 
   select(_cols?: string, opts?: { count?: string }) {
     if (opts?.count === "exact") this.countExact = true;

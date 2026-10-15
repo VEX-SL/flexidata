@@ -5,15 +5,13 @@ export class RdpProvider extends BaseAIProvider {
   name = "rdp-deepseek";
   private baseUrl: string;
   private apiKey: string;
+  private readonly timeoutMs: number;
 
-  constructor(
-    baseUrl: string,
-    apiKey: string,
-    private readonly timeoutMs = 20_000
-  ) {
+  constructor(baseUrl: string, apiKey: string, timeoutMs = 20_000) {
     super({ apiKey });
     this.baseUrl = baseUrl;
     this.apiKey = apiKey;
+    this.timeoutMs = timeoutMs;
   }
 
   supportsStreaming(): boolean {

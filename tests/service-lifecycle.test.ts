@@ -94,7 +94,11 @@ class FakeQuery {
   private rangeTo = -1;
   private countExact = false;
 
-  constructor(private readonly table: FakeTable) {}
+  private readonly table: FakeTable;
+
+  constructor(table: FakeTable) {
+    this.table = table;
+  }
 
   select(_cols?: unknown, opts?: { count?: string }) {
     if (opts?.count === "exact") this.countExact = true;

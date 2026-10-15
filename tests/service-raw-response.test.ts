@@ -77,7 +77,11 @@ class FakeQuery {
   private filters: Filter[] = [];
   private rangeTo = -1;
 
-  constructor(private readonly table: FakeTable) {}
+  private readonly table: FakeTable;
+
+  constructor(table: FakeTable) {
+    this.table = table;
+  }
 
   select(_cols?: unknown, opts?: unknown) {
     void opts;

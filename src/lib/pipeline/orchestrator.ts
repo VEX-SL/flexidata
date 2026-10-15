@@ -28,10 +28,15 @@ export interface PipelineOptions {
 }
 
 export class Pipeline {
-  constructor(
-    private readonly stages: PipelineStage[],
-    private readonly opts: PipelineOptions = {}
-  ) {}
+  // Explicit fields rather than constructor parameter properties: Node's
+  // strip-only TypeScript mode cannot strip parameter properties.
+  private readonly stages: PipelineStage[];
+  private readonly opts: PipelineOptions;
+
+  constructor(stages: PipelineStage[], opts: PipelineOptions = {}) {
+    this.stages = stages;
+    this.opts = opts;
+  }
 
   async run(input: RunJobInput): Promise<RunJobOutput> {
     const state: PipelineState = {

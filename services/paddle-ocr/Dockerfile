@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -17,5 +17,6 @@ COPY . .
 
 EXPOSE 8000
 
-# تشغيل خادم FastAPI
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# تشغيل خادم FastAPI (نقطة الدخول هي app.py → app:app)
+# ملاحظة: لا تستخدم --workers — الخدمة مُصمّمة لعامل واحد (تحميل النماذج مرة واحدة).
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

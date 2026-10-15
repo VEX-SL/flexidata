@@ -38,6 +38,33 @@ export async function DELETE(request: Request) {
 
   const supabase = createAdminClient();
 
+  // Resolve the storage path first (owner-scoped) so we can clean up the
+  // Storage object as well — otherwise deleting the row would orphan the
+  // file in the `files` bucket forever.
+  const { data: file } = await supabase
+    .from("files")
+    .select("id, name")
+    .eq("id", fileId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!file) {
+    return NextResponse.json({ error: "File not found" }, { status: 404 });
+  }
+
+  if (file.name) {
+    try {
+      const { error: storageError } = await supabase.storage
+        .from("files")
+        .remove([file.name]);
+      if (storageError) {
+        console.error("[Files] Storage cleanup failed:", storageError.message);
+      }
+    } catch (err) {
+      console.error("[Files] Storage cleanup failed:", err);
+    }
+  }
+
   const { error } = await supabase
     .from("files")
     .delete()

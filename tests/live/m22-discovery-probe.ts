@@ -95,7 +95,11 @@ class FakeQuery {
     | { kind: "insert"; payload: Row }
     | { kind: "update"; payload: Row }
     | { kind: "delete" } = { kind: "read" };
-  constructor(private table: { rows: Row[] }) {}
+  private table: { rows: Row[] };
+
+  constructor(table: { rows: Row[] }) {
+    this.table = table;
+  }
 
   select(cols?: string, opts?: unknown) {
     void cols;

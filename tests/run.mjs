@@ -4,7 +4,9 @@ const result = spawnSync(
   process.execPath,
   [
     "--experimental-strip-types",
-    "--experimental-transform-types",
+    // Node 26 is strip-only (`--experimental-transform-types` no longer exists),
+    // and nothing in src/ or tests/ needs the transform anyway: there are no
+    // enums, namespaces or parameter properties to lower.
     "--experimental-loader",
     "./tests/loader.mjs",
     "--import",

@@ -6,7 +6,7 @@ import { errorResponse } from "@/lib/pipeline/http";
 const FORMATS = ["json", "csv", "word", "xlsx", "pdf"] as const;
 
 /**
- * GET /api/pipeline/extractions/{id}/export?format=json|csv
+ * GET /api/pipeline/extractions/{id}/export?format=json|csv|word|xlsx|pdf
  * Exports a completed extraction as a downloadable file.
  */
 export async function GET(

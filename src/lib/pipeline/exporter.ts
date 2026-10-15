@@ -21,8 +21,13 @@ import {
 
 /**
  * Exporter — turns a validated extraction into downloadable formats.
- * JSON, CSV and Word are implemented; XLSX and PDF land in phase 2 (stubs
- * throw a clear "not implemented" error so the contract stays explicit).
+ * JSON/CSV/Word/XLSX/PDF are all implemented:
+ *  - JSON  structured, self-describing, carries evidence + verbatim OCR text
+ *  - CSV   one flat record keyed by the profile's configured columns
+ *  - XLSX  the same flat record as a spreadsheet, plus a per-field detail
+ *          sheet and the verbatim OCR lines
+ *  - Word  a .docx written straight from the OCR reading
+ *  - PDF   the same report as Word, shaped and reordered for Arabic
  */
 
 /** Enrichment metadata (not part of the extraction result itself). */
@@ -56,9 +61,13 @@ export async function exportExtraction(
     case "word":
       return exportWord(extraction, meta, `${baseName}.docx`);
     case "xlsx":
-      throw new Error("XLSX export is scheduled for phase 2");
-    case "pdf":
-      throw new Error("PDF export is scheduled for phase 2");
+      return exportXlsx(profile, extraction, meta, `${baseName}.xlsx`);
+    case "pdf": {
+      // Kept in its own module so pdf-lib/fontkit only load when a PDF is
+      // actually requested (and never reach a client bundle).
+      const { exportPdf } = await import("./exporter-pdf");
+      return exportPdf(extraction, meta, `${baseName}.pdf`);
+    }
     default:
       throw new Error(`Unsupported export format: ${options.format}`);
   }
@@ -123,21 +132,39 @@ function exportJson(
   };
 }
 
+/**
+ * The tabular column model, shared by the CSV and XLSX exports so both always
+ * describe the extraction with exactly the same headers in the same order.
+ *
+ * Dynamic extractions have no static column list: columns are exactly the
+ * fields the extraction produced, in extraction order (deduped). Legacy
+ * extractions keep the profile's configured columns (unchanged behaviour).
+ */
+function exportColumns(
+  profile: ExtractionProfile,
+  extraction: ExtractionResult
+): string[] {
+  return extraction.extractionMode === "dynamic"
+    ? Array.from(new Set(extraction.fields.map((f) => f.field.key)))
+    : profile.exportConfig.csvColumns ?? Object.keys(extraction.cleanFields);
+}
+
+/** Display header for a column: the field's label when it adds anything. */
+function exportColumnLabel(
+  extraction: ExtractionResult,
+  column: string
+): string {
+  const field = extraction.fields.find((f) => f.field.key === column)?.field;
+  return field?.label && field.label !== field.key ? field.label : column;
+}
+
 function exportCsv(
   profile: ExtractionProfile,
   extraction: ExtractionResult,
   _options: ExportOptions,
   fileName: string
 ): ExportResult {
-  // Dynamic extractions have no static column list: columns are exactly the
-  // fields the extraction produced, in extraction order (deduped). Legacy
-  // extractions keep the profile's configured columns (unchanged behaviour).
-  const columns =
-    extraction.extractionMode === "dynamic"
-      ? Array.from(
-          new Set(extraction.fields.map((f) => f.field.key))
-        )
-      : profile.exportConfig.csvColumns ?? Object.keys(extraction.cleanFields);
+  const columns = exportColumns(profile, extraction);
   const row = columns.map((col) => {
     const fv = extraction.fieldsMap[col];
     const value = fv && !isEmptyValue(fv.value) ? fv.value : "";
@@ -162,6 +189,105 @@ function csvEscape(value: string): string {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
+}
+
+/** Excel-friendly cell: primitives stay typed (so numbers can be summed). */
+function cellValue(value: unknown): string | number | boolean {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
+
+function sheetWidth(...values: unknown[]): number {
+  const longest = values.reduce<number>(
+    (max, v) => Math.max(max, String(v ?? "").length),
+    0
+  );
+  return Math.min(60, Math.max(14, longest + 4));
+}
+
+/**
+ * XLSX export — a workbook with three sheets:
+ *  1. `Extraction` the flat record (same columns and values as CSV) so the
+ *     file drops straight into a spreadsheet; numbers stay numbers.
+ *  2. `Fields` one row per field with label, confidence, source and review
+ *     status — the readable report.
+ *  3. `OCR` the verbatim OCR lines, one line per row, when there is any.
+ *
+ * SheetJS writes styles/widths only (no macros, no external links), so the
+ * workbook is safe to open as an attachment.
+ */
+async function exportXlsx(
+  profile: ExtractionProfile,
+  extraction: ExtractionResult,
+  meta: ExportMeta,
+  fileName: string
+): Promise<ExportResult> {
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.utils.book_new();
+
+  const columns = exportColumns(profile, extraction);
+  const labels = columns.map((column) => exportColumnLabel(extraction, column));
+  const values = columns.map((column) =>
+    cellValue(extraction.fieldsMap[column]?.value)
+  );
+
+  const flat = XLSX.utils.aoa_to_sheet([labels, values]);
+  flat["!cols"] = labels.map((label, i) => ({
+    wch: sheetWidth(label, values[i]),
+  }));
+  XLSX.utils.book_append_sheet(workbook, flat, "Extraction");
+
+  const detail: (string | number | boolean)[][] = [
+    ["الحقل", "التسمية", "القيمة", "الثقة (٪)", "المصدر", "الحالة"],
+  ];
+  for (const f of extraction.fields) {
+    if (isEmptyValue(f.value.value)) continue;
+    detail.push([
+      f.field.key,
+      f.field.label && f.field.label !== f.field.key
+        ? f.field.label
+        : f.field.key,
+      cellValue(f.value.value),
+      Math.round((f.value.confidence ?? 0) * 100),
+      f.value.source,
+      f.value.status,
+    ]);
+  }
+  const detailSheet = XLSX.utils.aoa_to_sheet(detail);
+  detailSheet["!cols"] = [
+    { wch: 24 },
+    { wch: 26 },
+    { wch: 44 },
+    { wch: 11 },
+    { wch: 13 },
+    { wch: 13 },
+  ];
+  XLSX.utils.book_append_sheet(workbook, detailSheet, "Fields");
+
+  const ocrLines = (meta.ocrText ?? "").split("\n");
+  if (ocrLines.some((l) => l.length > 0)) {
+    const ocr = XLSX.utils.aoa_to_sheet([
+      ["النص المستخرج من OCR"],
+      ...ocrLines.map((text) => [text]),
+    ]);
+    ocr["!cols"] = [{ wch: 80 }];
+    XLSX.utils.book_append_sheet(workbook, ocr, "OCR");
+  }
+
+  const bytes = XLSX.write(workbook, {
+    type: "buffer",
+    bookType: "xlsx",
+  }) as Uint8Array;
+
+  return {
+    format: "xlsx",
+    buffer: new Uint8Array(bytes),
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    fileName,
+  };
 }
 
 /**

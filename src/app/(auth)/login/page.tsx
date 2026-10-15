@@ -591,7 +591,7 @@ function LoginForm() {
       .then((r) => r.json())
       .catch(() => null);
     const sbCookieCount =
-      dbg && Array.isArray(dbg.sbCookies) ? dbg.sbCookies.length : -1;
+      dbg && typeof dbg.sbCookieCount === "number" ? dbg.sbCookieCount : -1;
 
     if (sbCookieCount === 0) {
       setError(
