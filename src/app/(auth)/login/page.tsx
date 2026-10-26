@@ -4,6 +4,7 @@ import { useState, Suspense, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslation } from "@/lib/i18n";
 
 // ─── Stable particle data (deterministic — avoids hydration mismatch) ────────
 const PARTICLES = [
@@ -552,6 +553,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo   = searchParams.get("redirectTo") || "/dashboard";
   const supabase     = createClient();
+  const { t } = useTranslation();
 
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -709,6 +711,25 @@ function LoginForm() {
             )}
           </button>
         </div>
+
+        {/* Forgot Password Link */}
+        <div style={{ textAlign: "right", marginBottom: "0.5rem" }}>
+          <Link
+            href="/forgot-password"
+            style={{
+              fontSize: "0.85rem",
+              color: "var(--color-primary)",
+              textDecoration: "none",
+              fontWeight: 500,
+              transition: "opacity 0.2s",
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.opacity = "0.8")}
+            onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
+          >
+            {t("login.forgotPassword")}
+          </Link>
+        </div>
+
         <button type="submit" disabled={loading} className="fd-btn-primary">
           {loading ? "Signing in…" : "Sign In"}
         </button>

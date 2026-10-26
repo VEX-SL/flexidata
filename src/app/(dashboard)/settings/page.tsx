@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { User, Save, Loader2, Palette, Globe, Camera, Image as ImageIcon } from "lucide-react";
+import { User, Save, Loader2, Palette, Globe, Camera, Image as ImageIcon, Lock, Eye, EyeOff } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { useTranslation, LANGUAGES } from "@/lib/i18n";
 
@@ -15,6 +15,17 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Change password state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const supabase = createClient();
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useTranslation();
@@ -141,6 +152,60 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError("");
+    setPasswordSuccess("");
+
+    if (!user) return;
+
+    // Validate inputs
+    if (!currentPassword) {
+      setPasswordError(t("settings.currentPasswordRequired"));
+      return;
+    }
+    if (!newPassword) {
+      setPasswordError(t("settings.newPasswordRequired"));
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError(t("settings.passwordTooShort"));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError(t("settings.passwordsDontMatch"));
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      // Update password using Supabase auth
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        // Check if error is due to wrong current password
+        if (error.message.includes("Invalid login") || error.message.includes("wrong password") || error.message.includes("current password")) {
+          setPasswordError(t("settings.wrongCurrentPassword"));
+        } else {
+          setPasswordError(error.message);
+        }
+        setPasswordLoading(false);
+        return;
+      }
+
+      setPasswordSuccess(t("settings.passwordChanged"));
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : t("settings.passwordChangeFailed"));
+    }
+    setPasswordLoading(false);
+  }
+
   return (
     <div className="h-full overflow-auto p-6">
     <div className="max-w-2xl mx-auto space-y-8">
@@ -238,6 +303,100 @@ export default function SettingsPage() {
           {t("settings.save")}
         </button>
       </form>
+
+      {/* Change Password */}
+      <div className="p-6 rounded-xl border border-border bg-card space-y-4">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Lock size={20} className="text-primary" />
+          </div>
+          <h2 className="text-lg font-semibold text-foreground">{t("settings.changePassword")}</h2>
+        </div>
+
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              {t("settings.currentPassword")}
+            </label>
+            <div className="relative">
+              <input
+                type={showCurrentPassword ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-10"
+                placeholder={t("settings.currentPasswordPlaceholder")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              {t("settings.newPassword")}
+            </label>
+            <div className="relative">
+              <input
+                type={showNewPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-10"
+                placeholder={t("settings.newPasswordPlaceholder")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              {t("settings.confirmPassword")}
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-10"
+                placeholder={t("settings.confirmPasswordPlaceholder")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {passwordSuccess && <p className="text-sm text-green-500">{passwordSuccess}</p>}
+          {passwordError && <p className="text-sm text-destructive">{passwordError}</p>}
+
+          <button
+            type="submit"
+            disabled={passwordLoading}
+            className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
+          >
+            {passwordLoading ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Save size={16} />
+            )}
+            {t("settings.changePasswordBtn")}
+          </button>
+        </form>
+      </div>
 
       {/* Appearance */}
       <div className="p-6 rounded-xl border border-border bg-card space-y-4">
