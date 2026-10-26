@@ -161,15 +161,47 @@ export default function DashboardPage() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
       setUserEmail(user.email || "");
+      
+      // Check if user has OAuth identities (Google, GitHub)
+      const identities = user.identities || [];
+      const hasOAuthIdentity = identities.some((id: any) => 
+        id.provider === 'google' || id.provider === 'github'
+      );
+      
+      // Get name and avatar from OAuth provider metadata
       const metaName = (user.user_metadata?.name as string) || "";
+      const metaAvatar = (user.user_metadata?.avatar_url as string) || (user.user_metadata?.picture as string) || "";
+      
       if (metaName) setUserName(metaName);
+      
       try {
         const { data: profile } = await supabase
           .from("profiles")
           .select("name, avatar_url")
           .eq("id", user.id)
           .maybeSingle();
-        if (profile) {
+        
+        if (!profile) {
+          // First time login - create profile
+          // If OAuth login, save provider's name and avatar
+          const initialName = hasOAuthIdentity ? metaName : null;
+          const initialAvatar = hasOAuthIdentity ? metaAvatar : null;
+          
+          await fetch("/api/user/profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: user.id,
+              name: initialName,
+              avatar_url: initialAvatar
+            })
+          });
+          
+          // Use provider data for display
+          if (initialName) setUserName(initialName);
+          if (initialAvatar) setAvatarUrl(initialAvatar);
+        } else {
+          // Profile exists - use saved data (don't overwrite with provider data)
           if (!metaName && profile.name) setUserName(profile.name);
           setAvatarUrl(profile.avatar_url || null);
         }

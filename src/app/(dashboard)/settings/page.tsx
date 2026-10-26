@@ -134,7 +134,6 @@ export default function SettingsPage() {
               <User size={20} className="text-primary" />
             </div>
             <h2 className="text-lg font-semibold text-foreground">{t("settings.profile")}</h2>
-            <span className="text-xs text-muted-foreground mr-auto">يمكنك تعديل الاسم والصورة يدوياً</span>
           </div>
 
           <div className="flex items-center gap-4">

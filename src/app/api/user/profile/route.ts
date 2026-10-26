@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createAdminClient();
     const body = await request.json();
-    const { userId, name } = body;
+    const { userId, name, avatar_url } = body;
 
     if (!userId) {
       return NextResponse.json(
@@ -28,13 +28,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create initial profile with default avatar
+    // Create initial profile
     const { data: profile, error } = await supabase
       .from("profiles")
       .insert({
         id: userId,
         name: name || null,
-        avatar_url: null, // Start with no avatar - user can upload one
+        avatar_url: avatar_url || null,
       })
       .select()
       .single();
