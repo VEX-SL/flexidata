@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic';
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
@@ -283,7 +282,6 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [validLink, setValidLink] = useState(true);
-  const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslation();
@@ -319,12 +317,18 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
+      // Use fetch to call Supabase API directly instead of supabase-js client
+      // This avoids importing server-only modules
+      const res = await fetch(`${window.location.origin}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
       });
 
-      if (error) {
-        setError(error.message);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || t("resetPassword.error"));
         setLoading(false);
         return;
       }
