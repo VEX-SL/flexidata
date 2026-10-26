@@ -6,7 +6,117 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
-import { useTranslation } from "@/lib/i18n";
+
+// ─── Inline Translations ─────────────────────────────────────────────────────
+const translations: Record<string, Record<string, string>> = {
+  ar: {
+    "resetPassword.title": "إعادة تعيين كلمة المرور",
+    "resetPassword.subtitle": "أدخل كلمة المرور الجديدة لحسابك",
+    "resetPassword.newPasswordLabel": "كلمة المرور الجديدة",
+    "resetPassword.newPasswordPlaceholder": "أدخل كلمة المرور الجديدة (8 أحرف على الأقل)",
+    "resetPassword.confirmPasswordLabel": "تأكيد كلمة المرور الجديدة",
+    "resetPassword.confirmPasswordPlaceholder": "أعد إدخال كلمة المرور الجديدة",
+    "resetPassword.newPasswordRequired": "كلمة المرور الجديدة مطلوبة",
+    "resetPassword.passwordTooShort": "كلمة المرور يجب أن تكون 8 أحرف على الأقل",
+    "resetPassword.passwordsDontMatch": "كلمتا المرور غير متطابقتين",
+    "resetPassword.updatePassword": "تحديث كلمة المرور",
+    "resetPassword.passwordUpdated": "تم تحديث كلمة المرور",
+    "resetPassword.passwordUpdatedDesc": "تم تغيير كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.",
+    "resetPassword.goToLogin": "الذهاب لتسجيل الدخول",
+    "resetPassword.rememberPassword": "تذكرت كلمة المرور؟",
+    "resetPassword.backToLogin": "العودة لتسجيل الدخول",
+    "resetPassword.invalidLink": "رابط غير صالح أو منتهي الصلاحية",
+    "resetPassword.linkExpired": "رابط إعادة التعيين غير صالح أو انتهت صلاحيته. يرجى طلب رابط جديد.",
+    "resetPassword.requestNewLink": "طلب رابط جديد",
+    "resetPassword.error": "حدث خطأ، يرجى المحاولة مرة أخرى",
+  },
+  en: {
+    "resetPassword.title": "Reset Password",
+    "resetPassword.subtitle": "Enter your new password",
+    "resetPassword.newPasswordLabel": "New Password",
+    "resetPassword.newPasswordPlaceholder": "Enter new password (min 8 characters)",
+    "resetPassword.confirmPasswordLabel": "Confirm New Password",
+    "resetPassword.confirmPasswordPlaceholder": "Re-enter new password",
+    "resetPassword.newPasswordRequired": "New password is required",
+    "resetPassword.passwordTooShort": "Password must be at least 8 characters",
+    "resetPassword.passwordsDontMatch": "Passwords do not match",
+    "resetPassword.updatePassword": "Update Password",
+    "resetPassword.passwordUpdated": "Password Updated",
+    "resetPassword.passwordUpdatedDesc": "Your password has been changed successfully. You can now log in with your new password.",
+    "resetPassword.goToLogin": "Go to Login",
+    "resetPassword.rememberPassword": "Remember your password?",
+    "resetPassword.backToLogin": "Back to Login",
+    "resetPassword.invalidLink": "Invalid or Expired Link",
+    "resetPassword.linkExpired": "The password reset link is invalid or has expired. Please request a new link.",
+    "resetPassword.requestNewLink": "Request New Link",
+    "resetPassword.error": "An error occurred, please try again",
+  },
+  fr: {
+    "resetPassword.title": "Réinitialiser le mot de passe",
+    "resetPassword.subtitle": "Entrez votre nouveau mot de passe",
+    "resetPassword.newPasswordLabel": "Nouveau mot de passe",
+    "resetPassword.newPasswordPlaceholder": "Entrez le nouveau mot de passe (min 8 caractères)",
+    "resetPassword.confirmPasswordLabel": "Confirmer le nouveau mot de passe",
+    "resetPassword.confirmPasswordPlaceholder": "Retapez le nouveau mot de passe",
+    "resetPassword.newPasswordRequired": "Le nouveau mot de passe est requis",
+    "resetPassword.passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
+    "resetPassword.passwordsDontMatch": "Les mots de passe ne correspondent pas",
+    "resetPassword.updatePassword": "Mettre à jour le mot de passe",
+    "resetPassword.passwordUpdated": "Mot de passe mis à jour",
+    "resetPassword.passwordUpdatedDesc": "Votre mot de passe a été changé avec succès. Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.",
+    "resetPassword.goToLogin": "Aller à la connexion",
+    "resetPassword.rememberPassword": "Vous souvenez-vous de votre mot de passe ?",
+    "resetPassword.backToLogin": "Retour à la connexion",
+    "resetPassword.invalidLink": "Lien invalide ou expiré",
+    "resetPassword.linkExpired": "Le lien de réinitialisation est invalide ou a expiré. Veuillez demander un nouveau lien.",
+    "resetPassword.requestNewLink": "Demander un nouveau lien",
+    "resetPassword.error": "Une erreur est survenue, veuillez réessayer",
+  },
+  zh: {
+    "resetPassword.title": "重置密码",
+    "resetPassword.subtitle": "输入您的新密码",
+    "resetPassword.newPasswordLabel": "新密码",
+    "resetPassword.newPasswordPlaceholder": "输入新密码（至少8字符）",
+    "resetPassword.confirmPasswordLabel": "确认新密码",
+    "resetPassword.confirmPasswordPlaceholder": "再次输入新密码",
+    "resetPassword.newPasswordRequired": "请输入新密码",
+    "resetPassword.passwordTooShort": "密码至少需要8个字符",
+    "resetPassword.passwordsDontMatch": "两次输入的密码不一致",
+    "resetPassword.updatePassword": "更新密码",
+    "resetPassword.passwordUpdated": "密码已更新",
+    "resetPassword.passwordUpdatedDesc": "密码修改成功。您现在可以使用新密码登录。",
+    "resetPassword.goToLogin": "去登录",
+    "resetPassword.rememberPassword": "想起密码了？",
+    "resetPassword.backToLogin": "返回登录",
+    "resetPassword.invalidLink": "链接无效或已过期",
+    "resetPassword.linkExpired": "重置密码链接无效或已过期。请重新申请链接。",
+    "resetPassword.requestNewLink": "重新申请链接",
+    "resetPassword.error": "发生错误，请重试",
+  },
+};
+
+function getLang(): keyof typeof translations {
+  if (typeof window === "undefined") return "en";
+  const stored = localStorage.getItem("lang") as keyof typeof translations | null;
+  if (stored && translations[stored]) return stored;
+  const browserLangs = navigator.languages || [navigator.language];
+  for (const bl of browserLangs) {
+    const code = bl.split("-")[0].toLowerCase();
+    if (code in translations) return code as keyof typeof translations;
+  }
+  return "en";
+}
+
+function t(key: string, params?: Record<string, string | number>): string {
+  const lang = getLang();
+  let value = translations[lang]?.[key] || translations.en[key] || key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      value = value.replace(new RegExp(`{{${k}}}`, "g"), String(v));
+    }
+  }
+  return value;
+}
 
 // ─── Stable particle data (deterministic — avoids hydration mismatch) ────────
 const PARTICLES = [
@@ -284,7 +394,6 @@ export default function ResetPasswordPage() {
   const [validLink, setValidLink] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t } = useTranslation();
 
   useEffect(() => {
     // Check if we have the required auth tokens from the email link
@@ -317,8 +426,6 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      // Use fetch to call Supabase API directly instead of supabase-js client
-      // This avoids importing server-only modules
       const res = await fetch(`${window.location.origin}/api/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

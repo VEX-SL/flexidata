@@ -4,7 +4,93 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Mail, AlertCircle, CheckCircle } from "lucide-react";
-import { useTranslation } from "@/lib/i18n";
+
+// ─── Inline Translations ─────────────────────────────────────────────────────
+const translations: Record<string, Record<string, string>> = {
+  ar: {
+    "forgotPassword.title": "نسيت كلمة المرور؟",
+    "forgotPassword.subtitle": "أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين كلمة المرور",
+    "forgotPassword.emailLabel": "البريد الإلكتروني",
+    "forgotPassword.emailPlaceholder": "example@domain.com",
+    "forgotPassword.emailRequired": "البريد الإلكتروني مطلوب",
+    "forgotPassword.invalidEmail": "بريد إلكتروني غير صالح",
+    "forgotPassword.sendLink": "إرسال رابط إعادة التعيين",
+    "forgotPassword.checkEmail": "تحقق من بريدك الإلكتروني",
+    "forgotPassword.sentTo": "أرسلنا رابط إعادة التعيين إلى {{email}}",
+    "forgotPassword.checkSpam": "إذا لم تجد الرسالة، تحقق من مجلد السبام (Spam).",
+    "forgotPassword.rememberPassword": "تذكرت كلمة المرور؟",
+    "forgotPassword.backToLogin": "العودة لتسجيل الدخول",
+    "forgotPassword.error": "حدث خطأ، يرجى المحاولة مرة أخرى",
+  },
+  en: {
+    "forgotPassword.title": "Forgot Password?",
+    "forgotPassword.subtitle": "Enter your email and we'll send you a password reset link",
+    "forgotPassword.emailLabel": "Email",
+    "forgotPassword.emailPlaceholder": "example@domain.com",
+    "forgotPassword.emailRequired": "Email is required",
+    "forgotPassword.invalidEmail": "Invalid email address",
+    "forgotPassword.sendLink": "Send Reset Link",
+    "forgotPassword.checkEmail": "Check Your Email",
+    "forgotPassword.sentTo": "We've sent a password reset link to {{email}}",
+    "forgotPassword.checkSpam": "If you don't see the email, check your spam folder.",
+    "forgotPassword.rememberPassword": "Remember your password?",
+    "forgotPassword.backToLogin": "Back to Login",
+    "forgotPassword.error": "An error occurred, please try again",
+  },
+  fr: {
+    "forgotPassword.title": "Mot de passe oublié ?",
+    "forgotPassword.subtitle": "Entrez votre email et nous vous enverrons un lien de réinitialisation",
+    "forgotPassword.emailLabel": "Email",
+    "forgotPassword.emailPlaceholder": "exemple@domaine.com",
+    "forgotPassword.emailRequired": "L'email est requis",
+    "forgotPassword.invalidEmail": "Adresse email invalide",
+    "forgotPassword.sendLink": "Envoyer le lien de réinitialisation",
+    "forgotPassword.checkEmail": "Vérifiez votre email",
+    "forgotPassword.sentTo": "Nous avons envoyé un lien de réinitialisation à {{email}}",
+    "forgotPassword.checkSpam": "Si vous ne voyez pas l'email, vérifiez vos spams.",
+    "forgotPassword.rememberPassword": "Vous souvenez-vous de votre mot de passe ?",
+    "forgotPassword.backToLogin": "Retour à la connexion",
+    "forgotPassword.error": "Une erreur est survenue, veuillez réessayer",
+  },
+  zh: {
+    "forgotPassword.title": "忘记密码？",
+    "forgotPassword.subtitle": "输入您的邮箱，我们将发送重置密码链接",
+    "forgotPassword.emailLabel": "邮箱",
+    "forgotPassword.emailPlaceholder": "example@domain.com",
+    "forgotPassword.emailRequired": "邮箱不能为空",
+    "forgotPassword.invalidEmail": "邮箱格式不正确",
+    "forgotPassword.sendLink": "发送重置链接",
+    "forgotPassword.checkEmail": "请检查您的邮箱",
+    "forgotPassword.sentTo": "我们已发送重置链接到 {{email}}",
+    "forgotPassword.checkSpam": "如果没收到邮件，请检查垃圾箱。",
+    "forgotPassword.rememberPassword": "想起密码了？",
+    "forgotPassword.backToLogin": "返回登录",
+    "forgotPassword.error": "发生错误，请重试",
+  },
+};
+
+function getLang(): keyof typeof translations {
+  if (typeof window === "undefined") return "en";
+  const stored = localStorage.getItem("lang") as keyof typeof translations | null;
+  if (stored && translations[stored]) return stored;
+  const browserLangs = navigator.languages || [navigator.language];
+  for (const bl of browserLangs) {
+    const code = bl.split("-")[0].toLowerCase();
+    if (code in translations) return code as keyof typeof translations;
+  }
+  return "en";
+}
+
+function t(key: string, params?: Record<string, string | number>): string {
+  const lang = getLang();
+  let value = translations[lang]?.[key] || translations.en[key] || key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      value = value.replace(new RegExp(`{{${k}}}`, "g"), String(v));
+    }
+  }
+  return value;
+}
 
 // ─── Stable particle data (deterministic — avoids hydration mismatch) ────────
 const PARTICLES = [
@@ -92,7 +178,7 @@ function AuthStyles() {
 
       .fd-card-title {
         font-size: 1.5rem;
-        font-weight: 700;
+        font-weight: 700,
         color: var(--color-foreground);
         text-align: center;
         margin: 0 0 0.5rem;
@@ -278,7 +364,6 @@ export default function ForgotPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [sentEmail, setSentEmail] = useState("");
   const router = useRouter();
-  const { t } = useTranslation();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
