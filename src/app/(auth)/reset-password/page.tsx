@@ -463,7 +463,14 @@ function ResetPasswordInner() {
         !!code || !!accessToken || !!refreshToken || !!type || searchParams.toString().length > 0;
 
       if (!hasAnyQuery) {
-        setValidLink(true);
+        // If user opens reset-password manually without any recovery params,
+        // redirect them to forgot-password to avoid confusing invalid-link UX.
+        // This is safer for users and avoids guessing auth state.
+        try {
+          window.location.assign("/forgot-password");
+        } catch {
+          setValidLink(false);
+        }
         return;
       }
 
