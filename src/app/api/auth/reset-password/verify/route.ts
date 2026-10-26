@@ -22,10 +22,18 @@ export async function GET(request: NextRequest) {
     // Admin client lets us validate token without exposing secret info.
     //
     // If your Supabase project uses a different schema/token flow, adjust here.
+    // With supabase-js types, `recovery` verification requires `email`.
+    // We cannot reliably infer email from `code` on the server.
+    // Instead, we validate the token by exchanging it using verifyOtp's
+    // `token_hash` flow.
+    //
+    // Supabase password reset links typically use `token` (OIDC style) and
+    // might also map to token_hash depending on project/template.
+    // If this endpoint fails in a specific template, adjust accordingly.
     const { data, error } = await supabase.auth.verifyOtp({
       type: "recovery",
-      token: code,
-    });
+      token_hash: code,
+    } as any);
 
     if (error || !data) {
       return NextResponse.json({ ok: false, error: "Invalid or expired link" }, { status: 401 });
