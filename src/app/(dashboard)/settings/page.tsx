@@ -21,7 +21,7 @@ export default function SettingsPage() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setUser(user);
         setEmail(user.email || "");
