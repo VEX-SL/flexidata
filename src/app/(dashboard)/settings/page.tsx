@@ -21,11 +21,25 @@ export default function SettingsPage() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         setUser(user);
         setEmail(user.email || "");
         setName(user.user_metadata?.name || "");
+
+        // Fetch existing profile data (name and avatar)
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("name, avatar_url")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          if (profile) {
+            if (profile.name) setName(profile.name);
+            if (profile.avatar_url) setAvatarPreview(profile.avatar_url);
+          }
+        } catch {}
       }
     });
   }, [supabase]);
@@ -39,7 +53,7 @@ export default function SettingsPage() {
     // First update the name in auth metadata if it has changed
     if (name && user) {
       const { error: nameError } = await supabase.auth.updateUser({
-        { name },
+        data: { name },
       });
 
       if (nameError) {
@@ -47,13 +61,18 @@ export default function SettingsPage() {
         setLoading(false);
         return;
       }
+
+      // Also update name in profiles table so it persists across re-logins
+      await supabase
+        .from('profiles')
+        .upsert({ id: user.id, name }, { onConflict: 'id' });
     }
 
     // Handle avatar upload if provided
     if (avatar && user) {
       try {
         const fileName = `${user.id}-${Date.now()}.jpg`;
-        const { uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, avatar, {
             cacheControl: '3600',
@@ -62,14 +81,14 @@ export default function SettingsPage() {
 
         if (uploadError) throw uploadError;
 
-        const { publicUrlData } = supabase.storage
+        const { data: { publicUrl } } = supabase.storage
           .from('avatars')
           .getPublicUrl(fileName);
 
         // Update profile with avatar URL
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ avatar_url: publicUrlData.publicUrl })
+          .update({ avatar_url: publicUrl })
           .eq('id', user.id);
 
         if (profileError) throw profileError;
@@ -131,7 +150,7 @@ export default function SettingsPage() {
                   onClick={handleRemoveAvatar}
                   className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
                 >
-                  <IconImage size={14} />
+                  <ImageIcon size={14} />
                 </button>
               </div>
             ) : (

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if profile already exists
-    const { existingProfile } = await supabase
+    const { data: existingProfile } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", userId)
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create initial profile with default avatar
-    const { profile, error } = await supabase
+    const { data: profile, error } = await supabase
       .from("profiles")
       .insert({
         id: userId,
