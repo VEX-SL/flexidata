@@ -262,9 +262,9 @@ function ParticleBg() {
             width: p.s,
             height: p.s,
             background: PARTICLE_COLORS[p.id % PARTICLE_COLORS.length],
-            '--dur': `${p.dur}s`,
-            '--delay': `${p.d}s`,
-          }}
+            ['--dur']: `${p.dur}s`,
+            ['--delay']: `${p.d}s`,
+          } as React.CSSProperties}
         />
       ))}
     </div>
