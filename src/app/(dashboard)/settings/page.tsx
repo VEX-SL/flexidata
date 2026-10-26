@@ -98,6 +98,22 @@ export default function SettingsPage() {
         return;
       }
     }
+    // Handle avatar removal (if user deleted avatar but didn't upload new one)
+    else if (avatar === null && user && avatarPreview === null) {
+      // Check if user had an avatar before - if so, explicitly set to null
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (profile?.avatar_url) {
+        await supabase
+          .from('profiles')
+          .update({ avatar_url: null })
+          .eq('id', user.id);
+      }
+    }
 
     setSuccess(user ? t("settings.saved") : "تم الحفظ بنجاح");
     setLoading(false);
@@ -111,11 +127,18 @@ export default function SettingsPage() {
     }
   }
 
-  function handleRemoveAvatar() {
+  async function handleRemoveAvatar() {
     setAvatar(null);
     setAvatarPreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+    // Also update profiles table to explicitly set avatar_url to null
+    if (user) {
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', user.id);
     }
   }
 

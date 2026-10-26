@@ -168,11 +168,9 @@ export default function DashboardPage() {
         id.provider === 'google' || id.provider === 'github'
       );
       
-      // Get name and avatar from OAuth provider metadata
+      // Get name and avatar from OAuth provider metadata (only used for FIRST login)
       const metaName = (user.user_metadata?.name as string) || "";
       const metaAvatar = (user.user_metadata?.avatar_url as string) || (user.user_metadata?.picture as string) || "";
-      
-      if (metaName) setUserName(metaName);
       
       try {
         const { data: profile } = await supabase
@@ -197,13 +195,15 @@ export default function DashboardPage() {
             })
           });
           
-          // Use provider data for display
+          // Use provider data for display (only for first login)
           if (initialName) setUserName(initialName);
           if (initialAvatar) setAvatarUrl(initialAvatar);
         } else {
-          // Profile exists - use saved data (don't overwrite with provider data)
-          if (!metaName && profile.name) setUserName(profile.name);
-          setAvatarUrl(profile.avatar_url || null);
+          // Profile exists - ALWAYS use saved data from profiles table
+          // This ensures name/avatar don't change when switching OAuth providers
+          if (profile.name) setUserName(profile.name);
+          // If avatar_url is explicitly null, user deleted it - don't show anything
+          setAvatarUrl(profile.avatar_url ?? null);
         }
       } catch { }
     });
