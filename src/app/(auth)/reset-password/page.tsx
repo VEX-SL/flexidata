@@ -437,13 +437,21 @@ export default function ResetPasswordPage() {
   }
 
   // Wrap useSearchParams usage to satisfy Next.js CSR bailout requirements.
-function ResetPasswordInner() {
+  function ResetPasswordInner() {
     const searchParams = useSearchParams();
 
     useEffect(() => {
+      const code = searchParams.get("code");
       const accessToken = searchParams.get("access_token");
       const refreshToken = searchParams.get("refresh_token");
       const type = searchParams.get("type");
+
+      // Supabase may redirect with either access/refresh tokens (access_token/refresh_token)
+      // or with a generic code. Accept code-based links to avoid false "invalid" banners.
+      if (code) {
+        setValidLink(true);
+        return;
+      }
 
       if (!accessToken || !refreshToken || type !== "recovery") {
         setValidLink(false);
