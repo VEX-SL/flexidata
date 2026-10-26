@@ -298,6 +298,15 @@ function AuthStyles() {
         display: flex;
         align-items: center;
         gap: 0.5rem;
+        justify-content: center;
+      }
+
+      .fd-success .fd-success-content {
+        width: 100%;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
       }
 
       .fd-footer {
@@ -483,17 +492,26 @@ export default function ForgotPasswordPage() {
           </>
         ) : (
           <>
-            <div className="fd-success" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <div className="fd-success" style={{ marginBottom: '1.5rem' }}>
               <CheckCircle size={48} style={{ color: '#22c55e', marginBottom: '1rem' }} />
-              <h2 className="fd-card-title" style={{ fontSize: '1.3rem' }}>
-                {t("forgotPassword.checkEmail")}
-              </h2>
-              <p className="fd-card-sub">
-                {t("forgotPassword.sentTo", { email: sentEmail })}
-              </p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--color-muted-foreground)', marginTop: '1rem', lineHeight: 1.6 }}>
-                {t("forgotPassword.checkSpam")}
-              </p>
+              <div className="fd-success-content">
+                <h2 className="fd-card-title" style={{ fontSize: '1.3rem' }}>
+                  {t("forgotPassword.checkEmail")}
+                </h2>
+                <p className="fd-card-sub">
+                  {t("forgotPassword.sentTo", { email: sentEmail })}
+                </p>
+                <p
+                  style={{
+                    fontSize: '0.8rem',
+                    color: 'var(--color-muted-foreground)',
+                    marginTop: '0.25rem',
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {t("forgotPassword.checkSpam")}
+                </p>
+              </div>
             </div>
 
             <div className="fd-footer">
