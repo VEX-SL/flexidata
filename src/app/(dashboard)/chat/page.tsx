@@ -20,6 +20,62 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AIAvatar, UserAvatar, ThinkingDots, StreamingCursor } from "@/components/chat-avatars";
 import { stripMarkdown } from "@/lib/strip-markdown";
 
+function SidebarList({
+  chats,
+  chatId,
+  onSelect,
+  onDelete,
+  newChatLabel,
+}: {
+  chats: ChatRecord[];
+  chatId: string | null;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+  newChatLabel: string;
+}) {
+  return (
+    <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+      {chats.length === 0 && (
+        <div className="px-3 py-8 text-center">
+          <MessageSquare size={20} className="text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-xs text-muted-foreground/60">No conversations yet</p>
+        </div>
+      )}
+
+      {chats.map((chat) => (
+        <div
+          key={chat.id}
+          className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer transition-colors ${
+            chatId === chat.id
+              ? "bg-primary/10 text-foreground border border-primary/15"
+              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+          }`}
+          onClick={() => onSelect(chat.id)}
+        >
+          <div
+            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
+              chatId === chat.id ? "bg-primary" : "bg-transparent"
+            }`}
+          />
+          <span className="flex-1 truncate text-xs font-medium">
+            {chat.title || newChatLabel}
+          </span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(chat.id);
+            }}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
+            aria-label="Delete chat"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -187,52 +243,31 @@ function ChatContent() {
   return (
     <div className="flex h-full bg-background">
       {/* ── Sidebar ── */}
-      <div className={`${sidebarOpen ? "w-64" : "w-0"} transition-all duration-200 overflow-hidden border-r border-border flex-shrink-0`}>
+      <div
+        className={`${sidebarOpen ? "w-64" : "w-0"} transition-all duration-200 overflow-hidden border-r border-border flex-shrink-0`}
+      >
         <div className="w-64 h-full flex flex-col bg-card">
           <div className="p-3 border-b border-border">
             <button
               onClick={handleNewChat}
-              className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+              className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
               <Plus size={15} />
               {t("nav.newChat")}
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-            {chatHistory.length === 0 && (
-              <div className="px-3 py-8 text-center">
-                <MessageSquare size={20} className="text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground/60">No conversations yet</p>
-              </div>
-            )}
-            {chatHistory.map((chat) => (
-              <div
-                key={chat.id}
-                className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer transition-colors ${
-                  chatId === chat.id
-                    ? "bg-primary/10 text-foreground border border-primary/15"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                }`}
-                onClick={() => {
-                  setChatId(chat.id);
-                  fetchMessages(chat.id);
-                  router.replace(`/chat?chatId=${chat.id}`, { scroll: false });
-                }}
-              >
-                <div className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${chatId === chat.id ? "bg-primary" : "bg-transparent"}`} />
-                <span className="flex-1 truncate text-xs font-medium">
-                  {chat.title || t("nav.newChat")}
-                </span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDeleteChat(chat.id); }}
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
+          <SidebarList
+            chats={chatHistory}
+            chatId={chatId}
+            newChatLabel={t("nav.newChat")}
+            onSelect={(id) => {
+              setChatId(id);
+              fetchMessages(id);
+              router.replace(`/chat?chatId=${id}`, { scroll: false });
+            }}
+            onDelete={handleDeleteChat}
+          />
         </div>
       </div>
 
