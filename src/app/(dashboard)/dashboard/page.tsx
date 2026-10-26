@@ -151,6 +151,7 @@ export default function DashboardPage() {
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter();
@@ -205,7 +206,10 @@ export default function DashboardPage() {
           // If avatar_url is explicitly null, user deleted it - don't show anything
           setAvatarUrl(profile.avatar_url ?? null);
         }
-      } catch { }
+        setProfileLoaded(true);
+      } catch { 
+        setProfileLoaded(true);
+      }
     });
   }, [supabase]);
 
@@ -228,7 +232,7 @@ export default function DashboardPage() {
     router.push("/login");
   }
 
-  const displayName = userName || userEmail.split("@")[0];
+  const displayName = profileLoaded && userName ? userName : (userEmail.split("@")[0] || "User");
   const userInitial = (displayName.trim()[0] || "U").toUpperCase();
 
   const totalFiles = agents.reduce((sum, a) => sum + (a.files_count || 0), 0);

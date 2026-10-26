@@ -209,7 +209,7 @@ export default function SettingsPage() {
               <div className="flex gap-2">
                 <label className="cursor-pointer px-4 py-2 rounded-lg border border-border bg-background text-foreground text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2">
                   <Camera size={16} />
-                  رفع صورة
+                  {t("settings.uploadImage")}
                   <input
                     ref={fileInputRef}
                     type="file"
