@@ -25,9 +25,8 @@ export default function SettingsPage() {
       if (user) {
         setUser(user);
         setEmail(user.email || "");
-        setName(user.user_metadata?.name || "");
 
-        // Fetch existing profile data (name and avatar)
+        // ALWAYS read from profiles table - single source of truth
         try {
           const { data: profile } = await supabase
             .from("profiles")
@@ -50,26 +49,26 @@ export default function SettingsPage() {
     setError("");
     setSuccess("");
 
-    // First update the name in auth metadata if it has changed
-    if (name && user) {
-      const { error: nameError } = await supabase.auth.updateUser({
-        data: { name },
-      });
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
+    // Update name in profiles table - single source of truth
+    if (name) {
+      const { error: nameError } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, name }, { onConflict: 'id' });
+      
       if (nameError) {
         setError(nameError.message);
         setLoading(false);
         return;
       }
-
-      // Also update name in profiles table so it persists across re-logins
-      await supabase
-        .from('profiles')
-        .upsert({ id: user.id, name }, { onConflict: 'id' });
     }
 
     // Handle avatar upload if provided
-    if (avatar && user) {
+    if (avatar) {
       try {
         const fileName = `${user.id}-${Date.now()}.jpg`;
         const { error: uploadError } = await supabase.storage
@@ -99,7 +98,7 @@ export default function SettingsPage() {
       }
     }
     // Handle avatar removal (if user deleted avatar but didn't upload new one)
-    else if (avatar === null && user && avatarPreview === null) {
+    else if (avatar === null && avatarPreview === null) {
       // Check if user had an avatar before - if so, explicitly set to null
       const { data: profile } = await supabase
         .from('profiles')
@@ -115,7 +114,7 @@ export default function SettingsPage() {
       }
     }
 
-    setSuccess(user ? t("settings.saved") : "تم الحفظ بنجاح");
+    setSuccess(t("settings.saved"));
     setLoading(false);
   }
 

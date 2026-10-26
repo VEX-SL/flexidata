@@ -151,7 +151,6 @@ export default function DashboardPage() {
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
-  const [profileLoaded, setProfileLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter();
@@ -163,17 +162,8 @@ export default function DashboardPage() {
       if (!user) return;
       setUserEmail(user.email || "");
       
-      // Check if user has OAuth identities (Google, GitHub)
-      const identities = user.identities || [];
-      const hasOAuthIdentity = identities.some((id: any) => 
-        id.provider === 'google' || id.provider === 'github'
-      );
-      
-      // Get name and avatar from OAuth provider metadata (only used for FIRST login)
-      const metaName = (user.user_metadata?.name as string) || "";
-      const metaAvatar = (user.user_metadata?.avatar_url as string) || (user.user_metadata?.picture as string) || "";
-      
       try {
+        // ALWAYS read from profiles table - single source of truth
         const { data: profile } = await supabase
           .from("profiles")
           .select("name, avatar_url")
@@ -181,35 +171,38 @@ export default function DashboardPage() {
           .maybeSingle();
         
         if (!profile) {
-          // First time login - create profile
-          // If OAuth login, save provider's name and avatar
-          const initialName = hasOAuthIdentity ? metaName : null;
-          const initialAvatar = hasOAuthIdentity ? metaAvatar : null;
+          // First time login - create profile from OAuth metadata
+          const identities = user.identities || [];
+          const hasOAuthIdentity = identities.some((id: any) => 
+            id.provider === 'google' || id.provider === 'github'
+          );
           
-          await fetch("/api/user/profile", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId: user.id,
-              name: initialName,
-              avatar_url: initialAvatar
-            })
-          });
-          
-          // Use provider data for display (only for first login)
-          if (initialName) setUserName(initialName);
-          if (initialAvatar) setAvatarUrl(initialAvatar);
+          if (hasOAuthIdentity) {
+            const metaName = (user.user_metadata?.name as string) || "";
+            const metaAvatar = (user.user_metadata?.avatar_url as string) || (user.user_metadata?.picture as string) || "";
+            
+            await fetch("/api/user/profile", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userId: user.id,
+                name: metaName || null,
+                avatar_url: metaAvatar || null
+              })
+            });
+            
+            // Set from the data we just saved
+            if (metaName) setUserName(metaName);
+            if (metaAvatar) setAvatarUrl(metaAvatar);
+          }
         } else {
           // Profile exists - ALWAYS use saved data from profiles table
-          // This ensures name/avatar don't change when switching OAuth providers
+          // This ensures name/avatar NEVER change when switching OAuth providers
           if (profile.name) setUserName(profile.name);
           // If avatar_url is explicitly null, user deleted it - don't show anything
           setAvatarUrl(profile.avatar_url ?? null);
         }
-        setProfileLoaded(true);
-      } catch { 
-        setProfileLoaded(true);
-      }
+      } catch { }
     });
   }, [supabase]);
 
@@ -232,7 +225,7 @@ export default function DashboardPage() {
     router.push("/login");
   }
 
-  const displayName = profileLoaded && userName ? userName : (userEmail.split("@")[0] || "User");
+  const displayName = userName || userEmail.split("@")[0] || "User";
   const userInitial = (displayName.trim()[0] || "U").toUpperCase();
 
   const totalFiles = agents.reduce((sum, a) => sum + (a.files_count || 0), 0);
