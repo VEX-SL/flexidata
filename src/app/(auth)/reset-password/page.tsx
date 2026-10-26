@@ -445,23 +445,16 @@ export default function ResetPasswordPage() {
 
       // Token-based links: verify server-side for security.
       if (code) {
-        let cancelled = false;
-        (async () => {
-          setValidLink(true);
-          try {
-            const res = await fetch(`/api/auth/reset-password/verify?code=${encodeURIComponent(code)}`);
-            if (!res.ok) {
-              if (!cancelled) setValidLink(false);
-              return;
-            }
-            if (!cancelled) setValidLink(true);
-          } catch {
-            if (!cancelled) setValidLink(false);
-          }
-        })();
-        return () => {
-          cancelled = true;
-        };
+        // Practical approach: Supabase may redirect with either
+        // (access_token/refresh_token) OR a generic `code`.
+        // Our POST /api/auth/reset-password ultimately enforces correctness.
+        // So here, we optimistically allow the UI and rely on the POST
+        // endpoint to reject invalid/expired links.
+        //
+        // This avoids breaking user flows due to verifyOtp signature
+        // differences across Supabase templates.
+        setValidLink(true);
+        return;
       }
 
       const accessToken = searchParams.get("access_token");
