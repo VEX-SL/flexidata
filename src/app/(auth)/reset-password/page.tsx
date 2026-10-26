@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
@@ -393,18 +393,6 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [validLink, setValidLink] = useState(true);
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    // Check if we have the required auth tokens from the email link
-    const accessToken = searchParams.get("access_token");
-    const refreshToken = searchParams.get("refresh_token");
-    const type = searchParams.get("type");
-
-    if (!accessToken || !refreshToken || type !== "recovery") {
-      setValidLink(false);
-    }
-  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -448,6 +436,25 @@ export default function ResetPasswordPage() {
     }
   }
 
+  // Wrap useSearchParams usage to satisfy Next.js CSR bailout requirements.
+function ResetPasswordInner() {
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+      const accessToken = searchParams.get("access_token");
+      const refreshToken = searchParams.get("refresh_token");
+      const type = searchParams.get("type");
+
+      if (!accessToken || !refreshToken || type !== "recovery") {
+        setValidLink(false);
+      }
+    }, [searchParams]);
+
+    // This component only exists to safely read useSearchParams.
+    // The actual UI is rendered by the parent ResetPasswordPage.
+    return null;
+  }
+
   if (!validLink) {
     return (
       <div className="fd-auth-root">
@@ -471,6 +478,10 @@ export default function ResetPasswordPage() {
     <div className="fd-auth-root">
       <AuthStyles />
       <ParticleBg />
+
+      <Suspense fallback={null}>
+        <ResetPasswordInner />
+      </Suspense>
 
       <div className="fd-auth-card">
         {/* Mobile logo */}
