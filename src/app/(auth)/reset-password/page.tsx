@@ -437,7 +437,7 @@ export default function ResetPasswordPage() {
   }
 
   // Wrap useSearchParams usage to satisfy Next.js CSR bailout requirements.
-  function ResetPasswordInner() {
+function ResetPasswordInner() {
     const searchParams = useSearchParams();
 
     useEffect(() => {
@@ -453,24 +453,25 @@ export default function ResetPasswordPage() {
 
     useEffect(() => {
       const code = searchParams.get("code");
+      const accessToken = searchParams.get("access_token");
+      const refreshToken = searchParams.get("refresh_token");
+      const type = searchParams.get("type");
 
-      // Token-based links: verify server-side for security.
-      if (code) {
-        // Practical approach: Supabase may redirect with either
-        // (access_token/refresh_token) OR a generic `code`.
-        // Our POST /api/auth/reset-password ultimately enforces correctness.
-        // So here, we optimistically allow the UI and rely on the POST
-        // endpoint to reject invalid/expired links.
-        //
-        // This avoids breaking user flows due to verifyOtp signature
-        // differences across Supabase templates.
+      // If there are no query params at all, do not hard-fail the UX.
+      // Let the POST endpoint decide based on actual auth session/cookies.
+      const hasAnyQuery =
+        !!code || !!accessToken || !!refreshToken || !!type || searchParams.toString().length > 0;
+
+      if (!hasAnyQuery) {
         setValidLink(true);
         return;
       }
 
-      const accessToken = searchParams.get("access_token");
-      const refreshToken = searchParams.get("refresh_token");
-      const type = searchParams.get("type");
+      // Token-based links.
+      if (code) {
+        setValidLink(true);
+        return;
+      }
 
       // Fallback for token-style links.
       if (!accessToken || !refreshToken || type !== "recovery") setValidLink(false);
