@@ -442,20 +442,34 @@ export default function ResetPasswordPage() {
 
     useEffect(() => {
       const code = searchParams.get("code");
+
+      // Token-based links: verify server-side for security.
+      if (code) {
+        let cancelled = false;
+        (async () => {
+          setValidLink(true);
+          try {
+            const res = await fetch(`/api/auth/reset-password/verify?code=${encodeURIComponent(code)}`);
+            if (!res.ok) {
+              if (!cancelled) setValidLink(false);
+              return;
+            }
+            if (!cancelled) setValidLink(true);
+          } catch {
+            if (!cancelled) setValidLink(false);
+          }
+        })();
+        return () => {
+          cancelled = true;
+        };
+      }
+
       const accessToken = searchParams.get("access_token");
       const refreshToken = searchParams.get("refresh_token");
       const type = searchParams.get("type");
 
-      // Supabase may redirect with either access/refresh tokens (access_token/refresh_token)
-      // or with a generic code. Accept code-based links to avoid false "invalid" banners.
-      if (code) {
-        setValidLink(true);
-        return;
-      }
-
-      if (!accessToken || !refreshToken || type !== "recovery") {
-        setValidLink(false);
-      }
+      // Fallback for token-style links.
+      if (!accessToken || !refreshToken || type !== "recovery") setValidLink(false);
     }, [searchParams]);
 
     // This component only exists to safely read useSearchParams.
