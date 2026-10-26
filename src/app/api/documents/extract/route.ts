@@ -64,28 +64,9 @@ export function sniffMime(buffer: Buffer): string | undefined {
  * consume it. Mirrors the page-rendering path used by `file-parser`.
  */
 export async function renderFirstPageToPng(buffer: Buffer): Promise<Buffer> {
-  const { isCanvasAvailable, createCanvas } = await import("@/lib/pdf-canvas");
-  if (!isCanvasAvailable()) {
-    throw new ExtractError(500, "PDF rendering unavailable");
-  }
-  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "";
-  const doc = await pdfjsLib.getDocument({
-    data: new Uint8Array(buffer),
-    useWorkerFetch: false,
-    isEvalSupported: false,
-    useSystemFonts: true,
-  }).promise;
-  const page = await doc.getPage(1);
-  const viewport = page.getViewport({ scale: 2.0 });
-  const canvas = createCanvas(viewport.width, viewport.height);
-  const ctx = canvas.getContext("2d");
-  await page.render({
-    canvasContext: ctx as never,
-    canvas: canvas as never,
-    viewport,
-  }).promise;
-  return Buffer.from(canvas.toBuffer("image/png"));
+  const { renderPdfPageToPng } = await import("@/lib/pdf-render");
+  const { png } = await renderPdfPageToPng(buffer, 1);
+  return png;
 }
 
 /** Parse the optional `schema` form field into a validated PipelineSchema. */
