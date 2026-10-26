@@ -151,6 +151,7 @@ export default function DashboardPage() {
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const router = useRouter();
@@ -202,7 +203,10 @@ export default function DashboardPage() {
           // If avatar_url is explicitly null, user deleted it - don't show anything
           setAvatarUrl(profile.avatar_url ?? null);
         }
-      } catch { }
+        setProfileLoaded(true);
+      } catch { 
+        setProfileLoaded(true);
+      }
     });
   }, [supabase]);
 
@@ -225,7 +229,7 @@ export default function DashboardPage() {
     router.push("/login");
   }
 
-  const displayName = userName || userEmail.split("@")[0] || "User";
+  const displayName = profileLoaded && userName ? userName : (userEmail.split("@")[0] || "User");
   const userInitial = (displayName.trim()[0] || "U").toUpperCase();
 
   const totalFiles = agents.reduce((sum, a) => sum + (a.files_count || 0), 0);
@@ -1129,7 +1133,11 @@ export default function DashboardPage() {
 
             <div style={{ position: 'relative' }}>
               <div className="fd-avatar" onClick={() => { setUserMenuOpen(!userMenuOpen); setNotificationsOpen(false); }} title={displayName}>
-                {avatarUrl ? (
+                {!profileLoaded ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                    <div className="animate-pulse" style={{ width: '100%', height: '100%', background: 'var(--color-muted)', borderRadius: 7 }} />
+                  </div>
+                ) : avatarUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={avatarUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: 7 }} />
                 ) : (
@@ -1140,7 +1148,11 @@ export default function DashboardPage() {
                 <div className="fd-dropdown">
                   <div style={{ padding: '0.5rem 0.65rem', borderBottom: '1px solid var(--color-border)', marginBottom: '0.3rem' }}>
                     <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {displayName}
+                      {!profileLoaded ? (
+                        <span className="animate-pulse" style={{ background: 'var(--color-muted)', borderRadius: 4, padding: '0 0.5rem' }}>Loading...</span>
+                      ) : (
+                        displayName
+                      )}
                     </p>
                     {userEmail && (
                       <p style={{ margin: '0.1rem 0 0', fontSize: '0.72rem', color: 'var(--color-muted-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
