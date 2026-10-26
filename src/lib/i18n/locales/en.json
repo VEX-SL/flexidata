@@ -184,7 +184,7 @@
     "noAgentsSub": "Create your first agent to get started.",
     "chat": "Chat",
     "delete": "Delete",
-    "confirmDelete": "Delete this agent?",
+    "confirmDelete": "Delete this chatbot?",
     "backToFiles": "Back to Files",
     "chatWith": "Chat with {{name}}",
     "chatSub": "Ask questions about this agent's documents and files.",

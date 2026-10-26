@@ -151,7 +151,7 @@
     "noAgentsSub": "创建你的第一个智能体开始吧。",
     "chat": "聊天",
     "delete": "删除",
-    "confirmDelete": "删除此智能体？",
+    "confirmDelete": "删除此聊天机器人？",
     "backToFiles": "返回文件",
     "chatWith": "与 {{name}} 聊天",
     "chatSub": "询问该智能体的文档和文件相关问题。",

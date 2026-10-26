@@ -184,7 +184,7 @@
     "noAgentsSub": "أنشئ وكيلك الأول للبدء.",
     "chat": "محادثة",
     "delete": "حذف",
-    "confirmDelete": "حذف هذا الوكيل؟",
+    "confirmDelete": "حذف هذا البوت؟",
     "backToFiles": "العودة للملفات",
     "chatWith": "محادثة مع {{name}}",
     "chatSub": "اسأل عن وثائق هذا الوكيل وملفاته.",
