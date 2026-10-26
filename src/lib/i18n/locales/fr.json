@@ -152,6 +152,7 @@
     "chat": "Chat",
     "delete": "Supprimer",
     "confirmDelete": "Supprimer ce chatbot ?",
+    "confirmDeleteMessage": "Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action ne peut pas être annulée.",
     "backToFiles": "Retour aux fichiers",
     "chatWith": "Chat avec {{name}}",
     "chatSub": "Posez des questions sur les documents de cet agent.",

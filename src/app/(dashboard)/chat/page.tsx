@@ -19,6 +19,8 @@ import { useStreamChat } from "@/lib/hooks/use-stream-chat";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AIAvatar, UserAvatar, ThinkingDots, StreamingCursor } from "@/components/chat-avatars";
 import { stripMarkdown } from "@/lib/strip-markdown";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { AppSidebar } from "@/components/app-sidebar";
 
 function SidebarList({
   chats,
@@ -140,6 +142,10 @@ function ChatContent() {
   const [chatHistory, setChatHistory] = useState<ChatRecord[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    chatId: string | null;
+  }>({ isOpen: false, chatId: null });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -204,14 +210,24 @@ function ChatContent() {
   }
 
   async function handleDeleteChat(id: string) {
-    if (!confirm(t("agents.confirmDelete"))) return;
-    await fetch(`/api/chat/${id}`, { method: "DELETE" });
-    setChatHistory((prev) => prev.filter((c) => c.id !== id));
-    if (chatId === id) { setChatId(null); setMessages([]); router.replace("/chat", { scroll: false }); }
+    setDeleteDialog({ isOpen: true, chatId: id });
+  }
+
+  async function confirmDelete() {
+    if (!deleteDialog.chatId) return;
+    await fetch(`/api/chat/${deleteDialog.chatId}`, { method: "DELETE" });
+    setChatHistory((prev) => prev.filter((c) => c.id !== deleteDialog.chatId));
+    if (chatId === deleteDialog.chatId) { setChatId(null); setMessages([]); router.replace("/chat", { scroll: false }); }
+    setDeleteDialog({ isOpen: false, chatId: null });
+  }
+
+  function cancelDelete() {
+    setDeleteDialog({ isOpen: false, chatId: null });
   }
 
   function handleNewChat() {
-    setChatId(null); setMessages([]);
+    setChatId(null);
+    setMessages([]);
     router.replace("/chat", { scroll: false });
   }
 
@@ -225,51 +241,16 @@ function ChatContent() {
     setTimeout(() => setCopiedId(null), 1500);
   }
 
-  async function handleRegenerate(msgIndex: number) {
-    if (streaming) return;
-    const userMsg = messages[msgIndex];
-    if (!userMsg || userMsg.role !== "user") return;
-    setMessages(messages.slice(0, msgIndex + 1));
-    try {
-      const result = await sendStream(chatId, userMsg.content);
-      if (!result) return;
-      setMessages((prev) => [
-        ...prev,
-        { id: `assistant-${Date.now()}`, role: "assistant", content: result.fullContent, created_at: new Date().toISOString() },
-      ]);
-    } catch (err: any) { alert(err.message || t("common.error")); }
-  }
-
   return (
+    <>
+      {/* ── Main ── */}
     <div className="flex h-full bg-background">
       {/* ── Sidebar ── */}
-      <div
-        className={`${sidebarOpen ? "w-64" : "w-0"} transition-all duration-200 overflow-hidden border-r border-border flex-shrink-0`}
-      >
-        <div className="w-64 h-full flex flex-col bg-card">
-          <div className="p-3 border-b border-border">
-            <button
-              onClick={handleNewChat}
-              className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              <Plus size={15} />
-              {t("nav.newChat")}
-            </button>
-          </div>
-
-          <SidebarList
-            chats={chatHistory}
-            chatId={chatId}
-            newChatLabel={t("nav.newChat")}
-            onSelect={(id) => {
-              setChatId(id);
-              fetchMessages(id);
-              router.replace(`/chat?chatId=${id}`, { scroll: false });
-            }}
-            onDelete={handleDeleteChat}
-          />
-        </div>
-      </div>
+      <AppSidebar
+        collapsed={sidebarOpen}
+        onCollapse={() => setSidebarOpen(false)}
+        onExpand={() => setSidebarOpen(true)}
+      />
 
       {/* ── Main ── */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -410,7 +391,19 @@ function ChatContent() {
           </div>
         </div>
       </div>
-    </div>
+
+      {/* ── Delete Confirmation Dialog ── */}
+      <ConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        title={t("agents.confirmDelete")}
+        message={t("agents.confirmDeleteMessage")}
+        confirmText={t("common.delete")}
+        cancelText={t("common.cancel")}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+        type="danger"
+      />
+    </>
   );
 }
 
