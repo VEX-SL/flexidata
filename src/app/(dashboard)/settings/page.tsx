@@ -1,24 +1,29 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { User, Save, Loader2, Palette, Globe } from "lucide-react";
+import { User, Save, Loader2, Palette, Globe, Camera, Image as ImageIcon } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { useTranslation, LANGUAGES } from "@/lib/i18n";
 
 export default function SettingsPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [avatar, setAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useTranslation();
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ { user } }) => {
       if (user) {
+        setUser(user);
         setEmail(user.email || "");
         setName(user.user_metadata?.name || "");
       }
@@ -31,16 +36,68 @@ export default function SettingsPage() {
     setError("");
     setSuccess("");
 
-    const { error } = await supabase.auth.updateUser({
-      data: { name },
-    });
+    // First update the name in auth metadata if it has changed
+    if (name && user) {
+      const { error: nameError } = await supabase.auth.updateUser({
+        { name },
+      });
 
-    if (error) {
-      setError(error.message);
-    } else {
-      setSuccess(t("settings.saved"));
+      if (nameError) {
+        setError(nameError.message);
+        setLoading(false);
+        return;
+      }
     }
+
+    // Handle avatar upload if provided
+    if (avatar && user) {
+      try {
+        const fileName = `${user.id}-${Date.now()}.jpg`;
+        const { uploadData, error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, avatar, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { publicUrlData } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+
+        // Update profile with avatar URL
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: publicUrlData.publicUrl })
+          .eq('id', user.id);
+
+        if (profileError) throw profileError;
+      } catch (uploadError) {
+        setError(uploadError instanceof Error ? uploadError.message : "فشل رفع الصورة. يرجى المحاولة مرة أخرى.");
+        setLoading(false);
+        return;
+      }
+    }
+
+    setSuccess(user ? t("settings.saved") : "تم الحفظ بنجاح");
     setLoading(false);
+  }
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatar(file);
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  }
+
+  function handleRemoveAvatar() {
+    setAvatar(null);
+    setAvatarPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   }
 
   return (
@@ -58,30 +115,70 @@ export default function SettingsPage() {
               <User size={20} className="text-primary" />
             </div>
             <h2 className="text-lg font-semibold text-foreground">{t("settings.profile")}</h2>
+            <span className="text-xs text-muted-foreground mr-auto">يمكنك تعديل الاسم والصورة يدوياً</span>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              {t("settings.name")}
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
+          <div className="flex items-center gap-4">
+            {avatarPreview ? (
+              <div className="relative">
+                <img
+                  src={avatarPreview}
+                  alt="Avatar preview"
+                  className="w-20 h-20 rounded-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                >
+                  <IconImage size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                <User size={40} />
+              </div>
+            )}
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              {t("settings.email")}
-            </label>
-            <input
-              type="email"
-              value={email}
-              disabled
-              className="w-full px-4 py-2 rounded-lg border border-border bg-muted text-muted-foreground"
-            />
+            <div className="space-y-2 flex-1">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  {t("settings.name")}
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  {t("settings.email")}
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  disabled
+                  className="w-full px-4 py-2 rounded-lg border border-border bg-muted text-muted-foreground"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <label className="cursor-pointer px-4 py-2 rounded-lg border border-border bg-background text-foreground text-sm font-medium hover:bg-muted transition-colors flex items-center gap-2">
+                  <Camera size={16} />
+                  رفع صورة
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 
