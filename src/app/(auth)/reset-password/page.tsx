@@ -441,6 +441,17 @@ export default function ResetPasswordPage() {
     const searchParams = useSearchParams();
 
     useEffect(() => {
+      // Security: only log parameter names (no values).
+      try {
+        const keys = Array.from(searchParams.keys());
+        // eslint-disable-next-line no-console
+        console.log("[reset-password] queryKeys=", keys);
+      } catch {
+        // ignore
+      }
+    }, [searchParams]);
+
+    useEffect(() => {
       const code = searchParams.get("code");
 
       // Token-based links: verify server-side for security.
