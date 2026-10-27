@@ -396,16 +396,6 @@ function ChatContent() {
         </div>
       </div>
 
-      <ConfirmDialog
-        isOpen={deleteDialog.isOpen}
-        title={t("agents.confirmDelete")}
-        message={t("agents.confirmDeleteMessage")}
-        confirmText={t("common.delete")}
-        cancelText={t("common.cancel")}
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-        type="danger"
-      />
     </div>
   );
 }
