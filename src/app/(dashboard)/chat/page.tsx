@@ -396,7 +396,6 @@ function ChatContent() {
         </div>
       </div>
 
-      {/* ── Delete Confirmation Dialog ── */}
       <ConfirmDialog
         isOpen={deleteDialog.isOpen}
         title={t("agents.confirmDelete")}
