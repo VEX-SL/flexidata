@@ -20,7 +20,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AIAvatar, UserAvatar, ThinkingDots, StreamingCursor } from "@/components/chat-avatars";
 import { stripMarkdown } from "@/lib/strip-markdown";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { AppSidebar } from "@/components/app-sidebar";
+
 
 function SidebarList({
   chats,
@@ -235,6 +235,21 @@ function ChatContent() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
+  async function handleRegenerate(msgIndex: number) {
+    if (streaming) return;
+    const userMsg = messages[msgIndex];
+    if (!userMsg || userMsg.role !== "user") return;
+    setMessages(messages.slice(0, msgIndex + 1));
+    try {
+      const result = await sendStream(chatId, userMsg.content);
+      if (!result) return;
+      setMessages((prev) => [
+        ...prev,
+        { id: `assistant-${Date.now()}`, role: "assistant", content: result.fullContent, created_at: new Date().toISOString() },
+      ]);
+    } catch (err: any) { alert(err.message || t("common.error")); }
+  }
+
   function handleCopy(text: string, id: string) {
     navigator.clipboard.writeText(stripMarkdown(text));
     setCopiedId(id);
@@ -242,16 +257,7 @@ function ChatContent() {
   }
 
   return (
-    <div className="flex h-full bg-background">
-      {/* ── Sidebar ── */}
-      <AppSidebar
-        collapsed={sidebarOpen}
-        onCollapse={() => setSidebarOpen(false)}
-        onExpand={() => setSidebarOpen(true)}
-      />
-
-      {/* ── Main ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* Header */}
         <div className="h-12 border-b border-border flex items-center px-4 gap-3 bg-card/50 backdrop-blur-sm flex-shrink-0">
           <button
@@ -401,6 +407,7 @@ function ChatContent() {
         onCancel={cancelDelete}
         type="danger"
       />
+    </div>
   );
 }
 
