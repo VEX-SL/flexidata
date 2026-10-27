@@ -94,9 +94,33 @@ function SidebarList({
   );
 }
 
+function getGreeting(name: string) {
+  const hour = new Date().getHours();
+
+  let timeOfDay = "Good Evening";
+  if (hour >= 5 && hour < 12) {
+    timeOfDay = "Good Morning";
+  } else if (hour >= 12 && hour < 17) {
+    timeOfDay = "Good Afternoon";
+  } else if (hour >= 17 && hour < 22) {
+    timeOfDay = "Good Evening";
+  } else {
+    timeOfDay = "Good Night";
+  }
+
+  return `${timeOfDay}, ${name}`;
+}
+
 // ─── Empty State ──────────────────────────────────────────────────────────────
-function EmptyState({ onSuggestion }: { onSuggestion: (s: string) => void }) {
+function EmptyState({ onSuggestion, userName }: { onSuggestion: (s: string) => void; userName?: string | null }) {
   const { t } = useTranslation();
+  const [greeting, setGreeting] = useState("");
+
+  useEffect(() => {
+    const name = userName && userName.trim() ? userName.trim() : "Hamza";
+    setGreeting(getGreeting(name));
+  }, [userName]);
+
   const suggestions = [
     t("chat.suggestions.summarize"),
     t("chat.suggestions.keyPoints"),
@@ -110,10 +134,10 @@ function EmptyState({ onSuggestion }: { onSuggestion: (s: string) => void }) {
         <AIAvatar size={56} className="shadow-lg shadow-primary/20" />
         <div>
           <h2 className="text-lg font-semibold text-foreground tracking-tight">
-            {t("chat.empty")}
+            {greeting || `Hello, ${userName && userName.trim() ? userName.trim() : "Hamza"}`}
           </h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-xs leading-relaxed">
-            {t("chat.emptySub")}
+            {t("chat.howCanIHelp")}
           </p>
         </div>
       </div>
@@ -150,10 +174,28 @@ function ChatContent() {
     isOpen: boolean;
     chatId: string | null;
   }>({ isOpen: false, chatId: null });
+  const [userName, setUserName] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const initialLoadDone = useRef(false);
+
+  useEffect(() => {
+    import("@/lib/supabase/client").then(async ({ createClient }) => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (profile?.name) {
+          setUserName(profile.name);
+        }
+      }
+    });
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
@@ -359,7 +401,7 @@ function ChatContent() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 && !streaming ? (
-            <EmptyState onSuggestion={(s) => setInput(s)} />
+            <EmptyState onSuggestion={(s) => setInput(s)} userName={userName} />
           ) : (
             <div className="p-4 space-y-6 max-w-3xl mx-auto">
               {messages.map((msg, idx) => (
@@ -486,16 +528,26 @@ function ChatContent() {
         <div className="shrink-0 border-t border-border/60 p-3">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-end gap-2 rounded-2xl border border-border bg-card px-3 py-2 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={t("chat.placeholder")}
-                rows={1}
-                className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none py-1.5"
-                style={{ minHeight: "36px", maxHeight: "200px" }}
-              />
+              <div className="flex-1 relative">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder=""
+                  rows={1}
+                  className="w-full resize-none bg-transparent text-sm text-foreground focus:outline-none py-1.5 relative z-10"
+                  style={{ minHeight: "36px", maxHeight: "200px" }}
+                />
+                {input === "" && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground">
+                    <span>{t("chat.placeholderAnimated") || "Type your message"}</span>
+                    <span className="inline-block animate-pulse">.</span>
+                    <span className="inline-block animate-pulse [animation-delay:200ms]">.</span>
+                    <span className="inline-block animate-pulse [animation-delay:400ms]">.</span>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={streaming ? abort : handleSend}
                 disabled={!streaming && !input.trim()}

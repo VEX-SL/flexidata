@@ -30,6 +30,23 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AIAvatar, UserAvatar, ThinkingDots, StreamingCursor } from "@/components/chat-avatars";
 import { stripMarkdown } from "@/lib/strip-markdown";
 
+function getGreeting(name: string) {
+  const hour = new Date().getHours();
+
+  let timeOfDay = "Good Evening";
+  if (hour >= 5 && hour < 12) {
+    timeOfDay = "Good Morning";
+  } else if (hour >= 12 && hour < 17) {
+    timeOfDay = "Good Afternoon";
+  } else if (hour >= 17 && hour < 22) {
+    timeOfDay = "Good Evening";
+  } else {
+    timeOfDay = "Good Night";
+  }
+
+  return `${timeOfDay}, ${name}`;
+}
+
 function SidebarList({
   chats,
   chatId,
@@ -109,13 +126,23 @@ interface Agent {
 function EmptyState({
   agentName,
   onSuggestion,
+  userName,
 }: {
   agentName?: string;
   onSuggestion: (s: string) => void;
+  userName?: string | null;
 }) {
+  const { t } = useTranslation();
+  const [greeting, setGreeting] = useState("");
+
+  useEffect(() => {
+    const name = userName && userName.trim() ? userName.trim() : "Hamza";
+    setGreeting(getGreeting(name));
+  }, [userName]);
+
   const suggestions = [
-    "Summarize the documents",
-    "What are the key points?",
+    t("chat.suggestions.summarize") || "Summarize the documents",
+    t("chat.suggestions.keyPoints") || "What are the key points?",
     "List all important data",
     "Explain this simply",
   ];
@@ -126,10 +153,10 @@ function EmptyState({
         <AIAvatar size={56} className="shadow-lg shadow-primary/20" />
         <div>
           <h2 className="text-lg font-semibold text-foreground tracking-tight">
-            {agentName ? `Chat with ${agentName}` : "How can I help you?"}
+            {greeting || `Hello, ${userName && userName.trim() ? userName.trim() : "Hamza"}`}
           </h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-xs leading-relaxed">
-            Ask me anything about the files and documents in this agent.
+            {agentName ? t("chat.howCanIHelp") || "How can I help you analyze your documents today?" : t("chat.howCanIHelp") || "How can I help you analyze your documents today?"}
           </p>
         </div>
       </div>
@@ -172,11 +199,29 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     } catch { return new Set(); }
   });
   const [applyingEdit, setApplyingEdit] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialLoadDone = useRef(false);
+
+  useEffect(() => {
+    import("@/lib/supabase/client").then(async ({ createClient }) => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (profile?.name) {
+          setUserName(profile.name);
+        }
+      }
+    });
+  }, []);
 
   function editFingerprint(edit: FileEdit) {
     return `${edit.filename}::${edit.replacement.slice(0, 200)}`;
@@ -442,7 +487,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 && !streaming ? (
-            <EmptyState agentName={agent?.name} onSuggestion={(s) => setInput(s)} />
+            <EmptyState agentName={agent?.name} onSuggestion={(s) => setInput(s)} userName={userName} />
           ) : (
             <div className="p-4 space-y-6 max-w-3xl mx-auto">
               {messages.map((msg, idx) => (
@@ -588,16 +633,26 @@ function AgentChatContent({ agentId }: { agentId: string }) {
               >
                 {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
               </button>
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={t("chat.placeholder")}
-                rows={1}
-                className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none py-1.5"
-                style={{ minHeight: "36px", maxHeight: "200px" }}
-              />
+              <div className="flex-1 relative">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder=""
+                  rows={1}
+                  className="w-full resize-none bg-transparent text-sm text-foreground focus:outline-none py-1.5 relative z-10"
+                  style={{ minHeight: "36px", maxHeight: "200px" }}
+                />
+                {input === "" && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground">
+                    <span>{t("chat.placeholderAnimated") || "Type your message"}</span>
+                    <span className="inline-block animate-pulse">.</span>
+                    <span className="inline-block animate-pulse [animation-delay:200ms]">.</span>
+                    <span className="inline-block animate-pulse [animation-delay:400ms]">.</span>
+                  </div>
+                )}
+              </div>
 
               <button
                 onClick={streaming ? abort : handleSend}

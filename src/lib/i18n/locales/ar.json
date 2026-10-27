@@ -165,6 +165,12 @@
   "chat": {
     "title": "المحادثة",
     "placeholder": "اكتب رسالتك...",
+    "placeholderAnimated": "اكتب رسالتك",
+    "goodMorning": "صباح الخير",
+    "goodAfternoon": "مساء الخير",
+    "goodEvening": "مساء الخير",
+    "goodNight": "تصبح على خير",
+    "howCanIHelp": "كيف أساعدك في تحليل مستنداتك اليوم؟",
     "empty": "كيف يمكنني مساعدتك؟",
     "emptySub": "اسألني أي شيء — أنا مساعد ذكاء اصطناعي عام.",
     "thinking": "جاري التفكير...",

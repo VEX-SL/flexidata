@@ -165,6 +165,12 @@
   "chat": {
     "title": "Chat",
     "placeholder": "Type your message...",
+    "placeholderAnimated": "Type your message",
+    "goodMorning": "Good Morning",
+    "goodAfternoon": "Good Afternoon",
+    "goodEvening": "Good Evening",
+    "goodNight": "Good Night",
+    "howCanIHelp": "How can I help you analyze your documents today?",
     "empty": "What can I help you with?",
     "emptySub": "Ask me anything — I'm a general-purpose AI assistant.",
     "thinking": "Thinking...",
