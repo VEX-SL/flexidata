@@ -401,7 +401,6 @@ function ChatContent() {
         onCancel={cancelDelete}
         type="danger"
       />
-    </>
   );
 }
 
