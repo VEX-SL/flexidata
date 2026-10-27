@@ -242,8 +242,6 @@ function ChatContent() {
   }
 
   return (
-    <>
-      {/* ── Main ── */}
     <div className="flex h-full bg-background">
       {/* ── Sidebar ── */}
       <AppSidebar
