@@ -124,6 +124,16 @@ function EmptyState({ onSuggestion }: { onSuggestion: (s: string) => void }) {
           </button>
         ))}
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        title={t("chat.deleteTitle")}
+        message={t("chat.deleteDescription")}
+        confirmText={t("common.delete")}
+        cancelText={t("common.cancel")}
+        onConfirm={() => confirmDelete(deleteDialog.chatId)}
+        onCancel={() => setDeleteDialog({ isOpen: false, chatId: null })}
+      />
     </div>
   );
 }
@@ -395,7 +405,6 @@ function ChatContent() {
           </div>
         </div>
       </div>
-
     </div>
   );
 }
