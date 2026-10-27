@@ -138,7 +138,15 @@
     "copy": "Copier",
     "copied": "Copié !",
     "regenerate": "Régénérer",
-    "disclaimer": "FlexiData est un modèle d'IA et peut produire des erreurs."
+    "disclaimer": "FlexiData est un modèle d'IA et peut produire des erreurs.",
+    "deleteTitle": "Supprimer le chat",
+    "deleteDescription": "Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action ne peut pas être annulée.",
+    "suggestions": {
+      "summarize": "Résumer le document téléchargé",
+      "keyPoints": "Quels sont les points clés ?",
+      "simpleTerms": "Expliquer cela simplement",
+      "tableData": "Créer un tableau à partir de ces données"
+    }
   },
   "agents": {
     "title": "Vos Agents",
@@ -246,6 +254,7 @@
     "retry": "Réessayer",
     "cancel": "Annuler",
     "confirm": "Confirmer",
+    "delete": "Supprimer",
     "back": "Retour"
   }
 }

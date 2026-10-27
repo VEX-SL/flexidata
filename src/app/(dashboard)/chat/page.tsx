@@ -13,6 +13,7 @@ import {
   Check,
   RotateCw,
   MessageSquare,
+  Download,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useStreamChat } from "@/lib/hooks/use-stream-chat";
@@ -22,6 +23,20 @@ import { stripMarkdown } from "@/lib/strip-markdown";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 
 
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+interface ChatRecord {
+  id: string;
+  title: string | null;
+  updated_at: string;
+}
+
+// ─── Sidebar List ─────────────────────────────────────────────────────────────
 function SidebarList({
   chats,
   chatId,
@@ -69,6 +84,7 @@ function SidebarList({
             }}
             className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
             aria-label="Delete chat"
+            title="Delete chat"
           >
             <Trash2 size={12} />
           </button>
@@ -78,26 +94,14 @@ function SidebarList({
   );
 }
 
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  created_at: string;
-}
-
-interface ChatRecord {
-  id: string;
-  title: string | null;
-  updated_at: string;
-}
-
 // ─── Empty State ──────────────────────────────────────────────────────────────
 function EmptyState({ onSuggestion }: { onSuggestion: (s: string) => void }) {
+  const { t } = useTranslation();
   const suggestions = [
-    "Summarize the uploaded document",
-    "What are the key data points?",
-    "Explain this in simple terms",
-    "Create a table from this data",
+    t("chat.suggestions.summarize"),
+    t("chat.suggestions.keyPoints"),
+    t("chat.suggestions.simpleTerms"),
+    t("chat.suggestions.tableData"),
   ];
 
   return (
@@ -106,10 +110,10 @@ function EmptyState({ onSuggestion }: { onSuggestion: (s: string) => void }) {
         <AIAvatar size={56} className="shadow-lg shadow-primary/20" />
         <div>
           <h2 className="text-lg font-semibold text-foreground tracking-tight">
-            How can I help you?
+            {t("chat.empty")}
           </h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-xs leading-relaxed">
-            Ask me anything about your files, data, or documents.
+            {t("chat.emptySub")}
           </p>
         </div>
       </div>
@@ -124,16 +128,6 @@ function EmptyState({ onSuggestion }: { onSuggestion: (s: string) => void }) {
           </button>
         ))}
       </div>
-
-      <ConfirmDialog
-        isOpen={deleteDialog.isOpen}
-        title={t("chat.deleteTitle")}
-        message={t("chat.deleteDescription")}
-        confirmText={t("common.delete")}
-        cancelText={t("common.cancel")}
-        onConfirm={() => confirmDelete(deleteDialog.chatId)}
-        onCancel={() => setDeleteDialog({ isOpen: false, chatId: null })}
-      />
     </div>
   );
 }
@@ -144,7 +138,7 @@ function ChatContent() {
   const searchParams = useSearchParams();
   const initialChatId = searchParams.get("chatId");
   const { t } = useTranslation();
-  const { streaming, streamedContent, sendStream, abort } = useStreamChat();
+  const { streaming, streamedContent, generatedImages, sendStream, abort } = useStreamChat();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -159,11 +153,12 @@ function ChatContent() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const initialLoadDone = useRef(false);
 
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, streamedContent]);
+  }, [messages, streamedContent, generatedImages]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -176,20 +171,32 @@ function ChatContent() {
   const fetchChatHistory = useCallback(async () => {
     try {
       const res = await fetch("/api/chat-history");
-      if (res.ok) setChatHistory(await res.json());
-    } catch {}
+      if (res.ok) {
+        const data: ChatRecord[] = await res.json();
+        setChatHistory(data);
+      }
+    } catch (err) {
+      console.error("[Chat] Failed to fetch chat history:", err);
+    }
   }, []);
 
   const fetchMessages = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/chat-history/${id}`);
-      if (res.ok) setMessages(await res.json());
-    } catch {}
+      if (!res.ok) return;
+      const data: Message[] = await res.json();
+      setMessages(data);
+    } catch (err) {
+      console.error("[Chat] Failed to fetch messages:", err);
+    }
   }, []);
 
   useEffect(() => {
     fetchChatHistory();
-    if (initialChatId) fetchMessages(initialChatId);
+    if (initialChatId && !initialLoadDone.current) {
+      initialLoadDone.current = true;
+      fetchMessages(initialChatId);
+    }
   }, [initialChatId, fetchChatHistory, fetchMessages]);
 
   async function handleSend() {
@@ -202,7 +209,10 @@ function ChatContent() {
     setInput("");
     try {
       const result = await sendStream(chatId, userContent);
-      if (!result) { setMessages((prev) => prev.filter((m) => !m.id.startsWith("temp-"))); return; }
+      if (!result) {
+        setMessages((prev) => prev.filter((m) => !m.id.startsWith("temp-")));
+        return;
+      }
       if (!chatId && result.chatId) {
         setChatId(result.chatId);
         router.replace(`/chat?chatId=${result.chatId}`, { scroll: false });
@@ -219,15 +229,29 @@ function ChatContent() {
     }
   }
 
-  async function handleDeleteChat(id: string) {
+  function handleDeleteChat(id: string) {
     setDeleteDialog({ isOpen: true, chatId: id });
   }
 
   async function confirmDelete() {
     if (!deleteDialog.chatId) return;
-    await fetch(`/api/chat/${deleteDialog.chatId}`, { method: "DELETE" });
-    setChatHistory((prev) => prev.filter((c) => c.id !== deleteDialog.chatId));
-    if (chatId === deleteDialog.chatId) { setChatId(null); setMessages([]); router.replace("/chat", { scroll: false }); }
+    try {
+      const res = await fetch(`/api/chat/${deleteDialog.chatId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || t("common.error"));
+      } else {
+        setChatHistory((prev) => prev.filter((c) => c.id !== deleteDialog.chatId));
+        if (chatId === deleteDialog.chatId) {
+          setChatId(null);
+          setMessages([]);
+          router.replace("/chat", { scroll: false });
+        }
+      }
+    } catch (err) {
+      console.error("[Chat] Failed to delete chat:", err);
+      alert(t("common.error"));
+    }
     setDeleteDialog({ isOpen: false, chatId: null });
   }
 
@@ -241,8 +265,17 @@ function ChatContent() {
     router.replace("/chat", { scroll: false });
   }
 
+  function handleSelectChat(id: string) {
+    setChatId(id);
+    fetchMessages(id);
+    router.replace(`/chat?chatId=${id}`, { scroll: false });
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
   }
 
   async function handleRegenerate(msgIndex: number) {
@@ -257,7 +290,9 @@ function ChatContent() {
         ...prev,
         { id: `assistant-${Date.now()}`, role: "assistant", content: result.fullContent, created_at: new Date().toISOString() },
       ]);
-    } catch (err: any) { alert(err.message || t("common.error")); }
+    } catch (err: any) {
+      alert(err.message || t("common.error"));
+    }
   }
 
   function handleCopy(text: string, id: string) {
@@ -266,8 +301,46 @@ function ChatContent() {
     setTimeout(() => setCopiedId(null), 1500);
   }
 
+  function handleDownloadImage(url: string, prompt: string) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `generated-${prompt.slice(0, 50).replace(/[^a-z0-9]/gi, "-")}.png`;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
   return (
-    <div className="flex-1 flex flex-col min-w-0 h-full">
+    <div className="flex h-full bg-background">
+      {/* ── Sidebar ── */}
+      <div
+        className={`${sidebarOpen ? "w-64" : "w-0"} transition-all duration-200 overflow-hidden border-r border-border flex-shrink-0`}
+      >
+        <div className="w-64 h-full flex flex-col bg-card">
+          <div className="p-3 border-b border-border space-y-2">
+            <button
+              onClick={handleNewChat}
+              className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <Plus size={15} />
+              {t("nav.newChat")}
+            </button>
+          </div>
+
+          <SidebarList
+            chats={chatHistory}
+            chatId={chatId}
+            newChatLabel={t("nav.newChat")}
+            onSelect={handleSelectChat}
+            onDelete={handleDeleteChat}
+          />
+        </div>
+      </div>
+
+      {/* ── Main ── */}
+      <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* Header */}
         <div className="h-12 border-b border-border flex items-center px-4 gap-3 bg-card/50 backdrop-blur-sm flex-shrink-0">
           <button
@@ -277,7 +350,9 @@ function ChatContent() {
             {sidebarOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}
           </button>
           <h2 className="text-sm font-medium text-foreground truncate">
-            {chatId ? chatHistory.find((c) => c.id === chatId)?.title || t("nav.chat") : t("nav.newChat")}
+            {chatId
+              ? chatHistory.find((c) => c.id === chatId)?.title || t("nav.chat")
+              : t("nav.newChat")}
           </h2>
         </div>
 
@@ -293,30 +368,38 @@ function ChatContent() {
                     {msg.role === "assistant" && <AIAvatar size={28} className="mt-0.5" />}
 
                     <div className="flex flex-col gap-1.5 max-w-[80%]">
-                      <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                        msg.role === "user"
-                          ? "bg-primary text-primary-foreground rounded-tr-sm"
-                          : "bg-card border border-border text-foreground rounded-tl-sm"
-                      }`}>
-                        {msg.role === "user"
-                          ? <span dir="auto" className="whitespace-pre-wrap">{msg.content}</span>
-                          : <MarkdownRenderer key={msg.content} content={msg.content} />
-                        }
+                      <div
+                        className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-primary text-primary-foreground rounded-tr-sm"
+                            : "bg-card border border-border text-foreground rounded-tl-sm"
+                        }`}
+                      >
+                        {msg.role === "user" ? (
+                          <span dir="auto" className="whitespace-pre-wrap">
+                            {msg.content}
+                          </span>
+                        ) : (
+                          <MarkdownRenderer key={msg.content} content={msg.content} />
+                        )}
                       </div>
 
-                      {/* Action buttons — visible on hover */}
-                      <div className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${
-                        msg.role === "user" ? "justify-end" : "justify-start"
-                      }`}>
+                      {/* Action buttons */}
+                      <div
+                        className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${
+                          msg.role === "user" ? "justify-end" : "justify-start"
+                        }`}
+                      >
                         <button
                           onClick={() => handleCopy(msg.content, msg.id)}
                           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                           title={t("chat.copy")}
                         >
-                          {copiedId === msg.id
-                            ? <Check size={12} className="text-green-500" />
-                            : <Copy size={12} />
-                          }
+                          {copiedId === msg.id ? (
+                            <Check size={12} className="text-green-500" />
+                          ) : (
+                            <Copy size={12} />
+                          )}
                         </button>
                         {msg.role === "user" && (
                           <button
@@ -328,16 +411,18 @@ function ChatContent() {
                             <RotateCw size={12} />
                           </button>
                         )}
-                        {msg.role === "assistant" && idx > 0 && messages[idx - 1]?.role === "user" && (
-                          <button
-                            onClick={() => handleRegenerate(idx - 1)}
-                            disabled={streaming}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
-                            title={t("chat.regenerate")}
-                          >
-                            <RotateCw size={12} />
-                          </button>
-                        )}
+                        {msg.role === "assistant" &&
+                          idx > 0 &&
+                          messages[idx - 1]?.role === "user" && (
+                            <button
+                              onClick={() => handleRegenerate(idx - 1)}
+                              disabled={streaming}
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
+                              title={t("chat.regenerate")}
+                            >
+                              <RotateCw size={12} />
+                            </button>
+                          )}
                       </div>
                     </div>
 
@@ -352,6 +437,32 @@ function ChatContent() {
                   <AIAvatar size={28} className="mt-0.5" />
                   <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-card border border-border text-foreground text-sm leading-relaxed">
                     <MarkdownRenderer key={streamedContent} content={streamedContent} />
+                    {generatedImages.length > 0 && (
+                      <div className="mt-3 space-y-3">
+                        {generatedImages.map((img, i) => (
+                          <div
+                            key={i}
+                            className="relative group/img"
+                          >
+                            <img
+                              src={img.url}
+                              alt={img.prompt}
+                              className="rounded-xl border border-border max-w-full h-auto"
+                              loading="lazy"
+                            />
+                            <button
+                              onClick={() =>
+                                handleDownloadImage(img.url, img.prompt)
+                              }
+                              className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white opacity-0 group-hover/img:opacity-100 transition-opacity hover:bg-black/70"
+                              title={t("documents.download")}
+                            >
+                              <Download size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <StreamingCursor />
                   </div>
                 </div>
@@ -392,11 +503,15 @@ function ChatContent() {
                   streaming
                     ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
                     : input.trim()
-                    ? "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
-                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                      ? "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
                 }`}
               >
-                {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                {streaming ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Send size={16} />
+                )}
               </button>
             </div>
             <p className="text-center text-[11px] text-muted-foreground/50 mt-1.5">
@@ -404,18 +519,31 @@ function ChatContent() {
             </p>
           </div>
         </div>
+
+        <ConfirmDialog
+          isOpen={deleteDialog.isOpen}
+          title={t("chat.deleteTitle")}
+          message={t("chat.deleteDescription")}
+          confirmText={t("common.delete")}
+          cancelText={t("common.cancel")}
+          onConfirm={confirmDelete}
+          onCancel={cancelDelete}
+        />
       </div>
     </div>
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ChatPage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="animate-spin text-muted-foreground" size={24} />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="animate-spin text-muted-foreground" size={24} />
+        </div>
+      }
+    >
       <ChatContent />
     </Suspense>
   );

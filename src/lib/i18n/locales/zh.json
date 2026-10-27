@@ -138,7 +138,15 @@
     "copy": "复制",
     "copied": "已复制！",
     "regenerate": "重新生成",
-    "disclaimer": "FlexiData 是一个AI模型，可能会产生错误。"
+    "disclaimer": "FlexiData 是一个AI模型，可能会产生错误。",
+    "deleteTitle": "删除聊天",
+    "deleteDescription": "确定要删除此对话吗？此操作无法撤销。",
+    "suggestions": {
+      "summarize": "总结上传的文档",
+      "keyPoints": "关键数据点是什么？",
+      "simpleTerms": "用简单术语解释一下",
+      "tableData": "从中提取数据创建表格"
+    }
   },
   "agents": {
     "title": "你的智能体",
@@ -246,6 +254,7 @@
     "retry": "重试",
     "cancel": "取消",
     "confirm": "确认",
+    "delete": "删除",
     "back": "返回"
   }
 }

@@ -18,7 +18,7 @@ import {
   type PipelineSchema,
 } from "@/lib/extraction/pipeline";
 
-export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
 const PDF_MIME = "application/pdf";
 const IMAGE_MIMES = new Set([
@@ -30,11 +30,11 @@ const IMAGE_MIMES = new Set([
   "image/bmp",
 ]);
 
-export type DocumentPipeline = typeof processDocumentPipeline;
-export type PdfRenderer = (buffer: Buffer) => Promise<Buffer>;
+type DocumentPipeline = typeof processDocumentPipeline;
+type PdfRenderer = (buffer: Buffer) => Promise<Buffer>;
 
 /** A request-level error carrying its HTTP status. */
-export class ExtractError extends Error {
+class ExtractError extends Error {
   status: number;
   constructor(status: number, message: string) {
     super(message);
@@ -43,7 +43,7 @@ export class ExtractError extends Error {
 }
 
 /** Magic-byte sniffing fallback for clients that send an empty/opaque type. */
-export function sniffMime(buffer: Buffer): string | undefined {
+function sniffMime(buffer: Buffer): string | undefined {
   if (
     buffer.length >= 8 &&
     buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
@@ -63,14 +63,14 @@ export function sniffMime(buffer: Buffer): string | undefined {
  * Render the first page of a PDF to a PNG buffer so the image pipeline can
  * consume it. Mirrors the page-rendering path used by `file-parser`.
  */
-export async function renderFirstPageToPng(buffer: Buffer): Promise<Buffer> {
+async function renderFirstPageToPng(buffer: Buffer): Promise<Buffer> {
   const { renderPdfPageToPng } = await import("@/lib/pdf-render");
   const { png } = await renderPdfPageToPng(buffer, 1);
   return png;
 }
 
 /** Parse the optional `schema` form field into a validated PipelineSchema. */
-export async function parseSchema(raw: string | File | null): Promise<PipelineSchema> {
+async function parseSchema(raw: string | File | null): Promise<PipelineSchema> {
   if (raw == null) return { fields: [] };
   const text = typeof raw === "string" ? raw : await raw.text();
   if (!text.trim()) {
@@ -104,7 +104,7 @@ function resolveMime(declared: string, buffer: Buffer): string {
 }
 
 /** Build the route handler with injectable dependencies (pipeline, PDF renderer). */
-export function createExtractHandler(deps: {
+function createExtractHandler(deps: {
   pipeline: DocumentPipeline;
   renderPdf?: PdfRenderer;
 }) {
