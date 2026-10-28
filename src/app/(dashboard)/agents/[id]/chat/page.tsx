@@ -251,7 +251,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "40px";
+    el.style.height = "24px";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
 
@@ -690,7 +690,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                     {t("chat.attachFile")}
                   </span>
                 </div>
-                <div className="flex-1 relative">
+                <div className="flex-1 min-w-0 relative flex items-center min-h-10">
                   <textarea
                     ref={textareaRef}
                     value={input}
@@ -698,8 +698,8 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                     onKeyDown={handleKeyDown}
                     placeholder=""
                     rows={1}
-                    className="w-full resize-none bg-transparent text-sm text-foreground focus:outline-none relative z-10"
-                    style={{ minHeight: "40px", maxHeight: "200px", lineHeight: "24px", paddingTop: "8px", paddingBottom: "8px" }}
+                    className="w-full resize-none bg-transparent text-sm leading-6 text-foreground focus:outline-none block relative z-10"
+                    style={{ height: "24px", maxHeight: "200px", lineHeight: "24px", padding: 0 }}
                   />
                   {input === "" && (
                     <div className="absolute start-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground">

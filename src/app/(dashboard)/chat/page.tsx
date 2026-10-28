@@ -208,7 +208,7 @@ function ChatContent() {
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "40px";
+    el.style.height = "24px";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
 
@@ -539,7 +539,7 @@ function ChatContent() {
         <div className="shrink-0 border-t border-border/60 bg-background px-4 sm:px-6 py-3">
           <div className="w-full">
             <div className="flex items-end gap-2 rounded-2xl border border-border bg-card px-3 py-2 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-              <div className="flex-1 relative">
+              <div className="flex-1 min-w-0 relative flex items-center min-h-10">
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -547,8 +547,8 @@ function ChatContent() {
                   onKeyDown={handleKeyDown}
                   placeholder=""
                   rows={1}
-                  className="w-full resize-none bg-transparent text-sm text-foreground focus:outline-none relative z-10"
-                  style={{ minHeight: "40px", maxHeight: "200px", lineHeight: "24px", paddingTop: "8px", paddingBottom: "8px" }}
+                  className="w-full resize-none bg-transparent text-sm leading-6 text-foreground focus:outline-none block relative z-10"
+                  style={{ height: "24px", maxHeight: "200px", lineHeight: "24px", padding: 0 }}
                 />
                 {input === "" && (
                   <div className="absolute start-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground">
