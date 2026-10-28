@@ -203,7 +203,14 @@
     "themeLight": "Clair",
     "themeDark": "Sombre",
     "themeSystem": "Système",
-    "language": "Langue"
+    "language": "Langue",
+    "deleteAccount": "Supprimer le compte",
+    "deleteAccountDescription": "Supprime définitivement votre compte et tout son contenu — documents, fichiers, agents et conversations. Cette action est irréversible.",
+    "deleteAccountConfirmTitle": "Supprimer votre compte ?",
+    "deleteAccountConfirmMessage": "Votre compte, vos fichiers, vos agents et vos conversations seront définitivement supprimés. Saisissez DELETE ci-dessous pour confirmer.",
+    "deleteAccountConfirmLabel": "Saisissez DELETE pour confirmer",
+    "deletingAccount": "Suppression...",
+    "deleteAccountFailed": "Impossible de supprimer le compte. Veuillez réessayer."
   },
   "login": {
     "forgotPassword": "Mot de passe oublié ?"

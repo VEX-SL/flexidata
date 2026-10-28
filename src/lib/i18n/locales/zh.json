@@ -203,7 +203,14 @@
     "themeLight": "浅色",
     "themeDark": "深色",
     "themeSystem": "跟随系统",
-    "language": "语言"
+    "language": "语言",
+    "deleteAccount": "删除账户",
+    "deleteAccountDescription": "永久删除您的账户及其中所有内容——文档、文件、智能体和聊天记录。此操作无法撤销。",
+    "deleteAccountConfirmTitle": "删除您的账户？",
+    "deleteAccountConfirmMessage": "您的账户、文件、智能体和聊天记录将被永久删除。请在下方输入 DELETE 以确认。",
+    "deleteAccountConfirmLabel": "输入 DELETE 以确认",
+    "deletingAccount": "正在删除...",
+    "deleteAccountFailed": "无法删除账户，请重试。"
   },
   "login": {
     "forgotPassword": "忘记密码？"

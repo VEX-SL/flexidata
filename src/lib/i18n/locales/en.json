@@ -251,7 +251,14 @@
     "themeLight": "Light",
     "themeDark": "Dark",
     "themeSystem": "System",
-    "language": "Language"
+    "language": "Language",
+    "deleteAccount": "Delete account",
+    "deleteAccountDescription": "Permanently delete your account and everything in it — documents, files, agents and chats. This action cannot be undone.",
+    "deleteAccountConfirmTitle": "Delete your account?",
+    "deleteAccountConfirmMessage": "Your account, files, agents and chats will be permanently deleted. Type DELETE below to confirm.",
+    "deleteAccountConfirmLabel": "Type DELETE to confirm",
+    "deletingAccount": "Deleting...",
+    "deleteAccountFailed": "Could not delete your account. Please try again."
   },
   "login": {
     "forgotPassword": "Forgot Password?"

@@ -251,7 +251,14 @@
     "themeLight": "فاتح",
     "themeDark": "داكن",
     "themeSystem": "النظام",
-    "language": "اللغة"
+    "language": "اللغة",
+    "deleteAccount": "حذف الحساب",
+    "deleteAccountDescription": "سيتم حذف حسابك وكل ما بداخله نهائيًا — المستندات والملفات والوكلاء والمحادثات. لا يمكن التراجع عن هذا الإجراء.",
+    "deleteAccountConfirmTitle": "حذف حسابك؟",
+    "deleteAccountConfirmMessage": "هيتم حذف حسابك وملفاتك ووكلائك ومحادثاتك نهائيًا. اكتب DELETE بالضبط في الخانة تحت للتأكيد.",
+    "deleteAccountConfirmLabel": "اكتب DELETE للتأكيد",
+    "deletingAccount": "جاري الحذف...",
+    "deleteAccountFailed": "تعذّر حذف الحساب. حاول مرة أخرى."
   },
   "login": {
     "forgotPassword": "نسيت كلمة المرور؟"

@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { User, Save, Loader2, Palette, Globe, Camera, Image as ImageIcon, Lock, Eye, EyeOff } from "lucide-react";
+import { User, Save, Loader2, Palette, Globe, Camera, Image as ImageIcon, Lock, Eye, EyeOff, Trash2, AlertTriangle } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { useTranslation, LANGUAGES } from "@/lib/i18n";
+import { DeleteAccountDialog } from "@/components/delete-account-dialog";
 
 export default function SettingsPage() {
   const [name, setName] = useState("");
@@ -30,6 +31,11 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useTranslation();
   const [user, setUser] = useState<any>(null);
+
+  // Delete account state
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -204,6 +210,36 @@ export default function SettingsPage() {
       setPasswordError(err instanceof Error ? err.message : t("settings.passwordChangeFailed"));
     }
     setPasswordLoading(false);
+  }
+
+  async function handleDeleteAccount() {
+    if (deletingAccount) return;
+    setDeletingAccount(true);
+    setDeleteAccountError("");
+
+    try {
+      const res = await fetch("/api/user/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "DELETE" }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setDeleteAccountError(data?.error || t("settings.deleteAccountFailed"));
+        setDeletingAccount(false);
+        return;
+      }
+
+      // Session is invalid now — clear it locally and send the user to login.
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+      window.location.href = "/login";
+    } catch {
+      setDeleteAccountError(t("settings.deleteAccountFailed"));
+      setDeletingAccount(false);
+    }
   }
 
   return (
@@ -456,7 +492,47 @@ export default function SettingsPage() {
           ))}
         </div>
       </div>
+
+      {/* Delete account */}
+      <div className="p-6 rounded-xl border border-destructive/35 bg-destructive/5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-5 sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 p-2 rounded-lg bg-destructive/10">
+              <AlertTriangle size={20} className="text-destructive" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-destructive">
+                {t("settings.deleteAccount")}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1 max-w-md leading-relaxed">
+                {t("settings.deleteAccountDescription")}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setDeleteAccountError("");
+              setDeleteAccountOpen(true);
+            }}
+            className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-destructive text-white text-sm font-medium hover:bg-destructive/90 transition-colors"
+          >
+            <Trash2 size={16} />
+            {t("settings.deleteAccount")}
+          </button>
+        </div>
+      </div>
     </div>
+
+    {deleteAccountOpen && (
+      <DeleteAccountDialog
+        loading={deletingAccount}
+        error={deleteAccountError}
+        onConfirm={handleDeleteAccount}
+        onCancel={() => setDeleteAccountOpen(false)}
+      />
+    )}
     </div>
   );
 }
