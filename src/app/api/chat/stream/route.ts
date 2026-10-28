@@ -282,14 +282,15 @@ export async function POST(request: Request) {
           ],
         });
         let streamResult: { provider: string } | undefined;
-        for await (const chunk of streamGen) {
-          fullContent += chunk;
-          sendEvent("token", chunk);
-        }
-        // Get the return value from the async generator
-        const returnValue = await streamGen.return({ provider: "unknown" });
-        if (returnValue && returnValue.done && (returnValue.value as { provider: string }).provider) {
-          streamResult = returnValue.value as { provider: string };
+        // Manual iteration to capture the return value
+        while (true) {
+          const result = await streamGen.next();
+          if (result.done) {
+            streamResult = result.value as { provider: string } | undefined;
+            break;
+          }
+          fullContent += result.value;
+          sendEvent("token", result.value);
         }
 
         // Send provider info as a special event
