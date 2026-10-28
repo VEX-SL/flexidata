@@ -287,9 +287,9 @@ export async function POST(request: Request) {
           sendEvent("token", chunk);
         }
         // Get the return value from the async generator
-        const returnValue = await streamGen.return?.();
-        if (returnValue && returnValue.provider) {
-          streamResult = returnValue;
+        const returnValue = await streamGen.return(undefined);
+        if (returnValue && returnValue.value && returnValue.value.provider) {
+          streamResult = returnValue.value;
         }
 
         // Send provider info as a special event
