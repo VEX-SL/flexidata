@@ -118,14 +118,14 @@ function EmptyState({ onSuggestion, userName }: { onSuggestion: (s: string) => v
   const greeting = getGreeting(name);
 
   const suggestions = [
-    t("chat.suggestions.summarize"),
-    t("chat.suggestions.keyPoints"),
-    t("chat.suggestions.simpleTerms"),
-    t("chat.suggestions.tableData"),
+    t("chat.generalSuggestions.explain"),
+    t("chat.generalSuggestions.write"),
+    t("chat.generalSuggestions.brainstorm"),
+    t("chat.generalSuggestions.advice"),
   ];
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-8 px-4 select-none">
+    <div className="my-auto flex flex-col items-center justify-center gap-8 px-4 py-8 select-none">
       <div className="flex flex-col items-center gap-4 text-center">
         <div>
           <h2
@@ -173,6 +173,7 @@ function ChatContent() {
     chatId: string | null;
   }>({ isOpen: false, chatId: null });
   const [userName, setUserName] = useState<string | null>(null);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -185,11 +186,14 @@ function ChatContent() {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("name")
+          .select("name, avatar_url")
           .eq("id", user.id)
           .maybeSingle();
         if (profile?.name) {
           setUserName(profile.name);
+        }
+        if (profile?.avatar_url) {
+          setUserAvatar(profile.avatar_url);
         }
       }
     });
@@ -204,7 +208,7 @@ function ChatContent() {
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "36px";
+    el.style.height = "40px";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
 
@@ -222,14 +226,20 @@ function ChatContent() {
 
   const fetchMessages = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/chat-history/${id}`);
-      if (!res.ok) return;
+      const res = await fetch(`/api/chat-history/${id}?scope=general`);
+      if (!res.ok) {
+        // A chat from /agents must never open inside the general chatbot.
+        setChatId(null);
+        setMessages([]);
+        router.replace("/chat", { scroll: false });
+        return;
+      }
       const data: Message[] = await res.json();
       setMessages(data);
     } catch (err) {
       console.error("[Chat] Failed to fetch messages:", err);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     fetchChatHistory();
@@ -398,7 +408,7 @@ function ChatContent() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto flex flex-col">
           {messages.length === 0 && !streaming ? (
             <EmptyState onSuggestion={(s) => handleSend(s)} userName={userName} />
           ) : (
@@ -467,7 +477,9 @@ function ChatContent() {
                       </div>
                     </div>
 
-                    {msg.role === "user" && <UserAvatar size={28} className="mt-0.5" />}
+                    {msg.role === "user" && (
+                      <UserAvatar size={28} src={userAvatar} alt={userName || "Profile"} className="mt-0.5" />
+                    )}
                   </div>
                 </div>
               ))}
@@ -535,11 +547,11 @@ function ChatContent() {
                   onKeyDown={handleKeyDown}
                   placeholder=""
                   rows={1}
-                  className="w-full resize-none bg-transparent text-sm text-foreground focus:outline-none py-1.5 relative z-10"
-                  style={{ minHeight: "36px", maxHeight: "200px" }}
+                  className="w-full resize-none bg-transparent text-sm text-foreground focus:outline-none relative z-10"
+                  style={{ minHeight: "40px", maxHeight: "200px", lineHeight: "24px", paddingTop: "8px", paddingBottom: "8px" }}
                 />
                 {input === "" && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground">
+                  <div className="absolute start-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground">
                     <span>{t("chat.placeholderAnimated") || "Type your message"}</span>
                     <span className="inline-block animate-pulse">.</span>
                     <span className="inline-block animate-pulse [animation-delay:200ms]">.</span>
@@ -550,7 +562,7 @@ function ChatContent() {
               <button
                 onClick={() => (streaming ? abort() : handleSend())}
                 disabled={!streaming && !input.trim()}
-                className={`p-2 rounded-xl shrink-0 self-end mb-0.5 transition-all ${
+                className={`p-2 rounded-xl shrink-0 self-end mb-1 transition-all ${
                   streaming
                     ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
                     : input.trim()

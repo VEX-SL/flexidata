@@ -170,7 +170,8 @@
     "goodAfternoon": "Good Afternoon",
     "goodEvening": "Good Evening",
     "goodNight": "Good Night",
-    "howCanIHelp": "How can I help you analyze your documents today?",
+    "howCanIHelp": "How can I help you today?",
+    "howCanIHelpAgent": "How can I help you analyze your documents today?",
     "empty": "What can I help you with?",
     "emptySub": "Ask me anything — I'm a general-purpose AI assistant.",
     "thinking": "Thinking...",
@@ -187,6 +188,12 @@
       "keyPoints": "What are the key data points?",
       "simpleTerms": "Explain this in simple terms",
       "tableData": "Create a table from this data"
+    },
+    "generalSuggestions": {
+      "explain": "Explain a concept simply",
+      "write": "Help me write something",
+      "brainstorm": "Brainstorm ideas with me",
+      "advice": "Help me think through a decision"
     }
   },
   "agents": {

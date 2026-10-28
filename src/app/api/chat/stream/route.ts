@@ -119,6 +119,16 @@ export async function POST(request: Request) {
     chat = data;
   }
 
+  if (chat) {
+    // Enforce strict scope: a general chat (agent_id = null) can only be used
+    // from /chat, and an agent chat only from its own agent page.
+    const requestedAgentId = agentId || null;
+    const chatAgentId = chat.agent_id || null;
+    if (chatAgentId !== requestedAgentId) {
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    }
+  }
+
   if (!chat) {
     isNewChat = true;
     const { data, error } = await supabase

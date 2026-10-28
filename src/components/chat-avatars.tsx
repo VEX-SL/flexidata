@@ -22,7 +22,26 @@ export function AIAvatar({ size = 28, className = "" }: AIAvatarProps) {
   );
 }
 
-export function UserAvatar({ size = 28, className = "" }: AIAvatarProps) {
+export function UserAvatar({
+  size = 28,
+  className = "",
+  src,
+  alt = "Profile",
+}: AIAvatarProps & { src?: string | null; alt?: string }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={alt}
+        width={size}
+        height={size}
+        className={`shrink-0 rounded-xl object-cover border border-border ${className}`}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+
   return (
     <div
       className={`shrink-0 bg-primary/10 border border-primary/20 flex items-center justify-center rounded-xl ${className}`}

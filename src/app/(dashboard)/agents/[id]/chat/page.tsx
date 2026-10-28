@@ -146,7 +146,7 @@ function EmptyState({
   ];
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-8 px-4 select-none">
+    <div className="my-auto flex flex-col items-center justify-center gap-8 px-4 py-8 select-none">
       <div className="flex flex-col items-center gap-4 text-center">
         <div>
           <h2
@@ -156,7 +156,7 @@ function EmptyState({
             {greeting}
           </h2>
           <p className="text-sm text-muted-foreground mt-2 max-w-xs leading-relaxed mx-auto">
-            {t("chat.howCanIHelp")}
+            {t("chat.howCanIHelpAgent")}
           </p>
         </div>
       </div>
@@ -200,6 +200,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   });
   const [applyingEdit, setApplyingEdit] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [attachedFile, setAttachedFile] = useState<{ name: string } | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
@@ -218,11 +219,14 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("name")
+          .select("name, avatar_url")
           .eq("id", user.id)
           .maybeSingle();
         if (profile?.name) {
           setUserName(profile.name);
+        }
+        if (profile?.avatar_url) {
+          setUserAvatar(profile.avatar_url);
         }
       }
     });
@@ -247,7 +251,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "36px";
+    el.style.height = "40px";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [input]);
 
@@ -264,8 +268,14 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
   const fetchMessages = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/chat-history/${id}`);
-      if (!res.ok) return;
+      const res = await fetch(`/api/chat-history/${id}?agentId=${agentId}`);
+      if (!res.ok) {
+        // Only chats belonging to this agent may open in this page.
+        setChatId(null);
+        setMessages([]);
+        router.replace(`/agents/${agentId}/chat`, { scroll: false });
+        return;
+      }
       const data: Message[] = await res.json();
       setMessages(data);
       const editsMap: Record<string, FileEdit[]> = {};
@@ -278,7 +288,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       if (Object.keys(editsMap).length > 0)
         setMessageEdits((prev) => ({ ...prev, ...editsMap }));
     } catch {}
-  }, []);
+  }, [agentId, router]);
 
   useEffect(() => {
     fetchChatHistory();
@@ -497,18 +507,15 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           </button>
           <div className="flex-1 min-w-0">
             <h2 className="text-sm font-medium text-foreground truncate">
-              {agent?.name || ""}
-              {chatId && (
-                <span className="text-muted-foreground font-normal">
-                  {" — "}{chatHistory.find((c) => c.id === chatId)?.title || t("nav.chat")}
-                </span>
-              )}
+              {chatId
+                ? chatHistory.find((c) => c.id === chatId)?.title || t("nav.newChat")
+                : t("nav.newChat")}
             </h2>
           </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto flex flex-col">
           {messages.length === 0 && !streaming ? (
             <EmptyState agentName={agent?.name} onSuggestion={(s) => handleSend(s)} userName={userName} />
           ) : (
@@ -564,7 +571,9 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                       </div>
                     </div>
 
-                    {msg.role === "user" && <UserAvatar size={28} className="mt-0.5" />}
+                    {msg.role === "user" && (
+                      <UserAvatar size={28} src={userAvatar} alt={userName || "Profile"} className="mt-0.5" />
+                    )}
                   </div>
 
                   {/* File Edit Cards */}
@@ -668,7 +677,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
               )}
 
               <div className="flex items-end gap-2">
-                <div className="relative group shrink-0 self-end mb-0.5">
+                <div className="relative group shrink-0 self-end mb-1">
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
@@ -689,11 +698,11 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                     onKeyDown={handleKeyDown}
                     placeholder=""
                     rows={1}
-                    className="w-full resize-none bg-transparent text-sm text-foreground focus:outline-none py-1.5 relative z-10"
-                    style={{ minHeight: "36px", maxHeight: "200px" }}
+                    className="w-full resize-none bg-transparent text-sm text-foreground focus:outline-none relative z-10"
+                    style={{ minHeight: "40px", maxHeight: "200px", lineHeight: "24px", paddingTop: "8px", paddingBottom: "8px" }}
                   />
                   {input === "" && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground">
+                    <div className="absolute start-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground">
                       <span>{t("chat.placeholderAnimated") || "Type your message"}</span>
                       <span className="inline-block animate-pulse">.</span>
                       <span className="inline-block animate-pulse [animation-delay:200ms]">.</span>
@@ -705,7 +714,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                 <button
                   onClick={() => (streaming ? abort() : handleSend())}
                   disabled={!streaming && !input.trim()}
-                  className={`p-2 rounded-xl shrink-0 self-end mb-0.5 transition-all ${
+                  className={`p-2 rounded-xl shrink-0 self-end mb-1 transition-all ${
                     streaming
                       ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
                       : input.trim()

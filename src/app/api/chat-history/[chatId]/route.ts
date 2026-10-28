@@ -4,7 +4,7 @@ import { isValidUUID } from "@/lib/validators";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ chatId: string }> }
 ) {
   const authResult = await requireAuth();
@@ -17,16 +17,29 @@ export async function GET(
     return NextResponse.json({ error: "Invalid chat ID" }, { status: 400 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const agentId = searchParams.get("agentId");
+  const scope = searchParams.get("scope");
+
   const supabase = createAdminClient();
 
   const { data: chat } = await supabase
     .from("chats")
-    .select("id")
+    .select("id, agent_id")
     .eq("id", chatId)
     .eq("user_id", user.id)
     .single();
 
   if (!chat) {
+    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+  }
+
+  // Strict scope: /chat only sees general chats; an agent page only sees
+  // chats that belong to that exact agent.
+  if (agentId && chat.agent_id !== agentId) {
+    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+  }
+  if (scope === "general" && chat.agent_id) {
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   }
 
