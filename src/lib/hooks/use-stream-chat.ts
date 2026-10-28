@@ -83,8 +83,9 @@ export function useStreamChat(options: StreamChatOptions = {}) {
 
         if (!res.ok) {
           const err = await res.json();
-          debugRef.current.error = err.error || `HTTP ${res.status}`;
-          throw new Error(debugRef.current.error);
+          const errorMessage = err.error || `HTTP ${res.status}`;
+          debugRef.current.error = errorMessage;
+          throw new Error(errorMessage);
         }
 
         const reader = res.body?.getReader();

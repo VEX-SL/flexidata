@@ -287,9 +287,9 @@ export async function POST(request: Request) {
           sendEvent("token", chunk);
         }
         // Get the return value from the async generator
-        const returnValue = await streamGen.return(undefined);
-        if (returnValue && returnValue.value && returnValue.value.provider) {
-          streamResult = returnValue.value;
+        const returnValue = await streamGen.return({ provider: "unknown" });
+        if (returnValue && returnValue.done && (returnValue.value as { provider: string }).provider) {
+          streamResult = returnValue.value as { provider: string };
         }
 
         // Send provider info as a special event
@@ -383,7 +383,7 @@ export async function POST(request: Request) {
           await supabase.from("chats").update({ title }).eq("id", chatIdFinal);
         }
 
-        sendEvent("done", JSON.stringify({ chatId: chatIdFinal, title, provider: fullContent.providerUsed || null }));
+        sendEvent("done", JSON.stringify({ chatId: chatIdFinal, title, provider: streamResult?.provider || null }));
       } catch (err: any) {
         console.error("[Chat Stream] Error:", err);
         sendEvent("error", err?.message || "Stream failed");
