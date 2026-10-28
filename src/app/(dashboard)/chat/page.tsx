@@ -412,7 +412,7 @@ function ChatContent() {
           {messages.length === 0 && !streaming ? (
             <EmptyState onSuggestion={(s) => handleSend(s)} userName={userName} />
           ) : (
-            <div className="p-4 space-y-6 max-w-3xl mx-auto">
+            <div className="w-full px-4 sm:px-6 py-5 space-y-6">
               {messages.map((msg, idx) => (
                 <div key={msg.id} className="group">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -536,8 +536,8 @@ function ChatContent() {
         </div>
 
         {/* Input */}
-        <div className="shrink-0 border-t border-border/60 p-3">
-          <div className="max-w-3xl mx-auto">
+        <div className="shrink-0 border-t border-border/60 bg-background px-4 sm:px-6 py-3">
+          <div className="w-full">
             <div className="flex items-end gap-2 rounded-2xl border border-border bg-card px-3 py-2 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
               <div className="flex-1 relative">
                 <textarea
