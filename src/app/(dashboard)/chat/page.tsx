@@ -114,12 +114,8 @@ function getGreeting(name: string) {
 // ─── Empty State ──────────────────────────────────────────────────────────────
 function EmptyState({ onSuggestion, userName }: { onSuggestion: (s: string) => void; userName?: string | null }) {
   const { t } = useTranslation();
-  const [greeting, setGreeting] = useState("");
-
-  useEffect(() => {
-    const name = userName && userName.trim() ? userName.trim() : "Hamza";
-    setGreeting(getGreeting(name));
-  }, [userName]);
+  const name = userName && userName.trim() ? userName.trim() : "Hamza";
+  const greeting = getGreeting(name);
 
   const suggestions = [
     t("chat.suggestions.summarize"),
@@ -131,12 +127,14 @@ function EmptyState({ onSuggestion, userName }: { onSuggestion: (s: string) => v
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-8 px-4 select-none">
       <div className="flex flex-col items-center gap-4 text-center">
-        <AIAvatar size={56} className="shadow-lg shadow-primary/20" />
         <div>
-          <h2 className="text-lg font-semibold text-foreground tracking-tight">
-            {greeting || `Hello, ${userName && userName.trim() ? userName.trim() : "Hamza"}`}
+          <h2
+            suppressHydrationWarning
+            className="text-[clamp(25px,3vw,34px)] leading-[1.2] tracking-[-1.15px] font-semibold text-foreground"
+          >
+            {greeting}
           </h2>
-          <p className="text-sm text-muted-foreground mt-1 max-w-xs leading-relaxed">
+          <p className="text-sm text-muted-foreground mt-2 max-w-xs leading-relaxed mx-auto">
             {t("chat.howCanIHelp")}
           </p>
         </div>
@@ -241,9 +239,10 @@ function ChatContent() {
     }
   }, [initialChatId, fetchChatHistory, fetchMessages]);
 
-  async function handleSend() {
-    if (!input.trim() || streaming) return;
-    const userContent = input.trim();
+  async function handleSend(contentOverride?: string) {
+    const text = (contentOverride ?? input).trim();
+    if (!text || streaming) return;
+    const userContent = text;
     setMessages((prev) => [
       ...prev,
       { id: `temp-${Date.now()}`, role: "user", content: userContent, created_at: new Date().toISOString() },
@@ -401,7 +400,7 @@ function ChatContent() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 && !streaming ? (
-            <EmptyState onSuggestion={(s) => setInput(s)} userName={userName} />
+            <EmptyState onSuggestion={(s) => handleSend(s)} userName={userName} />
           ) : (
             <div className="p-4 space-y-6 max-w-3xl mx-auto">
               {messages.map((msg, idx) => (
@@ -549,7 +548,7 @@ function ChatContent() {
                 )}
               </div>
               <button
-                onClick={streaming ? abort : handleSend}
+                onClick={() => (streaming ? abort() : handleSend())}
                 disabled={!streaming && !input.trim()}
                 className={`p-2 rounded-xl shrink-0 self-end mb-0.5 transition-all ${
                   streaming

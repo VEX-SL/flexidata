@@ -180,6 +180,8 @@
     "disclaimer": "FlexiData هو نموذج ذكاء اصطناعي وقد ينتج عنه أخطاء.",
     "deleteTitle": "حذف الدردشة",
     "deleteDescription": "هل أنت متأكد من رغبتك في حذف هذه المحادثة؟ لا يمكن التراجع عن هذا الإجراء.",
+    "attachFile": "إرفاق ملف",
+    "removeAttachment": "إزالة الملف المرفق",
     "suggestions": {
       "summarize": "لخص المستند المرفوع",
       "keyPoints": "ما هي النقاط الرئيسية؟",

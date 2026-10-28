@@ -43,3 +43,5 @@ supabase/.env
 
 # Misc
 *.tsbuildinfo
+
+.html

@@ -16,6 +16,7 @@ import {
   RotateCw,
   MessageSquare,
   Download,
+  X,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useStreamChat } from "@/lib/hooks/use-stream-chat";
@@ -29,6 +30,8 @@ import {
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AIAvatar, UserAvatar, ThinkingDots, StreamingCursor } from "@/components/chat-avatars";
 import { stripMarkdown } from "@/lib/strip-markdown";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { FileTypeIcon, SUPPORTED_FILE_ACCEPT } from "@/components/file-icon";
 
 function getGreeting(name: string) {
   const hour = new Date().getHours();
@@ -124,7 +127,6 @@ interface Agent {
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
 function EmptyState({
-  agentName,
   onSuggestion,
   userName,
 }: {
@@ -133,12 +135,8 @@ function EmptyState({
   userName?: string | null;
 }) {
   const { t } = useTranslation();
-  const [greeting, setGreeting] = useState("");
-
-  useEffect(() => {
-    const name = userName && userName.trim() ? userName.trim() : "Hamza";
-    setGreeting(getGreeting(name));
-  }, [userName]);
+  const name = userName && userName.trim() ? userName.trim() : "Hamza";
+  const greeting = getGreeting(name);
 
   const suggestions = [
     t("chat.suggestions.summarize") || "Summarize the documents",
@@ -150,13 +148,15 @@ function EmptyState({
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-8 px-4 select-none">
       <div className="flex flex-col items-center gap-4 text-center">
-        <AIAvatar size={56} className="shadow-lg shadow-primary/20" />
         <div>
-          <h2 className="text-lg font-semibold text-foreground tracking-tight">
-            {greeting || `Hello, ${userName && userName.trim() ? userName.trim() : "Hamza"}`}
+          <h2
+            suppressHydrationWarning
+            className="text-[clamp(25px,3vw,34px)] leading-[1.2] tracking-[-1.15px] font-semibold text-foreground"
+          >
+            {greeting}
           </h2>
-          <p className="text-sm text-muted-foreground mt-1 max-w-xs leading-relaxed">
-            {agentName ? t("chat.howCanIHelp") || "How can I help you analyze your documents today?" : t("chat.howCanIHelp") || "How can I help you analyze your documents today?"}
+          <p className="text-sm text-muted-foreground mt-2 max-w-xs leading-relaxed mx-auto">
+            {t("chat.howCanIHelp")}
           </p>
         </div>
       </div>
@@ -200,6 +200,11 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   });
   const [applyingEdit, setApplyingEdit] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{ name: string } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    chatId: string | null;
+  }>({ isOpen: false, chatId: null });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -302,12 +307,14 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     });
   }
 
-  async function handleSend() {
-    if (!input.trim() || streaming) return;
-    const userContent = input.trim();
+  async function handleSend(contentOverride?: string) {
+    const text = (contentOverride ?? input).trim();
+    if (!text || streaming) return;
+    const userContent = text;
 
     setMessages((prev) => [...prev, { id: `temp-${Date.now()}`, role: "user", content: userContent, created_at: new Date().toISOString() }]);
     setInput("");
+    setAttachedFile(null);
     try {
       const result = await sendStream(chatId, userContent);
       if (!result) { setMessages((prev) => prev.filter((m) => !m.id.startsWith("temp-"))); return; }
@@ -323,18 +330,33 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     }
   }
 
-  async function handleDeleteChat(id: string) {
-    if (!confirm(t("agents.confirmDelete"))) return;
-    await fetch(`/api/chat/${id}`, { method: "DELETE" });
-    setChatHistory((prev) => prev.filter((c) => c.id !== id));
-    if (chatId === id) {
-      setChatId(null); setMessages([]); setMessageEdits({});
-      router.replace(`/agents/${agentId}/chat`, { scroll: false });
+  function handleDeleteChat(id: string) {
+    setDeleteDialog({ isOpen: true, chatId: id });
+  }
+
+  async function confirmDelete() {
+    if (!deleteDialog.chatId) return;
+    const id = deleteDialog.chatId;
+    try {
+      await fetch(`/api/chat/${id}`, { method: "DELETE" });
+      setChatHistory((prev) => prev.filter((c) => c.id !== id));
+      if (chatId === id) {
+        setChatId(null); setMessages([]); setMessageEdits({});
+        router.replace(`/agents/${agentId}/chat`, { scroll: false });
+      }
+    } catch {
+      alert(t("common.error"));
     }
+    setDeleteDialog({ isOpen: false, chatId: null });
+  }
+
+  function cancelDelete() {
+    setDeleteDialog({ isOpen: false, chatId: null });
   }
 
   function handleNewChat() {
     setChatId(null); setMessages([]); setMessageEdits({});
+    setAttachedFile(null);
     router.replace(`/agents/${agentId}/chat`, { scroll: false });
   }
 
@@ -371,6 +393,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAttachedFile({ name: file.name });
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
@@ -487,7 +510,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 && !streaming ? (
-            <EmptyState agentName={agent?.name} onSuggestion={(s) => setInput(s)} userName={userName} />
+            <EmptyState agentName={agent?.name} onSuggestion={(s) => handleSend(s)} userName={userName} />
           ) : (
             <div className="p-4 space-y-6 max-w-3xl mx-auto">
               {messages.map((msg, idx) => (
@@ -620,53 +643,79 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         {/* Input */}
         <div className="shrink-0 border-t border-border/60 p-3">
           <div className="max-w-3xl mx-auto">
-            <div className="flex items-end gap-2 rounded-2xl border border-border bg-card px-3 py-2 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+            <div className="rounded-2xl border border-border bg-card px-3 py-2 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
               <input ref={fileInputRef} type="file" className="hidden"
-                accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.png,.jpg,.jpeg,.gif,.webp,.js,.jsx,.ts,.tsx,.py,.java,.c,.cpp,.cs,.go,.rs,.rb,.php,.sh,.sql,.yaml,.yml,.xml,.html,.css,.scss,.vue,.svelte,.toml,.ini,.env,.mp3,.wav,.ogg,.webm,.flac,.aac,.m4a,.mp4,.webm,.avi,.mov"
+                accept={SUPPORTED_FILE_ACCEPT}
                 onChange={handleFileUpload}
               />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-colors shrink-0 self-end mb-0.5"
-                title="Attach file"
-              >
-                {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
-              </button>
-              <div className="flex-1 relative">
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder=""
-                  rows={1}
-                  className="w-full resize-none bg-transparent text-sm text-foreground focus:outline-none py-1.5 relative z-10"
-                  style={{ minHeight: "36px", maxHeight: "200px" }}
-                />
-                {input === "" && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground">
-                    <span>{t("chat.placeholderAnimated") || "Type your message"}</span>
-                    <span className="inline-block animate-pulse">.</span>
-                    <span className="inline-block animate-pulse [animation-delay:200ms]">.</span>
-                    <span className="inline-block animate-pulse [animation-delay:400ms]">.</span>
-                  </div>
-                )}
-              </div>
 
-              <button
-                onClick={streaming ? abort : handleSend}
-                disabled={!streaming && !input.trim()}
-                className={`p-2 rounded-xl shrink-0 self-end mb-0.5 transition-all ${
-                  streaming
-                    ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                    : input.trim()
-                    ? "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
-                    : "bg-muted text-muted-foreground cursor-not-allowed"
-                }`}
-              >
-                {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              </button>
+              {attachedFile && (
+                <div className="flex items-center gap-2 mb-2 w-fit max-w-full rounded-lg border border-border bg-muted/50 px-2.5 py-1.5 text-[11px] text-foreground">
+                  <FileTypeIcon fileName={attachedFile.name} size={15} />
+                  <span className="truncate max-w-[220px]" title={attachedFile.name}>
+                    {attachedFile.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAttachedFile(null)}
+                    className="ml-0.5 p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    aria-label={t("chat.removeAttachment")}
+                    title={t("chat.removeAttachment")}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-end gap-2">
+                <div className="relative group shrink-0 self-end mb-0.5">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-colors"
+                    aria-label={t("chat.attachFile")}
+                  >
+                    {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
+                  </button>
+                  <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium text-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+                    {t("chat.attachFile")}
+                  </span>
+                </div>
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder=""
+                    rows={1}
+                    className="w-full resize-none bg-transparent text-sm text-foreground focus:outline-none py-1.5 relative z-10"
+                    style={{ minHeight: "36px", maxHeight: "200px" }}
+                  />
+                  {input === "" && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground">
+                      <span>{t("chat.placeholderAnimated") || "Type your message"}</span>
+                      <span className="inline-block animate-pulse">.</span>
+                      <span className="inline-block animate-pulse [animation-delay:200ms]">.</span>
+                      <span className="inline-block animate-pulse [animation-delay:400ms]">.</span>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => (streaming ? abort() : handleSend())}
+                  disabled={!streaming && !input.trim()}
+                  className={`p-2 rounded-xl shrink-0 self-end mb-0.5 transition-all ${
+                    streaming
+                      ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                      : input.trim()
+                      ? "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+                      : "bg-muted text-muted-foreground cursor-not-allowed"
+                  }`}
+                >
+                  {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                </button>
+              </div>
             </div>
             <p className="text-center text-[11px] text-muted-foreground/50 mt-1.5">
               {t("chat.disclaimer")}
@@ -674,6 +723,16 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        title={t("chat.deleteTitle")}
+        message={t("chat.deleteDescription")}
+        confirmText={t("common.delete")}
+        cancelText={t("common.cancel")}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
     </div>
   );
 }
