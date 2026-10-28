@@ -161,6 +161,8 @@
     "delete": "删除",
     "confirmDelete": "删除此聊天机器人？",
     "confirmDeleteMessage": "您确定要删除此对话吗？此操作无法撤销。",
+    "deleteTitle": "删除智能体？",
+    "deleteDescription": "您确定要删除 {{name}} 吗？其所有文件和对话都将被删除。此操作无法撤销。",
     "backToFiles": "返回文件",
     "chatWith": "与 {{name}} 聊天",
     "chatSub": "询问该智能体的文档和文件相关问题。",

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Plus, Bot, Trash2, Copy, MessageSquare, FileText, ArrowRight, Sparkles, Check } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface Agent {
   id: string;
@@ -34,6 +35,11 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    agentId: string | null;
+    agentName: string;
+  }>({ isOpen: false, agentId: null, agentName: "" });
   const router = useRouter();
   const supabase = createClient();
   const { t } = useTranslation();
@@ -62,10 +68,22 @@ export default function AgentsPage() {
     } finally { setLoading(false); }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm(t("agents.confirmDelete"))) return;
-    const res = await fetch(`/api/agents/${id}`, { method: "DELETE" });
-    if (res.ok) setAgents((prev) => prev.filter((a) => a.id !== id));
+  function handleDelete(agent: Agent) {
+    setDeleteDialog({ isOpen: true, agentId: agent.id, agentName: agent.name });
+  }
+
+  function cancelDelete() {
+    setDeleteDialog({ isOpen: false, agentId: null, agentName: "" });
+  }
+
+  async function confirmDelete() {
+    const id = deleteDialog.agentId;
+    setDeleteDialog({ isOpen: false, agentId: null, agentName: "" });
+    if (!id) return;
+    try {
+      const res = await fetch(`/api/agents/${id}`, { method: "DELETE" });
+      if (res.ok) setAgents((prev) => prev.filter((a) => a.id !== id));
+    } catch {}
   }
 
   function copyShareLink(token: string) {
@@ -264,7 +282,7 @@ export default function AgentsPage() {
                     </button>
                   )}
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(agent.id); }}
+                    onClick={(e) => { e.stopPropagation(); handleDelete(agent); }}
                     style={{ padding: 6, borderRadius: 8, background: 'var(--color-muted)', border: 'none', cursor: 'pointer', color: 'var(--color-muted-foreground)', display: 'flex', transition: 'color .2s' }}
                     onMouseEnter={(ev) => ev.currentTarget.style.color = '#EF4444'}
                     onMouseLeave={(ev) => ev.currentTarget.style.color = 'var(--color-muted-foreground)'}
@@ -313,6 +331,16 @@ export default function AgentsPage() {
         </div>
       </div>
     </div>
+
+    <ConfirmDialog
+      isOpen={deleteDialog.isOpen}
+      title={t("agents.deleteTitle")}
+      message={t("agents.deleteDescription", { name: deleteDialog.agentName })}
+      confirmText={t("common.delete")}
+      cancelText={t("common.cancel")}
+      onConfirm={confirmDelete}
+      onCancel={cancelDelete}
+    />
     </>
   );
 }
