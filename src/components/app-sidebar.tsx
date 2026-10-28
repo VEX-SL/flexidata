@@ -25,17 +25,21 @@ const NAV_ITEMS = [
 ] as const;
 
 export function AppSidebar() {
-  const [collapsed, setCollapsed] = useState(() => {
-    // احفظ حالة الـ sidebar في localStorage عند الأول تحميل
-    const savedState = localStorage.getItem('sidebar-collapsed');
-    return savedState ? JSON.parse(savedState) : false;
-  });
-  const [isArabic, setIsArabic] = useState(true); // تبدأ العربية الافتراضية
+  const [collapsed, setCollapsed] = useState(false);
+  const [isArabic, setIsArabic] = useState(true);
   const [isDark, setIsDark] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
   const supabase = createClient();
+
+  // استعادة حالة الـ sidebar من localStorage عند التحميل لأول مرة (في المتصفح فقط)
+  useEffect(() => {
+    const savedState = localStorage.getItem('sidebar-collapsed');
+    if (savedState !== null) {
+      setCollapsed(JSON.parse(savedState));
+    }
+  }, []);
 
   // حفظ حالة الـ sidebar في localStorage عندما تتغير
   useEffect(() => {
