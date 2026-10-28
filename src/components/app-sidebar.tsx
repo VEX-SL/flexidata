@@ -25,13 +25,22 @@ const NAV_ITEMS = [
 ] as const;
 
 export function AppSidebar() {
-  const [collapsed, setCollapsed] = useState(false);
-  const [isArabic, setIsArabic] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    // احفظ حالة الـ sidebar في localStorage عند الأول تحميل
+    const savedState = localStorage.getItem('sidebar-collapsed');
+    return savedState ? JSON.parse(savedState) : false;
+  });
+  const [isArabic, setIsArabic] = useState(true); // تبدأ العربية الافتراضية
   const [isDark, setIsDark] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
   const supabase = createClient();
+
+  // حفظ حالة الـ sidebar في localStorage عندما تتغير
+  useEffect(() => {
+    localStorage.setItem('sidebar-collapsed', JSON.stringify(collapsed));
+  }, [collapsed]);
 
   useEffect(() => {
     const checkSettings = () => {
@@ -45,7 +54,7 @@ export function AppSidebar() {
       const isBodyDark = document.body.classList.contains("dark");
       const dataTheme = document.documentElement.getAttribute("data-theme") === "dark";
       const localTheme = localStorage.getItem("theme") === "dark";
-      
+
       // إذا كان أي منها يشير للوضع الداكن
       setIsDark(isHtmlDark || isBodyDark || dataTheme || localTheme);
     };
@@ -64,7 +73,7 @@ export function AppSidebar() {
     });
 
     return () => observer.disconnect();
-  }, []);
+  }, [isArabic, isDark]);
 
   function isActive(path: string) {
     if (path === "/dashboard") return pathname === "/dashboard";

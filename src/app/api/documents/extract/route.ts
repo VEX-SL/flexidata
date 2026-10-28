@@ -18,7 +18,7 @@ import {
   type PipelineSchema,
 } from "@/lib/extraction/pipeline";
 
-const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 
 const PDF_MIME = "application/pdf";
 const IMAGE_MIMES = new Set([
@@ -104,7 +104,7 @@ function resolveMime(declared: string, buffer: Buffer): string {
 }
 
 /** Build the route handler with injectable dependencies (pipeline, PDF renderer). */
-function createExtractHandler(deps: {
+export function createExtractHandler(deps: {
   pipeline: DocumentPipeline;
   renderPdf?: PdfRenderer;
 }) {
