@@ -129,13 +129,19 @@ interface Agent {
 function EmptyState({
   onSuggestion,
   userName,
+  ready,
 }: {
   agentName?: string;
   onSuggestion: (s: string) => void;
   userName?: string | null;
+  /** False until the client knows the real name and local time. */
+  ready: boolean;
 }) {
   const { t } = useTranslation();
   const name = userName && userName.trim() ? userName.trim() : "Hamza";
+  // The greeting depends on the visitor's clock and profile, so it must never
+  // be painted from the prerendered HTML: a placeholder keeps the space until
+  // the real greeting can be rendered in one go.
   const greeting = getGreeting(name);
 
   const suggestions = [
@@ -149,12 +155,16 @@ function EmptyState({
     <div className="my-auto flex flex-col items-center justify-center gap-8 px-4 py-8 select-none">
       <div className="flex flex-col items-center gap-4 text-center">
         <div>
-          <h2
-            suppressHydrationWarning
-            className="text-[clamp(25px,3vw,34px)] leading-[1.2] tracking-[-1.15px] font-semibold text-foreground"
-          >
-            {greeting}
-          </h2>
+          {ready ? (
+            <h2 className="text-[clamp(25px,3vw,34px)] leading-[1.2] tracking-[-1.15px] font-semibold text-foreground">
+              {greeting}
+            </h2>
+          ) : (
+            <div
+              aria-hidden="true"
+              className="mx-auto h-[clamp(30px,3.6vw,41px)] w-[min(62vw,17rem)] rounded-xl bg-muted/60 animate-pulse"
+            />
+          )}
           <p className="text-sm text-muted-foreground mt-2 max-w-xs leading-relaxed mx-auto">
             {t("chat.howCanIHelpAgent")}
           </p>
@@ -201,6 +211,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const [applyingEdit, setApplyingEdit] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [attachedFile, setAttachedFile] = useState<{ name: string } | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
@@ -213,23 +224,34 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const initialLoadDone = useRef(false);
 
   useEffect(() => {
-    import("@/lib/supabase/client").then(async ({ createClient }) => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("name, avatar_url")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (profile?.name) {
-          setUserName(profile.name);
+    let active = true;
+    (async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("name, avatar_url")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (!active) return;
+          if (profile?.name) {
+            setUserName(profile.name);
+          }
+          if (profile?.avatar_url) {
+            setUserAvatar(profile.avatar_url);
+          }
         }
-        if (profile?.avatar_url) {
-          setUserAvatar(profile.avatar_url);
-        }
+      } catch {
+        // Ignore — the greeting falls back to the default name.
       }
-    });
+      if (active) setProfileLoaded(true);
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   function editFingerprint(edit: FileEdit) {
@@ -517,7 +539,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto flex flex-col">
           {messages.length === 0 && !streaming ? (
-            <EmptyState agentName={agent?.name} onSuggestion={(s) => handleSend(s)} userName={userName} />
+            <EmptyState agentName={agent?.name} onSuggestion={(s) => handleSend(s)} userName={userName} ready={profileLoaded} />
           ) : (
             <div className="w-full px-4 sm:px-6 py-5 space-y-6">
               {messages.map((msg, idx) => (
