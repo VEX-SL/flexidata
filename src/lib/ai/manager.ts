@@ -146,7 +146,7 @@ export class ProviderManager {
   async *streamChatCompletion(
     request: AIRequest,
     retryAttempts = 1
-  ): AsyncGenerator<string, void, unknown> {
+  ): AsyncGenerator<string, { provider: string }, unknown> {
     for (const provider of this.providers) {
       if (!provider.supportsStreaming()) continue;
       if (this.disabledProviders.has(provider.name)) continue;
@@ -160,7 +160,7 @@ export class ProviderManager {
           );
           yield* provider.streamCompletion(truncatedRequest);
           console.log(`[ProviderManager] ${provider.name} stream completed`);
-          return;
+          return { provider: provider.name };
         } catch (err: any) {
           const isAbort = err?.name === "AbortError";
           console.error(
@@ -194,6 +194,7 @@ export class ProviderManager {
     console.log("[ProviderManager] No streaming provider succeeded, falling back to non-streaming");
     const response = await this.chatCompletion(request, 1);
     yield response.content;
+    return { provider: response.provider || "fallback" };
   }
 
   private truncateForProvider(providerName: string, request: AIRequest): AIRequest {

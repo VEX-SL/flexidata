@@ -281,9 +281,20 @@ export async function POST(request: Request) {
             ...historyMessages,
           ],
         });
+        let streamResult: { provider: string } | undefined;
         for await (const chunk of streamGen) {
           fullContent += chunk;
           sendEvent("token", chunk);
+        }
+        // Get the return value from the async generator
+        const returnValue = await streamGen.return?.();
+        if (returnValue && returnValue.provider) {
+          streamResult = returnValue;
+        }
+
+        // Send provider info as a special event
+        if (streamResult?.provider) {
+          sendEvent("provider", streamResult.provider);
         }
 
         if (effectiveAgentId && !fullContent.includes("[FILE_EDIT:") && !fullContent.includes("[GENERATE_IMAGE:") && isEditRequest(msgContent, fileContext)) {
@@ -372,7 +383,7 @@ export async function POST(request: Request) {
           await supabase.from("chats").update({ title }).eq("id", chatIdFinal);
         }
 
-        sendEvent("done", JSON.stringify({ chatId: chatIdFinal, title }));
+        sendEvent("done", JSON.stringify({ chatId: chatIdFinal, title, provider: fullContent.providerUsed || null }));
       } catch (err: any) {
         console.error("[Chat Stream] Error:", err);
         sendEvent("error", err?.message || "Stream failed");
