@@ -46,25 +46,9 @@ interface SpeechSynthesisVoice {
     default: boolean;
 }
 
-declare global {
-    interface Window {
-        SpeechRecognition: { new(): SpeechRecognition };
-        webkitSpeechRecognition: { new(): SpeechRecognition };
-    }
-}
-
-interface VoicePipelineOptions {
-    apiKey?: string;
-    onStateChange?: (state: 'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR') => void;
-    onInterimTranscript?: (transcript: string) => void;
-    onTranscript?: (transcript: string) => void;
-    onAIResponse?: (chunk: string, isComplete: boolean) => void;
-    onError?: (error: string) => void;
-}
-
-interface QueuedUtterance {
-    utterance: SpeechSynthesisUtterance;
-    resolve: () => void;
+interface VoicePipelineState {
+    current: 'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR';
+    transitions: Record<'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR', string[]>;
 }
 
 class VoicePipeline {
@@ -73,7 +57,8 @@ class VoicePipeline {
     private recognition: SpeechRecognition | null;
     private isListening: boolean;
     private voices: SpeechSynthesisVoice[] = [];
-    
+    private voicesLoaded: boolean = false;
+
     // Callbacks
     private onStateChange: (state: 'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR') => void;
     private onInterimTranscript: (transcript: string) => void;
@@ -82,37 +67,56 @@ class VoicePipeline {
     private onError: (error: string) => void;
 
     // TTS Queue for streaming
-    private ttsQueue: QueuedUtterance[] = [];
+    private ttsQueue: Array<{ utterance: SpeechSynthesisUtterance, resolve: () => void }> = [];
     private isSpeaking: boolean = false;
     private currentUtterance: SpeechSynthesisUtterance | null = null;
     private sentenceBuffer: string = '';
-    
+    private currentRequestAbortController: AbortController | null = null;
+
     // Chat history for context
     private chatHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    private stateMachine: VoicePipelineState;
 
-    constructor(options: VoicePipelineOptions = {}) {
-        this.apiKey = options.apiKey || '';
-        this.synth = window.speechSynthesis;
-        this.recognition = null;
-        this.isListening = false;
-        
+    constructor(options: {
+        onStateChange?: (state: 'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR') => void;
+        onInterimTranscript?: (transcript: string) => void;
+        onTranscript?: (transcript: string) => void;
+        onAIResponse?: (chunk: string, isComplete: boolean) => void;
+        onError?: (error: string) => void;
+    } = {}) {
         this.onStateChange = options.onStateChange || (() => {});
         this.onInterimTranscript = options.onInterimTranscript || (() => {});
         this.onTranscript = options.onTranscript || (() => {});
         this.onAIResponse = options.onAIResponse || (() => {});
         this.onError = options.onError || (() => {});
 
+        this.synth = window.speechSynthesis;
+        this.recognition = null;
+        this.isListening = false;
+
+        this.stateMachine = {
+            current: 'IDLE',
+            transitions: {
+                'IDLE': ['LISTENING', 'PROCESSING'],
+                'LISTENING': ['PROCESSING', 'IDLE'],
+                'PROCESSING': ['SPEAKING', 'IDLE'],
+                'SPEAKING': ['IDLE'],
+                'ERROR': ['IDLE']
+            }
+        };
+
         this.initVoices();
         this.initSTT();
-        this.processTTSQueue();
     }
 
     private initVoices() {
         const loadVoices = () => {
             this.voices = this.synth.getVoices();
+            this.voicesLoaded = true;
         };
-        
+
         loadVoices();
+
         if (this.synth.onvoiceschanged !== undefined) {
             this.synth.onvoiceschanged = loadVoices;
         }
@@ -121,7 +125,6 @@ class VoicePipeline {
     private initSTT() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            console.warn("STT not supported in this browser. Fallback required.");
             this.onError("التعرف على الصوت غير مدعوم في هذا المتصفح");
             return;
         }
@@ -144,12 +147,10 @@ class VoicePipeline {
                 }
             }
 
-            // Update interim transcript in real-time
             if (interimTranscript) {
                 this.onInterimTranscript(interimTranscript);
             }
 
-            // Handle final transcript
             if (finalTranscript) {
                 this.onTranscript(finalTranscript.trim());
                 this.handleLLMStream(finalTranscript.trim());
@@ -158,38 +159,38 @@ class VoicePipeline {
 
         this.recognition.onerror = (err) => {
             console.error("STT Error:", err);
-            // Don't treat 'no-speech' as a real error
             if (err.error !== 'no-speech') {
                 this.onError(`خطأ في التعرف على الصوت: ${err.error}`);
             }
             this.isListening = false;
-            this.onStateChange('IDLE');
+            this.setState('ERROR');
         };
 
         this.recognition.onend = () => {
             this.isListening = false;
-            if (this.onStateChange) {
-                this.onStateChange('IDLE');
-            }
         };
     }
 
     public start() {
-        // Barge-in: cancel any ongoing TTS
-        if (this.synth.speaking || this.isSpeaking) {
-            this.cancelTTS();
-        }
-        
         if (this.recognition && !this.isListening) {
             try {
                 this.recognition.start();
                 this.isListening = true;
-                this.onStateChange('LISTENING');
+                this.setState('LISTENING');
             } catch (e) {
                 console.error('Failed to start recognition:', e);
                 this.onError('فشل في بدء التعرف على الصوت');
+                this.setState('ERROR');
             }
         }
+    }
+
+    public sendText(text: string) {
+        if (!text.trim()) return;
+
+        this.chatHistory.push({ role: 'user', content: text });
+        this.onTranscript(text);
+        this.handleLLMStream(text);
     }
 
     public stop() {
@@ -197,6 +198,12 @@ class VoicePipeline {
             this.recognition.stop();
             this.isListening = false;
         }
+    }
+
+    public cancel() {
+        this.cancelTTS();
+        this.cancelLLMRequest();
+        this.setState('IDLE');
     }
 
     private cancelTTS() {
@@ -207,11 +214,18 @@ class VoicePipeline {
         this.sentenceBuffer = '';
     }
 
+    private cancelLLMRequest() {
+        if (this.currentRequestAbortController) {
+            this.currentRequestAbortController.abort();
+            this.currentRequestAbortController = null;
+        }
+    }
+
     private async handleLLMStream(prompt: string) {
-        this.onStateChange('PROCESSING');
-        
-        // Add user message to history
+        this.setState('PROCESSING');
+
         this.chatHistory.push({ role: 'user', content: prompt });
+        this.currentRequestAbortController = new AbortController();
 
         try {
             const response = await fetch('/api/voice-chat', {
@@ -220,12 +234,12 @@ class VoicePipeline {
                 body: JSON.stringify({
                     messages: this.chatHistory,
                     systemPrompt: "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي."
-                })
+                }),
+                signal: this.currentRequestAbortController.signal
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`API Error: ${response.status} - ${errorText}`);
+                throw new Error(`API Error: ${response.status}`);
             }
 
             const reader = response.body?.getReader();
@@ -247,121 +261,85 @@ class VoicePipeline {
                     if (line.startsWith('data: ')) {
                         try {
                             const json = JSON.parse(line.slice(6));
-                            
+
                             if (json.done) {
-                                // Streaming complete
                                 break;
                             }
-                            
+
                             if (json.error) {
                                 throw new Error(json.error);
                             }
 
                             const textChunk = json.chunk;
-                            
-                            if (textChunk) {
-                                fullResponse += textChunk;
-                                this.onAIResponse(textChunk, false);
-                                
-                                // Stream to TTS - buffer sentences and speak as they complete
-                                this.bufferAndSpeak(textChunk);
-                            }
+                            fullResponse += textChunk;
+                            this.onAIResponse(textChunk, false);
+                            this.bufferAndSpeak(textChunk);
                         } catch (e) {
-                            // Ignore parse errors for incomplete chunks
+                            this.onError(`خطأ في تحليل الرد: ${e instanceof Error ? e.message : 'خطأ غير معروف'}`);
+                            this.setState('ERROR');
                         }
                     }
                 }
             }
 
-            // Handle any remaining buffer
             if (this.sentenceBuffer.trim()) {
                 this.speakImmediate(this.sentenceBuffer.trim());
                 this.sentenceBuffer = '';
             }
 
-            // Mark streaming as complete
             this.onAIResponse('', true);
-            
-            // Add assistant response to history
-            if (fullResponse.trim()) {
-                this.chatHistory.push({ role: 'assistant', content: fullResponse.trim() });
-                
-                // Keep history manageable (last 20 messages)
-                if (this.chatHistory.length > 20) {
-                    this.chatHistory = this.chatHistory.slice(-20);
-                }
-            }
-
+            this.chatHistory.push({ role: 'assistant', content: fullResponse.trim() });
         } catch (e) {
-            console.error("LLM Streaming Error:", e);
-            this.onError(`خطأ في الاتصال: ${e instanceof Error ? e.message : 'خطأ غير معروف'}`);
-            this.onStateChange('ERROR');
-            setTimeout(() => this.onStateChange('IDLE'), 2000);
+            if (e instanceof Error && e.name !== 'AbortError') {
+                this.onError(`خطأ في الاتصال: ${e.message}`);
+                this.setState('ERROR');
+            }
+        } finally {
+            this.currentRequestAbortController = null;
+            this.setState('IDLE');
         }
     }
 
     private bufferAndSpeak(chunk: string) {
         this.sentenceBuffer += chunk;
-        
-        // Split by sentence endings (Arabic and English)
         const sentenceRegex = /[^.!?؟]+[.!?؟]+/g;
         let match;
-        const sentences: string[] = [];
-        
+
         while ((match = sentenceRegex.exec(this.sentenceBuffer)) !== null) {
-            sentences.push(match[0].trim());
-        }
-        
-        // If we found complete sentences, speak them and keep the remainder
-        if (sentences.length > 0) {
-            const lastMatchEnd = sentenceRegex.lastIndex;
-            this.sentenceBuffer = this.sentenceBuffer.slice(lastMatchEnd);
-            
-            for (const sentence of sentences) {
-                if (sentence.trim()) {
-                    this.speakImmediate(sentence.trim());
-                }
+            const sentence = match[0].trim();
+            if (sentence) {
+                this.speakImmediate(sentence);
             }
         }
     }
 
-    private speakImmediate(text: string) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        
-        // Find best voice for Arabic/English
-        const targetVoice = this.voices.find(v => 
-            v.lang.startsWith('ar') || v.lang.startsWith('en')
-        ) || this.voices.find(v => 
-            v.name.toLowerCase().includes('arabic') || 
-            v.name.toLowerCase().includes('english')
-        );
-        
-        if (targetVoice) {
-            utterance.voice = targetVoice;
-        }
-        
-        utterance.lang = targetVoice?.lang.startsWith('ar') ? 'ar-SA' : 'en-US';
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
+    private speakImmediate(text: string): Promise<void> {
+        return new Promise((resolve) => {
+            const utterance = new SpeechSynthesisUtterance(text);
+            const targetVoice = this.voices.find(v =>
+                v.lang.startsWith('ar') || v.lang.startsWith('en')
+            );
 
-        return new Promise<void>((resolve) => {
+            if (targetVoice) {
+                utterance.voice = targetVoice;
+                utterance.lang = targetVoice.lang;
+            }
+
             utterance.onend = () => {
                 this.isSpeaking = false;
                 this.currentUtterance = null;
                 resolve();
             };
+
             utterance.onerror = () => {
                 this.isSpeaking = false;
                 this.currentUtterance = null;
+                this.onError('فشل في النطق');
                 resolve();
             };
 
             this.ttsQueue.push({ utterance, resolve });
-            
-            if (!this.isSpeaking) {
-                this.processTTSQueue();
-            }
+            this.processTTSQueue();
         });
     }
 
@@ -371,23 +349,22 @@ class VoicePipeline {
         this.isSpeaking = true;
         this.onStateChange('SPEAKING');
 
-        while (this.ttsQueue.length > 0) {
-            const { utterance, resolve } = this.ttsQueue.shift()!;
-            this.currentUtterance = utterance;
-            
-            // Check if we should cancel (barge-in)
-            if (!this.isSpeaking) break;
-            
-            this.synth.speak(utterance);
-            await new Promise<void>(resolve);
-        }
+        const { utterance, resolve } = this.ttsQueue.shift()!;
+        this.currentUtterance = utterance;
 
+        this.synth.speak(utterance);
+        await utterance.onend.promise;
+        resolve();
         this.isSpeaking = false;
         this.currentUtterance = null;
-        
-        // Check if we're still listening or processing
-        if (!this.isListening) {
-            this.onStateChange('IDLE');
+    }
+
+    private setState(newState: 'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR') {
+        if (this.stateMachine.transitions[this.stateMachine.current].includes(newState)) {
+            this.stateMachine.current = newState;
+            this.onStateChange(newState);
+        } else {
+            console.warn(`Invalid state transition from ${this.stateMachine.current} to ${newState}`);
         }
     }
 
@@ -400,16 +377,31 @@ class VoicePipeline {
 
     public clearHistory() {
         this.chatHistory = [];
+        this.cancelLLMRequest();
     }
 
-    public getState(): 'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' {
-        if (this.isListening) return 'LISTENING';
-        if (this.isSpeaking) return 'SPEAKING';
-        return 'IDLE';
+    public getState(): 'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR' {
+        return this.stateMachine.current;
     }
 
-    public isActive(): boolean {
-        return this.isListening || this.isSpeaking || this.ttsQueue.length > 0;
+    public dispose() {
+        this.cancelTTS();
+        this.cancelLLMRequest();
+        this.isListening = false;
+        this.isSpeaking = false;
+        this.ttsQueue = [];
+        this.currentUtterance = null;
+        this.sentenceBuffer = '';
+        this.chatHistory = [];
+
+        if (this.recognition) {
+            this.recognition.onresult = null;
+            this.recognition.onerror = null;
+            this.recognition.onend = null;
+            this.recognition = null;
+        }
+
+        this.setState('IDLE');
     }
 }
 

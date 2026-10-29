@@ -1,12 +1,10 @@
-import { getProviderManager } from "@/lib/ai/manager";
-import type { AIRequest } from "@/types";
+import { getProviderManager } from "../../../lib/ai/manager";
+import type { AIRequest } from "../../../../types";
+
 
 export async function POST(req: Request) {
   try {
-    const { messages, systemPrompt } = await req.json() as {
-      messages: Array<{ role: "user" | "assistant"; content: string }>;
-      systemPrompt?: string;
-    };
+    const { messages, systemPrompt } = await req.json();
 
     if (!messages || messages.length === 0) {
       return new Response(JSON.stringify({ error: "Messages required" }), {
@@ -17,14 +15,13 @@ export async function POST(req: Request) {
 
     const providerManager = getProviderManager();
 
-    // Convert to AIRequest format
     const request: AIRequest = {
       messages: messages.map(m => ({ role: m.role, content: m.content })),
       temperature: 0.7,
       maxTokens: 1024,
+      system: systemPrompt || "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي."
     };
 
-    // Use streaming from provider manager
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
