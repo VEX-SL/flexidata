@@ -546,7 +546,6 @@ function ResetPasswordInner() {
               <div className="fd-input-group">
                 <label className="fd-label">{t("resetPassword.newPasswordLabel")}</label>
                 <div className="fd-input-wrapper">
-                  <Lock className="fd-input-icon" size={18} />
                   <input
                     type={showNewPassword ? "text" : "password"}
                     placeholder={t("resetPassword.newPasswordPlaceholder")}
@@ -570,7 +569,6 @@ function ResetPasswordInner() {
               <div className="fd-input-group">
                 <label className="fd-label">{t("resetPassword.confirmPasswordLabel")}</label>
                 <div className="fd-input-wrapper">
-                  <Lock className="fd-input-icon" size={18} />
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder={t("resetPassword.confirmPasswordPlaceholder")}

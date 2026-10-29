@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import VoicePipeline from '@/lib/voice/voice-pipeline';
-import { X, Mic, Volume2, Loader2, Send, Trash2, Minimize2, Maximize2 } from 'lucide-react';
+import { X, Mic, Volume2, Loader2, Send, Trash2, Minimize2, Maximize2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 
@@ -24,13 +24,16 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const waveAnimationRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [sttSupported, setSttSupported] = useState(true);
 
   // Initialize voice pipeline
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || '';
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setSttSupported(false);
+    }
     
     voicePipelineRef.current = new VoicePipeline({
-      apiKey,
       onStateChange: (newState) => {
         setState(newState as typeof state);
         if (newState === 'IDLE') {
@@ -41,7 +44,6 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
         setInterimTranscript(transcript);
       },
       onTranscript: (transcript: string) => {
-        // Add user message to chat
         const newMessage: VoiceMessage = {
           id: `user-${Date.now()}`,
           role: 'user',
@@ -53,14 +55,11 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
       },
       onAIResponse: (chunk: string, isComplete: boolean) => {
         if (isComplete) {
-          // Final response - add as new message or update last assistant message
           setMessages(prev => {
             const lastMsg = prev[prev.length - 1];
             if (lastMsg && lastMsg.role === 'assistant' && lastMsg.isInterim) {
-              // Update the streaming message
               return [...prev.slice(0, -1), { ...lastMsg, content: lastMsg.content + chunk, isInterim: false }];
             } else {
-              // New assistant message
               return [...prev, {
                 id: `assistant-${Date.now()}`,
                 role: 'assistant',
@@ -71,7 +70,6 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
             }
           });
         } else {
-          // Streaming chunk - update or create streaming message
           setMessages(prev => {
             const lastMsg = prev[prev.length - 1];
             if (lastMsg && lastMsg.role === 'assistant' && lastMsg.isInterim) {
@@ -118,76 +116,86 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
     if (!ctx) return;
 
     const resize = () => {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.offsetWidth * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
+      ctx.scale(dpr, dpr);
     };
     resize();
     window.addEventListener('resize', resize);
 
     let time = 0;
-    const bars = 32;
-    const barWidth = 4;
-    const gap = 6;
+    const bars = 40;
+    const barWidth = 3;
+    const gap = 5;
 
     const animate = () => {
       if (!canvasRef.current) return;
       
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const centerY = canvas.height / 2;
-      const maxHeight = canvas.height * 0.4;
+      const width = canvas.offsetWidth;
+      const height = canvas.offsetHeight;
+      ctx.clearRect(0, 0, width, height);
+      const centerY = height / 2;
+      const maxHeight = height * 0.35;
 
       for (let i = 0; i < bars; i++) {
         let height = 0;
         
         if (state === 'LISTENING') {
           // Listening: animated waves reacting to "audio"
-          const frequency = 0.15 + Math.sin(time * 0.01 + i * 0.3) * 0.1;
-          height = Math.abs(Math.sin(time * 0.02 + i * 0.5) * frequency * maxHeight * 1.5);
-          // Add some randomness for live feel
-          height += Math.random() * maxHeight * 0.3;
+          const baseFreq = 0.12 + Math.sin(time * 0.008 + i * 0.25) * 0.08;
+          const variance = Math.random() * 0.4 + 0.6;
+          height = Math.abs(Math.sin(time * 0.018 + i * 0.4) * baseFreq * maxHeight * variance * 2);
+          height += Math.random() * maxHeight * 0.25;
         } else if (state === 'SPEAKING') {
           // Speaking: smoother, more rhythmic waves
-          const frequency = 0.2 + Math.sin(time * 0.008 + i * 0.4) * 0.15;
-          height = Math.abs(Math.sin(time * 0.015 + i * 0.6) * frequency * maxHeight);
+          const baseFreq = 0.18 + Math.sin(time * 0.006 + i * 0.3) * 0.12;
+          height = Math.abs(Math.sin(time * 0.012 + i * 0.5) * baseFreq * maxHeight);
         } else if (state === 'PROCESSING') {
-          // Processing: amber waves
-          const frequency = 0.18 + Math.sin(time * 0.01 + i * 0.35) * 0.12;
-          height = Math.abs(Math.sin(time * 0.018 + i * 0.55) * frequency * maxHeight);
+          // Processing: amber pulsing waves
+          const baseFreq = 0.15 + Math.sin(time * 0.01 + i * 0.28) * 0.1;
+          height = Math.abs(Math.sin(time * 0.015 + i * 0.45) * baseFreq * maxHeight);
         } else {
           // Idle: subtle breathing
-          height = Math.abs(Math.sin(time * 0.003 + i * 0.2) * maxHeight * 0.15);
+          height = Math.abs(Math.sin(time * 0.002 + i * 0.18) * maxHeight * 0.12);
         }
 
-        const x = (canvas.width - bars * (barWidth + gap) + gap) / 2 + i * (barWidth + gap);
-        const barHeight = Math.max(height, 2);
+        const x = (width - bars * (barWidth + gap) + gap) / 2 + i * (barWidth + gap);
+        const barHeight = Math.max(height, 1.5);
         
         // Gradient color based on state
         const gradient = ctx.createLinearGradient(0, centerY - barHeight, 0, centerY + barHeight);
         if (state === 'LISTENING') {
           gradient.addColorStop(0, '#22d3ee'); // cyan-400
-          gradient.addColorStop(0.5, '#06b6d4'); // cyan-500
+          gradient.addColorStop(0.3, '#06b6d4'); // cyan-500
+          gradient.addColorStop(0.7, '#0891b2'); // cyan-600
           gradient.addColorStop(1, '#0e7490'); // cyan-700
         } else if (state === 'SPEAKING') {
           gradient.addColorStop(0, '#f472b6'); // pink-400
-          gradient.addColorStop(0.5, '#ec4899'); // pink-500
+          gradient.addColorStop(0.3, '#ec4899'); // pink-500
+          gradient.addColorStop(0.7, '#db2777'); // pink-600
           gradient.addColorStop(1, '#be185d'); // pink-700
         } else if (state === 'PROCESSING') {
           gradient.addColorStop(0, '#fbbf24'); // amber-400
-          gradient.addColorStop(0.5, '#f59e0b'); // amber-500
+          gradient.addColorStop(0.3, '#f59e0b'); // amber-500
+          gradient.addColorStop(0.7, '#d97706'); // amber-600
           gradient.addColorStop(1, '#b45309'); // amber-700
         } else {
           gradient.addColorStop(0, '#64748b'); // slate-500
-          gradient.addColorStop(1, '#475569'); // slate-600
+          gradient.addColorStop(0.5, '#475569'); // slate-600
+          gradient.addColorStop(1, '#334155'); // slate-700
         }
 
+        // Top half
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.roundRect(x, centerY - barHeight / 2, barWidth, barHeight, barWidth / 2);
+        const radius = barWidth / 2;
+        ctx.roundRect(x, centerY - barHeight / 2, barWidth, barHeight, radius);
         ctx.fill();
 
-        // Mirror on bottom
+        // Bottom half (mirrored, slightly smaller)
         ctx.beginPath();
-        ctx.roundRect(x, centerY, barWidth, barHeight / 2, barWidth / 2);
+        ctx.roundRect(x, centerY, barWidth, barHeight * 0.45, radius);
         ctx.fill();
       }
 
@@ -219,7 +227,6 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
 
   const handleSendText = useCallback((text: string) => {
     if (!text.trim() || !voicePipelineRef.current) return;
-    // The pipeline will handle it as if user spoke
     voicePipelineRef.current.start();
   }, []);
 
@@ -272,45 +279,81 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
     );
   }
 
+  if (!sttSupported) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-2xl max-w-md w-full p-8 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-400/30 flex items-center justify-center">
+            <Mic className="w-8 h-8 text-amber-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-white mb-2">{t('voiceChat.error')}</h3>
+          <p className="text-slate-400 mb-6">{t('voiceChat.sttNotSupported')}</p>
+          <button
+            onClick={onClose}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium hover:from-cyan-400 hover:to-blue-500 transition-all"
+          >
+            {t('common.back')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col" role="dialog" aria-modal="true" aria-label={t('voiceChat.title')}>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Main Modal */}
-      <div className="flex-1 flex flex-col max-w-2xl w-full mx-auto my-auto relative z-10">
+      <div className="flex-1 flex flex-col max-w-3xl w-full mx-auto my-auto relative z-10">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 rounded-t-2xl">
+        <div className="flex items-center justify-between p-4 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800/50 rounded-t-2xl">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-400/20">
+            <div className="relative p-2.5 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-600/15 border border-cyan-400/20">
               <canvas 
                 ref={canvasRef} 
-                className="w-8 h-8" 
-                width={64} 
-                height={64}
+                className="w-7 h-7" 
+                width={56} 
+                height={56}
                 aria-hidden="true"
               />
+              <span className={cn(
+                'absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900',
+                state === 'LISTENING' && 'bg-cyan-400 animate-pulse',
+                state === 'SPEAKING' && 'bg-pink-400 animate-pulse',
+                state === 'PROCESSING' && 'bg-amber-400 animate-pulse',
+                state === 'IDLE' && 'bg-slate-500'
+              )} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">{t('voiceChat.title')}</h2>
-              <p className="text-xs text-slate-400 capitalize">{getStateLabel()}</p>
+              <h2 className="text-lg font-semibold text-white tracking-tight">{t('voiceChat.title')}</h2>
+              <p className="text-xs text-slate-400 capitalize flex items-center gap-1.5">
+                <span className={cn(
+                  'w-1.5 h-1.5 rounded-full',
+                  state === 'LISTENING' && 'bg-cyan-400 animate-pulse',
+                  state === 'SPEAKING' && 'bg-pink-400 animate-pulse',
+                  state === 'PROCESSING' && 'bg-amber-400 animate-pulse',
+                  state === 'IDLE' && 'bg-slate-500'
+                )} />
+                {getStateLabel()}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setIsMinimized(true)}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors"
               aria-label={t('voiceChat.minimize')}
             >
               <Minimize2 className="w-5 h-5" />
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors"
               aria-label={t('voiceChat.close')}
             >
               <X className="w-5 h-5" />
@@ -319,20 +362,23 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950/50">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-gradient-to-b from-slate-950/50 to-slate-950/30">
           {messages.length === 0 && state === 'IDLE' && (
-            <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center">
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-400/20 mb-4">
-                <canvas 
-                  ref={canvasRef} 
-                  className="w-24 h-24 mx-auto" 
-                  width={192} 
-                  height={192}
-                  aria-hidden="true"
-                />
+            <div className="flex flex-col items-center justify-center h-full min-h-[350px] text-center px-4">
+              <div className="relative mb-6">
+                <div className="w-28 h-28 mx-auto rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-400/20 flex items-center justify-center">
+                  <canvas 
+                    ref={canvasRef} 
+                    className="w-20 h-20" 
+                    width={160} 
+                    height={160}
+                    aria-hidden="true"
+                  />
+                </div>
+                <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-cyan-400/50 animate-pulse" />
               </div>
-              <h3 className="text-xl font-medium text-white mb-2">{t('voiceChat.emptyStateTitle')}</h3>
-              <p className="text-slate-400 max-w-xs">{t('voiceChat.emptyStateSubtitle')}</p>
+              <h3 className="text-2xl font-medium text-white mb-3">{t('voiceChat.emptyStateTitle')}</h3>
+              <p className="text-slate-400 max-w-lg leading-relaxed">{t('voiceChat.emptyStateSubtitle')}</p>
             </div>
           )}
 
@@ -342,33 +388,33 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
               msg.role === 'user' ? 'justify-end' : 'justify-start'
             )}>
               {msg.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Volume2 className="w-4 h-4 text-white" />
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-lg shadow-pink-500/20">
+                  <Volume2 className="w-4.5 h-4.5 text-white" />
                 </div>
               )}
 
               <div className={cn(
-                'max-w-[80%]',
+                'max-w-[85%]',
                 msg.role === 'user' ? 'text-right' : 'text-left'
               )}>
                 <div className={cn(
-                  'rounded-2xl px-4 py-3 text-sm leading-relaxed',
+                  'rounded-2xl px-4 py-3.5 text-sm leading-relaxed shadow-sm',
                   msg.role === 'user'
-                    ? 'bg-gradient-to-br from-cyan-500/30 to-blue-600/30 border border-cyan-400/30 text-white rounded-br-none'
-                    : 'bg-slate-800/50 border border-slate-700 text-slate-100 rounded-bl-none',
-                  msg.isInterim && 'opacity-80'
+                    ? 'bg-gradient-to-br from-cyan-500/25 to-blue-600/25 border border-cyan-400/30 text-white rounded-br-none shadow-cyan-500/10'
+                    : 'bg-slate-800/60 border border-slate-700/50 text-slate-100 rounded-bl-none',
+                  msg.isInterim && 'opacity-70'
                 )}>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                   {msg.isInterim && (
-                    <span className="inline-block ml-2 animate-pulse text-cyan-400 text-xs">▌</span>
+                    <span className="inline-block ml-2 animate-pulse text-cyan-400 text-xs font-medium">▌</span>
                   )}
                 </div>
-                <span className="text-xs text-slate-500 mt-1 block">{formatTime(msg.timestamp)}</span>
+                <span className="text-xs text-slate-500/80 mt-1.5 block">{formatTime(msg.timestamp)}</span>
               </div>
 
               {msg.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Mic className="w-4 h-4 text-white" />
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-lg shadow-cyan-500/20">
+                  <Mic className="w-4.5 h-4.5 text-white" />
                 </div>
               )}
             </div>
@@ -376,11 +422,11 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
 
           {/* Live Interim Transcript */}
           {interimTranscript && state === 'LISTENING' && (
-            <div className="flex justify-end">
-              <div className="max-w-[80%] text-right">
+            <div className="flex justify-end animate-fade-in">
+              <div className="max-w-[85%] text-right">
                 <div className="rounded-2xl bg-cyan-500/10 border border-cyan-400/40 text-cyan-300 px-4 py-3 text-sm leading-relaxed rounded-br-none animate-pulse">
-                  <p className="whitespace-pre-wrap">{interimTranscript}</p>
-                  <span className="inline-block ml-2 text-cyan-400">▌</span>
+                  <p className="whitespace-pre-wrap break-words">{interimTranscript}</p>
+                  <span className="inline-block ml-2 text-cyan-400 font-medium">▌</span>
                 </div>
               </div>
             </div>
@@ -388,19 +434,20 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
 
           {/* Typing indicator */}
           {state === 'PROCESSING' && (
-            <div className="flex justify-start">
-              <div className="flex items-center gap-2 px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-2xl rounded-bl-none">
-                <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+            <div className="flex justify-start animate-fade-in">
+              <div className="flex items-center gap-2.5 px-4 py-3 bg-slate-800/60 border border-slate-700/50 rounded-2xl rounded-bl-none">
+                <Loader2 className="w-4.5 h-4.5 text-amber-400 animate-spin" />
                 <span className="text-sm text-slate-300">{t('voiceChat.thinkingNow')}</span>
+                <span className="text-xs text-slate-500 font-mono">...</span>
               </div>
             </div>
           )}
 
           {/* Speaking indicator */}
           {state === 'SPEAKING' && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && !interimTranscript && (
-            <div className="flex justify-start">
-              <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-pink-500/10 to-rose-500/10 border border-pink-400/30 rounded-2xl rounded-bl-none">
-                <Volume2 className="w-4 h-4 text-pink-400 animate-pulse" />
+            <div className="flex justify-start animate-fade-in">
+              <div className="flex items-center gap-2.5 px-4 py-3 bg-gradient-to-r from-pink-500/10 to-rose-500/10 border border-pink-400/30 rounded-2xl rounded-bl-none">
+                <Volume2 className="w-4.5 h-4.5 text-pink-400 animate-pulse" />
                 <span className="text-sm text-pink-300">{t('voiceChat.speakingNow')}</span>
               </div>
             </div>
@@ -410,14 +457,14 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 rounded-b-2xl">
-          <div className="flex items-center gap-3">
+        <div className="p-4 sm:p-6 bg-slate-900/80 backdrop-blur-xl border-t border-slate-800/50 rounded-b-2xl">
+          <div className="flex items-end gap-3">
             {/* Text input fallback */}
             <div className="flex-1 relative">
               <input
                 type="text"
                 placeholder={t('voiceChat.typeOrSpeak')}
-                className="w-full bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition-all"
+                className="w-full bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition-all"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                     handleSendText(e.currentTarget.value.trim());
@@ -429,7 +476,7 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
               <button
                 onClick={() => handleSendText((document.querySelector('input') as HTMLInputElement)?.value || '')}
                 disabled={state !== 'IDLE'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-400/10 transition-colors disabled:opacity-50"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-400/10 transition-colors disabled:opacity-50"
                 aria-label={t('voiceChat.sendText')}
               >
                 <Send className="w-5 h-5" />
@@ -441,37 +488,37 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
               onClick={state === 'LISTENING' ? handleStopListening : handleStartListening}
               disabled={state === 'PROCESSING' || state === 'SPEAKING'}
               className={cn(
-                'relative p-4 rounded-2xl flex items-center justify-center transition-all duration-300',
+                'relative flex-shrink-0 p-4 rounded-2xl flex items-center justify-center transition-all duration-300',
                 'shadow-xl border',
                 state === 'LISTENING'
-                  ? 'bg-gradient-to-br from-red-500 to-rose-600 border-red-400/50 animate-pulse ring-2 ring-red-400/30'
+                  ? 'bg-gradient-to-br from-red-500 to-rose-600 border-red-400/50 animate-pulse ring-4 ring-red-400/20'
                   : state === 'SPEAKING'
-                  ? 'bg-gradient-to-br from-pink-500 to-rose-600 border-pink-400/50 animate-pulse ring-2 ring-pink-400/30'
+                  ? 'bg-gradient-to-br from-pink-500 to-rose-600 border-pink-400/50 animate-pulse ring-4 ring-pink-400/20'
                   : state === 'PROCESSING'
-                  ? 'bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/50 cursor-wait'
-                  : 'bg-gradient-to-br from-cyan-500 to-blue-600 border-cyan-400/30 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(34,211,238,0.3)]'
+                  ? 'bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/50 cursor-wait ring-4 ring-amber-400/20'
+                  : 'bg-gradient-to-br from-cyan-500 to-blue-600 border-cyan-400/30 hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(34,211,238,0.35)] hover:border-cyan-400/50'
               )}
               aria-label={getStateTooltip()}
             >
               {state === 'LISTENING' ? (
-                <Mic className="w-8 h-8 text-white" />
+                <Mic className="w-9 h-9 text-white drop-shadow-lg" />
               ) : state === 'SPEAKING' ? (
-                <Volume2 className="w-8 h-8 text-white animate-pulse" />
+                <Volume2 className="w-9 h-9 text-white drop-shadow-lg animate-pulse" />
               ) : state === 'PROCESSING' ? (
-                <Loader2 className="w-8 h-8 text-white animate-spin" />
+                <Loader2 className="w-9 h-9 text-white animate-spin" />
               ) : (
                 <canvas 
                   ref={canvasRef} 
-                  className="w-10 h-10" 
-                  width={80} 
-                  height={80}
+                  className="w-11 h-11" 
+                  width={88} 
+                  height={88}
                   aria-hidden="true"
                 />
               )}
               
               {/* Tooltip */}
               <span className={cn(
-                'absolute bottom-full left-1/2 -translate-x-1/2 mb-3 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100',
+                'absolute bottom-full left-1/2 -translate-x-1/2 mb-3 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none',
                 'bg-slate-900 border border-slate-700'
               )}>
                 {getStateTooltip()}
@@ -482,7 +529,7 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
             {messages.length > 0 && (
               <button
                 onClick={handleClearChat}
-                className="p-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-400/10 border border-slate-700 transition-colors"
+                className="flex-shrink-0 p-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-400/10 border border-slate-700/50 transition-colors"
                 aria-label={t('voiceChat.clearChat')}
               >
                 <Trash2 className="w-5 h-5" />

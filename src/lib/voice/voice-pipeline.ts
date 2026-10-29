@@ -214,25 +214,12 @@ class VoicePipeline {
         this.chatHistory.push({ role: 'user', content: prompt });
 
         try {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${this.apiKey}`;
-
-            const response = await fetch(apiUrl, {
+            const response = await fetch('/api/voice-chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: this.chatHistory.map(msg => ({
-                        parts: [{ text: msg.content }],
-                        role: msg.role === 'user' ? 'user' : 'model'
-                    })),
-                    systemInstruction: { 
-                        parts: [{ 
-                            text: "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي." 
-                        }] 
-                    },
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 1024,
-                    }
+                    messages: this.chatHistory,
+                    systemPrompt: "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي."
                 })
             });
 
@@ -245,7 +232,6 @@ class VoicePipeline {
             const decoder = new TextDecoder();
             let buffer = '';
             let fullResponse = '';
-            let isFirstChunk = true;
 
             while (true) {
                 if (!reader) break;
@@ -261,7 +247,17 @@ class VoicePipeline {
                     if (line.startsWith('data: ')) {
                         try {
                             const json = JSON.parse(line.slice(6));
-                            const textChunk = json.candidates?.[0]?.content?.parts?.[0]?.text;
+                            
+                            if (json.done) {
+                                // Streaming complete
+                                break;
+                            }
+                            
+                            if (json.error) {
+                                throw new Error(json.error);
+                            }
+
+                            const textChunk = json.chunk;
                             
                             if (textChunk) {
                                 fullResponse += textChunk;
