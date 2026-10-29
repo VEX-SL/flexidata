@@ -18,6 +18,7 @@ import {
   Download,
   X,
   Mic,
+  Volume2,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import AudioChat from '@/components/chat/audio-chat';
@@ -817,10 +818,24 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                   <button
                     onClick={() => setIsVoiceChatOpen(true)}
                     disabled={streaming}
-                    className="p-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-all"
+                    className="relative p-2 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 border border-cyan-400/30 transition-all hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(34,211,238,0.3)] disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-none"
                     aria-label="Voice Chat"
                   >
-                    <Mic size={16} className="animate-pulse"/>
+                    <svg
+                      className="w-5 h-5 animate-pulse"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M4 13a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4z" />
+                      <path d="M4 9a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-6z" />
+                      <path d="M12 5v14" />
+                    </svg>
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-cyan-300 rounded-full animate-ping opacity-75" aria-hidden="true" />
                   </button>
                 </div>
                 {isVoiceChatOpen && (
