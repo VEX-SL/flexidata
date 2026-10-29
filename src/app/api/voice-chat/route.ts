@@ -1,5 +1,4 @@
 import { getProviderManager } from "../../../lib/ai/manager";
-// Use absolute path for type checking
 import type { AIRequest } from "../../../../../types/index";
 
 
