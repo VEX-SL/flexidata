@@ -467,7 +467,18 @@ export default function DocumentsPage() {
           display: flex; flex-direction: column; gap: .1rem;
           font-family: 'SF Mono', ui-monospace, Consolas, monospace; font-size: .78rem;
           max-height: 420px; overflow: auto;
+          scrollbar-color: rgba(130, 130, 130, 0.45) transparent;
         }
+        .fd-doc-ocr-lines::-webkit-scrollbar { width: 10px; }
+        .fd-doc-ocr-lines::-webkit-scrollbar-track { background: transparent; }
+        .fd-doc-ocr-lines::-webkit-scrollbar-thumb {
+          background-color: transparent;
+          border: 3px solid transparent;
+          border-radius: 9999px;
+          background-clip: padding-box;
+        }
+        .fd-doc-ocr-lines:hover::-webkit-scrollbar-thumb { background-color: rgba(130, 130, 130, 0.4); }
+        .fd-doc-ocr-lines::-webkit-scrollbar-thumb:hover { background-color: rgba(130, 130, 130, 0.65); }
         .fd-doc-ocr-line { display: flex; align-items: baseline; gap: .6rem; padding: .14rem .5rem; border-radius: 6px; }
         .fd-doc-ocr-line.uncertain { background: rgba(239,68,68,.08); }
         .fd-doc-ocr-line.evidence { background: rgba(140,140,140,.1); box-shadow: inset 2px 0 0 rgba(140,140,140,.65); }
@@ -487,7 +498,7 @@ export default function DocumentsPage() {
         }
       `}</style>
 
-      <div className="fd-doc-root h-full overflow-auto p-6" suppressHydrationWarning>
+      <div className="fd-doc-root h-full fd-scroll overflow-auto p-6" suppressHydrationWarning>
         <div className="max-w-5xl mx-auto space-y-5">
           {toast && <div className="fd-doc-toast">{toast}</div>}
 
