@@ -51,7 +51,7 @@ function SidebarList({
   newChatLabel: string;
 }) {
   return (
-    <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+    <div className="fd-scroll flex-1 overflow-y-auto p-2 space-y-0.5">
       {chats.length === 0 && (
         <div className="px-3 py-8 text-center">
           <MessageSquare size={20} className="text-muted-foreground/30 mx-auto mb-2" />
@@ -436,7 +436,7 @@ function ChatContent() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto flex flex-col">
+        <div className="fd-scroll flex-1 overflow-y-auto flex flex-col">
           {messages.length === 0 && !streaming ? (
             <EmptyState onSuggestion={(s) => handleSend(s)} userName={userName} ready={profileLoaded} />
           ) : (
