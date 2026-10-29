@@ -1,4 +1,10 @@
+// Turbopack ignore comments for unintended filesystem operations
+// path.join(/*turbopackIgnore: true*/ process.cwd(), 'data', bar)
+
 import type { NextConfig } from "next";
+
+// Turbopack ignore comments for unintended filesystem operations
+// path.join(/*turbopackIgnore: true*/ process.cwd(), 'data', bar)
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@napi-rs/canvas"],

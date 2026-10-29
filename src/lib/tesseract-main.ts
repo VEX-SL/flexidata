@@ -19,6 +19,7 @@
  *    reconstruction) applied to every recognized document before the pipeline
  *    consumes it — see @/lib/ocr/arabic.
  */
+// Turbopack ignore: path.join(/*turbopackIgnore: true*/ process.cwd(), 'data', bar)
 import fs from "fs";
 import path from "path";
 import type { OcrDocument, OcrLine, OcrWord, BBox } from "@/lib/pipeline/types";

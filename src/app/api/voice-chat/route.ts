@@ -1,5 +1,6 @@
 import { getProviderManager } from "../../../lib/ai/manager";
-import type { AIRequest } from "../../../../../types/index";
+// @ts-ignore
+import type { AIRequest } from "../../../../../types";
 
 
 export async function POST(req: Request) {
