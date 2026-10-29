@@ -1,6 +1,11 @@
 import { getProviderManager } from "../../../lib/ai/manager";
 import { AIRequest } from "@/types";
 
+interface IncomingMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 
 export async function POST(req: Request) {
   try {
@@ -16,7 +21,7 @@ export async function POST(req: Request) {
     const providerManager = getProviderManager();
 
     const request: AIRequest = {
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
+      messages: messages.map((m: IncomingMessage) => ({ role: m.role, content: m.content })),
       temperature: 0.7,
       maxTokens: 1024,
       system: systemPrompt || "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي."
