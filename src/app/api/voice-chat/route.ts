@@ -20,11 +20,15 @@ export async function POST(req: Request) {
 
     const providerManager = getProviderManager();
 
+    const systemMsg: IncomingMessage = {
+      role: "system",
+      content: systemPrompt || "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي."
+    };
+
     const request: AIRequest = {
-      messages: messages.map((m: IncomingMessage) => ({ role: m.role, content: m.content })),
+      messages: [systemMsg, ...messages.map((m: IncomingMessage) => ({ role: m.role, content: m.content }))],
       temperature: 0.7,
       maxTokens: 1024,
-      system: systemPrompt || "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي."
     };
 
     const encoder = new TextEncoder();

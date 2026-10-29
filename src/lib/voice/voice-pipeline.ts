@@ -232,8 +232,12 @@ class VoicePipeline {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: this.chatHistory,
-                    systemPrompt: "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي."
+                    messages: [
+                        { role: 'system', content: "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي." },
+                        ...this.chatHistory
+                    ],
+                    temperature: 0.7,
+                    maxTokens: 1024,
                 }),
                 signal: this.currentRequestAbortController.signal
             });
