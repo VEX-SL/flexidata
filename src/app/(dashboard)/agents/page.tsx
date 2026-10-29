@@ -44,6 +44,27 @@ export default function AgentsPage() {
   const supabase = createClient();
   const { t } = useTranslation();
 
+  // Custom translations for delete confirmation
+  const customTranslations = {
+    agents: {
+      deleteAgentConfirm: {
+        en: "Are you sure you want to delete agent '{name}'?",
+        ar: "هل أنت متأكد من حذف الوكيل '{name}'؟"
+      }
+    },
+    common: {
+      confirmDelete: "Confirm Delete",
+      delete: "Delete"
+    }
+  };
+
+  const getTranslation = (key: string, params?: Record<string, string>) => {
+    const translationKey = key.split('.').reduce((obj, part) => obj && obj[part], customTranslations);
+    if (!translationKey) return key;
+    const translation = translationKey;
+    return params ? translation.replace(new RegExp(`{${Object.keys(params)[0]}}`, 'g'), params[Object.keys(params)[0]]) : translation;
+  };
+
   useEffect(() => setMounted(true), []);
 
   const fetchAgents = useCallback(async () => {
@@ -94,253 +115,168 @@ export default function AgentsPage() {
 
   return (
     <>
-    <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
-      .fd-agents-root { font-family: 'Sora', system-ui, sans-serif; }
-      .fd-agents-header {
-        position: relative; overflow: hidden;
-        border-radius: 20px; padding: 2rem 2rem;
-        background: linear-gradient(135deg, rgba(115,115,115,.1) 0%, rgba(90,90,90,.06) 100%);
-        border: 1px solid rgba(190,190,190,.1);
-        margin-bottom: 1.5rem;
-      }
-      [data-theme="light"] .fd-agents-header {
-        background: linear-gradient(135deg, rgba(115,115,115,.05) 0%, rgba(90,90,90,.03) 100%);
-      }
-      .fd-agents-card {
-        position: relative; overflow: hidden;
-        border-radius: 16px; padding: 1.3rem;
-        border: 1px solid var(--color-border);
-        background: var(--color-card);
-        transition: transform .25s, box-shadow .25s, border-color .25s;
-        cursor: pointer;
-      }
-      .fd-agents-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 16px 40px rgba(115,115,115,.08);
-        border-color: rgba(190,190,190,.25);
-      }
-      .fd-agents-card-actions-top {
-        position: absolute; top: .8rem; right: .8rem; z-index: 3;
-        display: flex; gap: .4rem;
-      }
-      .fd-agents-card-icon {
-        width: 46px; height: 46px; border-radius: 13px;
-        display: flex; align-items: center; justify-content: center;
-        margin-bottom: 1rem;
-      }
-      .fd-agents-card-name {
-        font-size: 1rem; font-weight: 700; color: var(--color-foreground);
-        margin: 0 0 .2rem; letter-spacing: -.02em;
-      }
-      .fd-agents-card-desc {
-        font-size: .8rem; color: var(--color-muted-foreground);
-        margin: 0 0 1rem; line-height: 1.5;
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-      }
-      .fd-agents-card-stats {
-        display: flex; gap: .8rem; font-size: .75rem; color: var(--color-muted-foreground);
-        margin-bottom: 1rem;
-      }
-      .fd-agents-card-stat {
-        display: flex; align-items: center; gap: .35rem;
-      }
-      .fd-agents-card-actions {
-        display: flex; gap: .4rem; padding-top: .8rem;
-        border-top: 1px solid var(--color-border);
-      }
-      .fd-agents-card-btn {
-        flex: 1; display: flex; align-items: center; justify-content: center; gap: .4rem;
-        padding: .55rem .5rem; border-radius: 10px;
-        font-size: .78rem; font-weight: 600; font-family: inherit;
-        border: 1px solid var(--color-border); background: var(--color-card);
-        color: var(--color-foreground); cursor: pointer;
-        transition: all .2s;
-      }
-      .fd-agents-card-btn:hover {
-        background: var(--color-accent);
-        border-color: rgba(190,190,190,.25);
-      }
-      .fd-agents-card-btn.primary {
-        background: linear-gradient(135deg, #171717, #3f3f3f);
-        color: #fff; border: none;
-        box-shadow: 0 3px 10px rgba(115,115,115,.2);
-      }
-      .fd-agents-card-btn.primary:hover {
-        box-shadow: 0 6px 18px rgba(115,115,115,.3);
-        transform: translateY(-1px);
-      }
-      .fd-agents-create-input {
-        width: 100%; padding: .75rem 1rem; border-radius: 12px;
-        font-size: .9rem; font-family: inherit;
-        background: var(--color-background); border: 1px solid var(--color-border);
-        color: var(--color-foreground); outline: none;
-        transition: border-color .2s, box-shadow .2s; box-sizing: border-box;
-      }
-      .fd-agents-create-input:focus {
-        border-color: rgba(115,115,115,.45);
-        box-shadow: 0 0 0 3px rgba(115,115,115,.08);
-      }
-      .fd-agents-create-input::placeholder { color: var(--color-muted-foreground); }
-      .fd-agents-empty {
-        text-align: center; padding: 3.5rem 1.5rem;
-      }
-      .fd-agents-empty-icon {
-        width: 72px; height: 72px; border-radius: 18px; margin: 0 auto 1.2rem;
-        background: linear-gradient(135deg, rgba(115,115,115,.1), rgba(80,80,80,.06));
-        display: flex; align-items: center; justify-content: center;
-      }
-    `}</style>
-    <div className="fd-agents-root h-full overflow-auto p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="fd-agents-header" style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(12px)', transition: 'all .5s cubic-bezier(.16,1,.3,1)' }}>
-          <div className="flex items-center justify-between gap-10">
-            <div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-.035em', color: 'var(--color-foreground)', margin: '0 0 .25rem' }}>
-                {t("agents.title")}
-              </h1>
-              <p style={{ fontSize: '.88rem', color: 'var(--color-muted-foreground)', margin: 0 }}>
-                {t("agents.subtitle")}
-              </p>
-            </div>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="fd-agents-card-btn primary"
-              style={{ padding: '.45rem .85rem', fontSize: '.76rem', flexShrink: 0, gap: '.3rem' }}
-            >
-              <Plus size={13} />
-              {t("agents.create")}
-            </button>
-          </div>
-        </div>
-
-        {/* Create Form */}
-        {showCreate && (
-          <div style={{ padding: '1.2rem', borderRadius: 14, border: '1px solid var(--color-border)', background: 'var(--color-card)', marginBottom: '1.5rem', animation: 'fd-dash-drop .2s ease' }}>
-            <input
-              type="text"
-              placeholder={t("agents.namePlaceholder")}
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              className="fd-agents-create-input"
-              autoFocus
-              onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") setShowCreate(false); }}
-            />
-            <div className="flex gap-2 mt-3">
-              <button onClick={handleCreate} disabled={loading || !newName.trim()} className="fd-agents-card-btn primary" style={{ flex: 1, padding: '.65rem' }}>
-                {loading ? <span className="animate-spin">⟳</span> : <Sparkles size={14} />}
-                {loading ? t("agents.creating") : t("agents.create")}
-              </button>
-              <button onClick={() => setShowCreate(false)} className="fd-agents-card-btn" style={{ flex: 'none', padding: '.65rem 1rem' }}>
-                {t("common.cancel")}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {agents.length === 0 && !showCreate && (
-          <div className="fd-agents-empty" style={{ opacity: mounted ? 1 : 0, transition: 'all .5s cubic-bezier(.16,1,.3,1) .15s' }}>
-            <div className="fd-agents-empty-icon">
-              <Bot size={32} style={{ color: '#4a4a4a' }} />
-            </div>
-            <p style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--color-foreground)', margin: '0 0 .3rem' }}>
-              {t("agents.noAgents")}
-            </p>
-            <p style={{ fontSize: '.85rem', color: 'var(--color-muted-foreground)', margin: '0 0 1.5rem', maxWidth: 320, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6 }}>
-              {t("agents.noAgentsSub")}
-            </p>
-            <button onClick={() => setShowCreate(true)} className="fd-agents-card-btn primary" style={{ padding: '.7rem 1.3rem', fontSize: '.88rem', display: 'inline-flex' }}>
-              <Plus size={16} />
-              {t("agents.create")}
-            </button>
-          </div>
-        )}
-
-        {/* Agent Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {agents.map((agent, idx) => {
-            const gradIdx = idx % GRADIENTS.length;
-            return (
-              <div
-                key={agent.id}
-                className="fd-agents-card"
-                style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(14px)', transition: `all .5s cubic-bezier(.16,1,.3,1) ${0.1 + idx * 0.06}s` }}
-              >
-                {/* Top gradient accent */}
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${ICON_COLORS[gradIdx]}40, ${ICON_COLORS[gradIdx]}15)`, borderRadius: '16px 16px 0 0' }} />
-
-                <div className="fd-agents-card-actions-top">
-                  {agent.share_token && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); copyShareLink(agent.share_token!); }}
-                      style={{ padding: 6, borderRadius: 8, background: 'var(--color-muted)', border: 'none', cursor: 'pointer', color: copiedLink === agent.share_token ? '#22C55E' : 'var(--color-muted-foreground)', display: 'flex', transition: 'color .2s' }}
-                      title="Copy share link"
-                    >
-                      {copiedLink === agent.share_token ? <Check size={13} /> : <Copy size={13} />}
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(agent); }}
-                    style={{ padding: 6, borderRadius: 8, background: 'var(--color-muted)', border: 'none', cursor: 'pointer', color: 'var(--color-muted-foreground)', display: 'flex', transition: 'color .2s' }}
-                    onMouseEnter={(ev) => ev.currentTarget.style.color = '#EF4444'}
-                    onMouseLeave={(ev) => ev.currentTarget.style.color = 'var(--color-muted-foreground)'}
-                    title="Delete agent"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-
-                <div onClick={() => router.push(`/agents/${agent.id}`)}>
-                  <div className="fd-agents-card-icon" style={{ background: GRADIENTS[gradIdx] }}>
-                    <Bot size={20} style={{ color: ICON_COLORS[gradIdx] }} />
-                  </div>
-                </div>
-
-                <div onClick={() => router.push(`/agents/${agent.id}`)} style={{ cursor: 'pointer' }}>
-                  <h3 className="fd-agents-card-name">{agent.name}</h3>
-                  {agent.description && <p className="fd-agents-card-desc">{agent.description}</p>}
-                  {!agent.description && <div style={{ height: '1rem' }} />}
-
-                  <div className="fd-agents-card-stats">
-                    <span className="fd-agents-card-stat">
-                      <FileText size={12} /> {agent.files_count} {t("dashboard.files").toLowerCase()}
-                    </span>
-                    <span className="fd-agents-card-stat">
-                      <MessageSquare size={12} /> {agent.chats_count} {t("dashboard.allChats").toLowerCase()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="fd-agents-card-actions">
-                  <button onClick={() => router.push(`/agents/${agent.id}`)} className="fd-agents-card-btn">
-                    <FileText size={13} />
-                    {t("dashboard.files")}
-                    <ArrowRight size={12} />
-                  </button>
-                  <button onClick={() => router.push(`/agents/${agent.id}/chat`)} className="fd-agents-card-btn primary">
-                    <MessageSquare size={13} />
-                    {t("agents.chat")}
-                    <ArrowRight size={12} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
+        .fd-agents-root { font-family: 'Sora', system-ui, sans-serif; }
+        .fd-agents-header {
+          padding: 1rem;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .fd-agents-list {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 1rem;
+          padding: 1rem;
+        }
+        .fd-agents-card {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 12px;
+          padding: 1.5rem;
+          backdrop-filter: blur(10px);
+          transition: transform 0.2s, box-shadow 0.2s;
+          cursor: pointer;
+          position: relative;
+          overflow: hidden;
+        }
+        .fd-agents-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .fd-agents-card-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 1rem;
+        }
+        .fd-agents-card-name {
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: var(--color-foreground);
+          margin: 0;
+          line-height: 1.4;
+        }
+        .fd-agents-card-desc {
+          font-size: 0.85rem;
+          color: var(--color-muted-foreground);
+          margin: 0;
+          line-height: 1.4;
+        }
+        .fd-agents-card-actions {
+          display: flex;
+          gap: 0.5rem;
+          margin-top: 1rem;
+        }
+        .fd-agents-card-stats {
+          display: flex;
+          gap: 1rem;
+          font-size: 0.8rem;
+          margin-top: 0.5rem;
+        }
+        .fd-agents-card-stat {
+          display: flex;
+          align-items: center;
+          gap: 0.3rem;
+          color: var(--color-muted-foreground);
+        }
+        .fd-agents-create {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          background: var(--color-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .fd-agents-create:hover {
+          transform: scale(1.05);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        }
+        .fd-agents-create-button {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          background: var(--color-primary);
+          border: none;
+          color: var(--color-primary-foreground);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.2s;
+        }
+        .fd-agents-create-button:hover {
+          background: var(--color-primary-hover);
+        }
+        .fd-agents-create-input {
+          width: 100%;
+          padding: 0.75rem;
+          border-radius: 24px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.05);
+          color: var(--color-foreground);
+          font-size: 0.9rem;
+          margin-top: 0.5rem;
+        }
+        .fd-agents-create-input:focus {
+          outline: none;
+          border-color: var(--color-primary);
+          box-shadow: 0 0 0 2px var(--color-primary-focus);
+        }
+      `}
+    </style>
+    <div className="fd-agents-root">
+      <div className="fd-agents-header">
+        <h1 className="text-2xl font-bold text-foreground">Agents</h1>
       </div>
+      <div className="fd-agents-list">
+        {agents.map((agent, gradIdx) => (
+          <div key={agent.id} className="fd-agents-card" onClick={() => router.push(`/agents/${agent.id}`)}>
+            <div className="fd-agents-card-header">
+              <div className="fd-agents-card-icon" style={{ background: GRADIENTS[gradIdx % GRADIENTS.length] }}>
+                <Bot size={24} style={{ color: ICON_COLORS[gradIdx % ICON_COLORS.length] }} />
+              </div>
+              <div>
+                <h3 className="fd-agents-card-name">{agent.name}</h3>
+                {agent.description && <p className="fd-agents-card-desc">{agent.description}</p>}
+              </div>
+            </div>
+            <div className="fd-agents-card-stats">
+              <span className="fd-agents-card-stat">
+                <FileText size={12} /> {agent.files_count} {t('dashboard.files').toLowerCase()}
+              </span>
+              <span className="fd-agents-card-stat">
+                <MessageSquare size={12} /> {agent.chats_count} {t('dashboard.allChats').toLowerCase()}
+              </span>
+            </div>
+            <div className="fd-agents-card-actions" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setDeleteDialog({ isOpen: true, agentId: agent.id, agentName: agent.name })}
+                style={{ padding: 6, borderRadius: 8, background: 'var(--color-muted)', border: 'none', cursor: 'pointer', color: 'var(--color-muted-foreground)', display: 'flex', transition: 'color .2s' }}
+                onMouseEnter={(ev) => ev.currentTarget.style.color = '#EF4444'}
+                onMouseLeave={(ev) => ev.currentTarget.style.color = 'var(--color-muted-foreground)'}
+                title="Delete agent"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <ConfirmDialog
+        isOpen={deleteDialog.isOpen}
+        title={getTranslation('common.confirmDelete')}
+        message={getTranslation('agents.deleteAgentConfirm', { name: deleteDialog.agentName })}
+        confirmText={getTranslation('common.delete')}
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
     </div>
-
-    <ConfirmDialog
-      isOpen={deleteDialog.isOpen}
-      title={t("agents.deleteTitle")}
-      message={t("agents.deleteDescription", { name: deleteDialog.agentName })}
-      confirmText={t("common.delete")}
-      cancelText={t("common.cancel")}
-      onConfirm={confirmDelete}
-      onCancel={cancelDelete}
-    />
-    </>
   );
 }
