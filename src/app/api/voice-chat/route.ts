@@ -1,4 +1,5 @@
 import { getProviderManager } from "../../../lib/ai/manager";
+// @ts-ignore
 import type { AIRequest } from "../../../../../types";
 
 
