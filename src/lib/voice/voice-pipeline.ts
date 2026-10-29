@@ -51,12 +51,43 @@ interface VoicePipelineState {
     transitions: Record<'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR', string[]>;
 }
 
+// اللغات المدعومة — اختار منها في الواجهة
+export const SUPPORTED_LANGUAGES = [
+    { code: 'ar-EG', label: 'العربية (مصر)' },
+    { code: 'ar-SA', label: 'العربية (الخليج)' },
+    { code: 'en-US', label: 'English (US)' },
+    { code: 'en-GB', label: 'English (UK)' },
+    { code: 'fr-FR', label: 'Français' },
+    { code: 'es-ES', label: 'Español' },
+    { code: 'de-DE', label: 'Deutsch' },
+    { code: 'it-IT', label: 'Italiano' },
+    { code: 'pt-BR', label: 'Português' },
+    { code: 'tr-TR', label: 'Türkçe' },
+    { code: 'ru-RU', label: 'Русский' },
+    { code: 'hi-IN', label: 'हिन्दी' },
+    { code: 'ur-PK', label: 'اردو' },
+    { code: 'fa-IR', label: 'فارسی' },
+    { code: 'he-IL', label: 'עברית' },
+    { code: 'ja-JP', label: '日本語' },
+    { code: 'ko-KR', label: '한국어' },
+    { code: 'zh-CN', label: '中文' },
+];
+
+const RTL_PREFIXES = ['ar', 'he', 'fa', 'ur'];
+
+export function isRtlLanguage(langCode: string): boolean {
+    return RTL_PREFIXES.includes(langCode.split('-')[0].toLowerCase());
+}
+
 class VoicePipeline {
     private synth: SpeechSynthesis;
     private recognition: SpeechRecognition | null;
     private isListening: boolean;
     private voices: SpeechSynthesisVoice[] = [];
     private voicesLoaded: boolean = false;
+
+    // اللغة الحالية (الاستماع + الصوت الافتراضي)
+    private language: string = 'ar-EG';
 
     // Chat persistence
     private chatId: string | null = null;
@@ -68,6 +99,7 @@ class VoicePipeline {
     private onTranscript: (transcript: string) => void;
     private onAIResponse: (chunk: string, isComplete: boolean) => void;
     private onError: (error: string) => void;
+    private onLanguageChange?: (lang: string) => void;
 
     // TTS Queue for streaming
     private ttsQueue: Array<{ utterance: SpeechSynthesisUtterance, resolve: () => void }> = [];
@@ -86,17 +118,25 @@ class VoicePipeline {
         onTranscript?: (transcript: string) => void;
         onAIResponse?: (chunk: string, isComplete: boolean) => void;
         onError?: (error: string) => void;
+        onLanguageChange?: (lang: string) => void;
         chatId?: string;
         agentId?: string;
+        language?: string;
     } = {}) {
         this.onStateChange = options.onStateChange || (() => {});
         this.onInterimTranscript = options.onInterimTranscript || (() => {});
         this.onTranscript = options.onTranscript || (() => {});
         this.onAIResponse = options.onAIResponse || (() => {});
         this.onError = options.onError || (() => {});
+        this.onLanguageChange = options.onLanguageChange;
 
         this.chatId = options.chatId || null;
         this.agentId = options.agentId || null;
+
+        // اللغة: من الإعدادات → من التخزين المحلي → عربي افتراضيًا
+        let savedLang: string | null = null;
+        try { savedLang = localStorage.getItem('voice-chat-lang'); } catch {}
+        this.language = options.language || savedLang || 'ar-EG';
 
         this.synth = window.speechSynthesis;
         this.recognition = null;
@@ -117,14 +157,30 @@ class VoicePipeline {
         this.initSTT();
     }
 
+    // تغيير لغة الاستماع يدويًا من الواجهة
+    public setLanguage(lang: string) {
+        this.language = lang;
+        try { localStorage.setItem('voice-chat-lang', lang); } catch {}
+        if (this.recognition) {
+            this.recognition.lang = lang;
+        }
+        this.onLanguageChange?.(lang);
+    }
+
+    public getLanguage(): string {
+        return this.language;
+    }
+
     private initVoices() {
         const loadVoices = () => {
-            this.voices = this.synth.getVoices();
-            this.voicesLoaded = true;
+            const v = this.synth.getVoices();
+            if (v.length) {
+                this.voices = v;
+                this.voicesLoaded = true;
+            }
         };
 
         loadVoices();
-
         if (this.synth.onvoiceschanged !== undefined) {
             this.synth.onvoiceschanged = loadVoices;
         }
@@ -137,15 +193,12 @@ class VoicePipeline {
             return;
         }
 
-        // Create local variable so TypeScript knows it's non-null
         const recognition = new SpeechRecognitionCtor();
 
-        // Set all properties on local variable
         recognition.continuous = false;
         recognition.interimResults = true;
-        recognition.lang = 'ar-EG';
+        recognition.lang = this.language; // ← اللغة المختارة بدل الثابت ar-EG
 
-        // Set event handlers
         recognition.onresult = (event: any) => {
             let interimTranscript = '';
             let finalTranscript = '';
@@ -182,13 +235,13 @@ class VoicePipeline {
             this.isListening = false;
         };
 
-        // Assign to instance property after all setup
         this.recognition = recognition;
     }
 
     public start() {
         if (this.recognition && !this.isListening) {
             try {
+                this.recognition.lang = this.language; // تأكيد اللغة الحالية
                 this.recognition.start();
                 this.isListening = true;
                 this.setState('LISTENING');
@@ -202,8 +255,7 @@ class VoicePipeline {
 
     public sendText(text: string) {
         if (!text.trim()) return;
-
-        this.chatHistory.push({ role: 'user', content: text });
+        // ملاحظة: handleLLMStream هي اللي بتضيف للـ history عشان منتكررش الرسالة
         this.onTranscript(text);
         this.handleLLMStream(text);
     }
@@ -321,39 +373,77 @@ class VoicePipeline {
         }
     }
 
+    // تحديد لغة النص من خطه (عربي/إنجليزي/...) لاختيار الصوت المناسب
+    private detectTextLanguage(text: string): string | null {
+        if (/[\u0600-\u06FF]/.test(text)) return 'ar';
+        if (/[\u0590-\u05FF]/.test(text)) return 'he';
+        if (/[\u0750-\u077F]/.test(text)) return 'fa';
+        if (/[\u0400-\u04FF]/.test(text)) return 'ru';
+        if (/[\u0370-\u03FF]/.test(text)) return 'el';
+        if (/[\u0900-\u097F]/.test(text)) return 'hi';
+        if (/[\u3040-\u30FF\u4E00-\u9FFF]/.test(text)) return 'ja';
+        if (/[\uAC00-\uD7AF]/.test(text)) return 'ko';
+        if (/[a-zA-Z]/.test(text)) return 'en';
+        return null;
+    }
+
+    // اختيار صوت مناسب لنص معيّن: لغة النص أولًا، ثم لغة الإعداد، ثم أي صوت
+    private pickVoice(text: string): SpeechSynthesisVoice | undefined {
+        const fresh = this.synth.getVoices();
+        if (fresh.length) this.voices = fresh;
+
+        const detected = this.detectTextLanguage(text);
+        const primary = (detected || this.language.split('-')[0]).toLowerCase();
+        const fallback = this.language.split('-')[0].toLowerCase();
+
+        return (
+            this.voices.find(v => v.lang.toLowerCase().startsWith(primary)) ||
+            this.voices.find(v => v.lang.toLowerCase().startsWith(fallback)) ||
+            this.voices.find(v => v.lang.toLowerCase().startsWith('en')) ||
+            this.voices[0]
+        );
+    }
+
+    // إصلاح الـ Bug: مسح الجمل اللي اتنطقت من الـ buffer عشان ماتتكررش
     private bufferAndSpeak(chunk: string) {
         this.sentenceBuffer += chunk;
-        const sentenceRegex = /[^.!?؟]+[.!?؟]+/g;
+        const sentenceRegex = /[^.!?؟\n]+[.!?؟]+/g;
         let match;
+        let lastIndex = 0;
 
         while ((match = sentenceRegex.exec(this.sentenceBuffer)) !== null) {
+            lastIndex = sentenceRegex.lastIndex;
             const sentence = match[0].trim();
             if (sentence) {
                 this.speakImmediate(sentence);
             }
         }
+
+        if (lastIndex > 0) {
+            this.sentenceBuffer = this.sentenceBuffer.slice(lastIndex);
+        }
     }
 
     private speakImmediate(text: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const utterance = new SpeechSynthesisUtterance(text);
-            
-            // Better voice selection - prioritize Arabic voices
-            let targetVoice = this.voices.find(v => v.lang.startsWith('ar'));
-            if (!targetVoice) {
-                targetVoice = this.voices.find(v => v.lang.startsWith('en'));
-            }
-            // Fallback to any voice
-            if (!targetVoice && this.voices.length > 0) {
-                targetVoice = this.voices[0];
-            }
+        return new Promise((resolve) => {
+            // تنظيف النص من علامات الماركداون قبل النطق
+            const cleanText = text
+                .replace(/[*_#`~>|]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            if (!cleanText) { resolve(); return; }
 
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+
+            // ← الصوت بيختار حسب لغة الجملة نفسها: عربي للعربي وإنجليزي للإنجليزي
+            const targetVoice = this.pickVoice(cleanText);
             if (targetVoice) {
                 utterance.voice = targetVoice;
                 utterance.lang = targetVoice.lang;
+            } else {
+                utterance.lang = this.language;
             }
 
-            // Ensure reasonable speech rate and volume
             utterance.rate = 1.0;
             utterance.volume = 1.0;
             utterance.pitch = 1.0;
@@ -369,7 +459,7 @@ class VoicePipeline {
                 this.isSpeaking = false;
                 this.currentUtterance = null;
                 this.onError('فشل في النطق');
-                resolve(); // Resolve even on error to continue queue
+                resolve();
             };
 
             this.ttsQueue.push({ utterance, resolve });

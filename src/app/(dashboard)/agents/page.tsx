@@ -27,7 +27,7 @@ const ICON_COLORS = ["#9c9c9c", "#6b6b6b", "#535353"];
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [deleteDialog, setDeleteDialog] = useState({
+  const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; agentId: string | null; agentName: string }>({
     isOpen: false,
     agentId: null,
     agentName: ""
@@ -46,11 +46,11 @@ export default function AgentsPage() {
   useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
   function handleDelete(agent: Agent) {
-    setDeleteDialog({
+    setDeleteDialog(prev => ({ 
       isOpen: true,
-      agentId: agent.id,
+      agentId: agent.id as string,
       agentName: agent.name
-    });
+    }));
   }
 
   function cancelDelete() {
@@ -63,6 +63,7 @@ export default function AgentsPage() {
 
   async function confirmDelete() {
     const id = deleteDialog.agentId;
+    if (!id) return;
     setDeleteDialog({
       isOpen: false,
       agentId: null,

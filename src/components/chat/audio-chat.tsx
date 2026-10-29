@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import VoicePipeline from '@/lib/voice/voice-pipeline';
-import { X, Mic, Volume2, Loader2, Send, Trash2, Minimize2, Maximize2, Sparkles } from 'lucide-react';
+import VoicePipeline, { SUPPORTED_LANGUAGES, isRtlLanguage } from '@/lib/voice/voice-pipeline';
+import { X, Mic, Volume2, Loader2, Send, Trash2, Minimize2, Sparkles, Languages } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 
@@ -23,21 +23,35 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
   const [textInput, setTextInput] = useState('');
   const [sttSupported, setSttSupported] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [language, setLanguage] = useState<string>('ar-EG');
 
   const voicePipelineRef = useRef<VoicePipeline | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Initialize voice pipeline
+  // اللغة RTL ولا LTR → بيحدد مكان المؤشر (شمال/يمين)
+  const isRtl = isRtlLanguage(language);
+
+  // تنزيل تلقائي لآخر الرسايل
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, interimTranscript]);
+
+  // تهيئة الـ Voice Pipeline
   useEffect(() => {
     const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionCtor) {
       setSttSupported(false);
     }
 
+    let savedLang: string | null = null;
+    try { savedLang = localStorage.getItem('voice-chat-lang'); } catch {}
+    if (savedLang) setLanguage(savedLang);
+
     voicePipelineRef.current = new VoicePipeline({
       chatId,
       agentId,
+      language: savedLang || undefined,
+      onLanguageChange: (lang) => setLanguage(lang),
       onStateChange: (newState) => {
         setState(newState);
         if (newState === 'IDLE') {
@@ -102,9 +116,36 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
     return () => {
       if (voicePipelineRef.current) {
         voicePipelineRef.current.dispose();
+        voicePipelineRef.current = null;
       }
     };
-  }, []);
+  }, [chatId, agentId]);
+
+  // تحميل رسايل الشات القديمة (توحيد الشات الصوتي مع النصي)
+  useEffect(() => {
+    if (!chatId) return;
+
+    fetch(`/api/chats/${chatId}/messages`) // ← عدّل المسار حسب API الرسايل عندك
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        const list = data?.messages || data;
+        if (Array.isArray(list) && list.length > 0) {
+          const loaded: VoiceMessage[] = list.map((m: any) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.created_at),
+          }));
+          setMessages(loaded);
+
+          // نغذي الـ history بتاع الـ pipeline بالسياق (آخر 20 رسالة)
+          loaded.slice(-20).forEach((m) => {
+            voicePipelineRef.current?.addToHistory(m.role, m.content);
+          });
+        }
+      })
+      .catch(() => {});
+  }, [chatId]);
 
   const handleStartListening = useCallback(() => {
     voicePipelineRef.current?.start();
@@ -117,11 +158,17 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
   const handleClearChat = useCallback(() => {
     setMessages([]);
     voicePipelineRef.current?.clearHistory();
+    // لو عايز تمسح من قاعدة البيانات كمان، اعمل DELETE request هنا لـ /api/chats/[chatId]/messages
   }, []);
 
   const handleSendText = useCallback((text: string) => {
     if (!text.trim() || !voicePipelineRef.current) return;
     voicePipelineRef.current.sendText(text);
+  }, []);
+
+  const handleLanguageChange = useCallback((lang: string) => {
+    setLanguage(lang);
+    voicePipelineRef.current?.setLanguage(lang);
   }, []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -184,17 +231,37 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
 
       {/* Main Modal */}
       <div className="flex-1 flex flex-col max-w-3xl w-full mx-auto my-auto relative z-10">
+
+        {/* مؤشر لغة الاستماع — رمادي باهت، شمال أو يمين حسب اتجاه اللغة */}
+        <div
+          className={cn(
+            'absolute top-20 z-20 flex items-center gap-1.5',
+            isRtl ? 'left-4' : 'right-4'
+          )}
+        >
+          <div className="flex items-center gap-2 bg-slate-800/40 hover:bg-slate-800/70 border border-slate-700/40 rounded-full px-3 py-1.5 backdrop-blur-sm transition-colors">
+            <Languages className="w-3.5 h-3.5 text-slate-500" />
+            <span className="text-[11px] text-slate-500">
+              {isRtl ? 'يستمع بـ' : 'Listening in'}
+            </span>
+            <select
+              value={language}
+              onChange={(e) => handleLanguageChange(e.target.value)}
+              className="bg-transparent text-xs text-slate-400 focus:outline-none cursor-pointer [&>option]:bg-slate-900"
+              aria-label="اختيار لغة الاستماع / Listening language"
+            >
+              {SUPPORTED_LANGUAGES.map(l => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between p-4 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800/50 rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div className="relative p-2.5 rounded-xl bg-gradient-to-br from-cyan-500/15 to-blue-600/15 border border-cyan-400/20">
-              <canvas
-                ref={canvasRef}
-                className="w-7 h-7"
-                width={56}
-                height={56}
-                aria-hidden="true"
-              />
+              <Sparkles className="w-7 h-7 text-cyan-400" />
               <span className={cn(
                 'absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900',
                 state === 'LISTENING' && 'bg-cyan-400 animate-pulse',
@@ -237,7 +304,7 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-gradient-to-b from-slate-950/50 to-slate-950/30">
-          {messages.map((msg, index) => (
+          {messages.map((msg) => (
             <div key={msg.id} className={cn(
               'flex gap-3 animate-fade-in',
               msg.role === 'user' ? 'justify-end' : 'justify-start'
@@ -259,7 +326,7 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
                     : 'bg-slate-800/60 border border-slate-700/50 text-slate-100 rounded-bl-none',
                   msg.isInterim && 'opacity-70'
                 )}>
-                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  <p className="whitespace-pre-wrap break-words" dir="auto">{msg.content}</p>
                   {msg.isInterim && (
                     <span className="inline-block ml-2 animate-pulse text-cyan-400 text-xs font-medium">▌</span>
                   )}
@@ -280,7 +347,7 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
             <div className="flex justify-end animate-fade-in">
               <div className="max-w-[85%] text-right">
                 <div className="rounded-2xl bg-cyan-500/10 border border-cyan-400/40 text-cyan-300 px-4 py-3 text-sm leading-relaxed rounded-br-none animate-pulse">
-                  <p className="whitespace-pre-wrap break-words">{interimTranscript}</p>
+                  <p className="whitespace-pre-wrap break-words" dir="auto">{interimTranscript}</p>
                   <span className="inline-block ml-2 text-cyan-400 font-medium">▌</span>
                 </div>
               </div>
@@ -324,6 +391,7 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
                 onChange={(e) => setTextInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={t('voiceChat.typeOrSpeak')}
+                dir="auto"
                 className={cn(
                   'w-full bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition-all',
                   state !== 'IDLE' && 'opacity-50 cursor-not-allowed'
@@ -367,13 +435,7 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
               ) : state === 'PROCESSING' ? (
                 <Loader2 className="w-9 h-9 text-white animate-spin" />
               ) : (
-                <canvas
-                  ref={canvasRef}
-                  className="w-11 h-11"
-                  width={88}
-                  height={88}
-                  aria-hidden="true"
-                />
+                <Mic className="w-9 h-9 text-white drop-shadow-lg" />
               )}
             </button>
 
