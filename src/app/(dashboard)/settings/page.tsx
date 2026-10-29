@@ -243,7 +243,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="h-full overflow-auto p-6">
+    <div className="fd-scroll h-full overflow-y-auto p-6">
     <div className="max-w-2xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-foreground">{t("settings.title")}</h1>
