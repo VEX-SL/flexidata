@@ -148,6 +148,27 @@
       "tableData": "从中提取数据创建表格"
     }
   },
+  "voiceChat": {
+    "title": "语音聊天",
+    "ready": "就绪",
+    "listening": "聆听中...",
+    "processing": "思考中...",
+    "speaking": "说话中...",
+    "startConversation": "开始语音对话",
+    "stopListening": "停止聆听",
+    "tapToSpeak": "点击说话",
+    "speakingNow": "正在说话...",
+    "thinkingNow": "处理中...",
+    "emptyStateTitle": "开始语音对话",
+    "emptyStateSubtitle": "点击下方的麦克风按钮开始说话。我将通过语音和文字回复。",
+    "clearChat": "清除对话",
+    "minimize": "最小化",
+    "close": "关闭语音聊天",
+    "sendText": "发送文本消息",
+    "typeOrSpeak": "输入消息或点击麦克风说话...",
+    "error": "发生错误",
+    "sttNotSupported": "此浏览器不支持语音识别"
+  },
   "agents": {
     "title": "你的智能体",
     "subtitle": "创建具有独立知识库的专业AI智能体",

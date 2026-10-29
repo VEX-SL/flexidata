@@ -196,6 +196,27 @@
       "advice": "Help me think through a decision"
     }
   },
+  "voiceChat": {
+    "title": "Voice Chat",
+    "ready": "Ready",
+    "listening": "Listening...",
+    "processing": "Thinking...",
+    "speaking": "Speaking...",
+    "startConversation": "Start voice conversation",
+    "stopListening": "Stop listening",
+    "tapToSpeak": "Tap to speak",
+    "speakingNow": "Speaking now...",
+    "thinkingNow": "Processing...",
+    "emptyStateTitle": "Start a voice conversation",
+    "emptyStateSubtitle": "Tap the microphone button below and start speaking. I'll respond both by voice and text.",
+    "clearChat": "Clear conversation",
+    "minimize": "Minimize",
+    "close": "Close voice chat",
+    "sendText": "Send text message",
+    "typeOrSpeak": "Type a message or tap microphone to speak...",
+    "error": "Error occurred",
+    "sttNotSupported": "Speech recognition not supported in this browser"
+  },
   "agents": {
     "title": "Your Agents",
     "subtitle": "Create specialized AI agents with their own knowledge bases",

@@ -148,6 +148,27 @@
       "tableData": "Créer un tableau à partir de ces données"
     }
   },
+  "voiceChat": {
+    "title": "Conversation vocale",
+    "ready": "Prêt",
+    "listening": "Écoute...",
+    "processing": "Réflexion...",
+    "speaking": "Parle...",
+    "startConversation": "Démarrer la conversation vocale",
+    "stopListening": "Arrêter l'écoute",
+    "tapToSpeak": "Appuyez pour parler",
+    "speakingNow": "En train de parler...",
+    "thinkingNow": "Traitement...",
+    "emptyStateTitle": "Démarrer une conversation vocale",
+    "emptyStateSubtitle": "Appuyez sur le bouton micro ci-dessous et commencez à parler. Je répondrai à la fois par voix et par texte.",
+    "clearChat": "Effacer la conversation",
+    "minimize": "Réduire",
+    "close": "Fermer la conversation vocale",
+    "sendText": "Envoyer un message texte",
+    "typeOrSpeak": "Tapez un message ou appuyez sur le micro pour parler...",
+    "error": "Une erreur est survenue",
+    "sttNotSupported": "La reconnaissance vocale n'est pas supportée dans ce navigateur"
+  },
   "agents": {
     "title": "Vos Agents",
     "subtitle": "Créez des agents IA spécialisés avec leurs propres bases de connaissances",

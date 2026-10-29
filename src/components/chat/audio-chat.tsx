@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import VoicePipeline from '@/lib/voice/voice-pipeline';
-import { X, Mic, Volume2, Loader2, Send, Trash2 } from 'lucide-react';
+import { X, Mic, Volume2, Loader2, Send, Trash2, Minimize2, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n';
 
 interface VoiceMessage {
   id: string;
@@ -14,6 +15,7 @@ interface VoiceMessage {
 }
 
 const AudioChat = ({ onClose }: { onClose: () => void }) => {
+  const { t } = useTranslation();
   const [state, setState] = useState<'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING'>('IDLE');
   const [messages, setMessages] = useState<VoiceMessage[]>([]);
   const [interimTranscript, setInterimTranscript] = useState<string>('');
@@ -147,6 +149,10 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
           // Speaking: smoother, more rhythmic waves
           const frequency = 0.2 + Math.sin(time * 0.008 + i * 0.4) * 0.15;
           height = Math.abs(Math.sin(time * 0.015 + i * 0.6) * frequency * maxHeight);
+        } else if (state === 'PROCESSING') {
+          // Processing: amber waves
+          const frequency = 0.18 + Math.sin(time * 0.01 + i * 0.35) * 0.12;
+          height = Math.abs(Math.sin(time * 0.018 + i * 0.55) * frequency * maxHeight);
         } else {
           // Idle: subtle breathing
           height = Math.abs(Math.sin(time * 0.003 + i * 0.2) * maxHeight * 0.15);
@@ -208,17 +214,35 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
 
   const handleClearChat = useCallback(() => {
     setMessages([]);
+    voicePipelineRef.current?.clearHistory();
   }, []);
 
   const handleSendText = useCallback((text: string) => {
     if (!text.trim() || !voicePipelineRef.current) return;
-    // Simulate user speaking the text
+    // The pipeline will handle it as if user spoke
     voicePipelineRef.current.start();
-    // The pipeline will handle the rest
   }, []);
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getStateLabel = () => {
+    switch (state) {
+      case 'LISTENING': return t('voiceChat.listening');
+      case 'PROCESSING': return t('voiceChat.processing');
+      case 'SPEAKING': return t('voiceChat.speaking');
+      default: return t('voiceChat.ready');
+    }
+  };
+
+  const getStateTooltip = () => {
+    switch (state) {
+      case 'LISTENING': return t('voiceChat.stopListening');
+      case 'SPEAKING': return t('voiceChat.speakingNow');
+      case 'PROCESSING': return t('voiceChat.thinkingNow');
+      default: return t('voiceChat.tapToSpeak');
+    }
   };
 
   if (isMinimized) {
@@ -234,7 +258,7 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
             state === 'LISTENING' && 'animate-pulse ring-2 ring-cyan-400/50',
             state === 'SPEAKING' && 'animate-pulse ring-2 ring-pink-400/50'
           )}
-          aria-label="Open voice chat"
+          aria-label={t('voiceChat.title')}
         >
           <canvas 
             ref={canvasRef} 
@@ -249,7 +273,7 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" role="dialog" aria-modal="true" aria-label="Voice Chat">
+    <div className="fixed inset-0 z-50 flex flex-col" role="dialog" aria-modal="true" aria-label={t('voiceChat.title')}>
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
@@ -272,22 +296,22 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
               />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-white">Voice Chat</h2>
-              <p className="text-xs text-slate-400 capitalize">{state === 'LISTENING' ? 'جاري الاستماع...' : state === 'PROCESSING' ? 'جاري التفكير...' : state === 'SPEAKING' ? 'جاري التحدث...' : 'جاهز'}</p>
+              <h2 className="text-lg font-semibold text-white">{t('voiceChat.title')}</h2>
+              <p className="text-xs text-slate-400 capitalize">{getStateLabel()}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsMinimized(true)}
               className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              aria-label="Minimize"
+              aria-label={t('voiceChat.minimize')}
             >
-              <Volume2 className="w-5 h-5" />
+              <Minimize2 className="w-5 h-5" />
             </button>
             <button
               onClick={onClose}
               className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              aria-label="Close voice chat"
+              aria-label={t('voiceChat.close')}
             >
               <X className="w-5 h-5" />
             </button>
@@ -307,8 +331,8 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
                   aria-hidden="true"
                 />
               </div>
-              <h3 className="text-xl font-medium text-white mb-2">ابدأ المحادثة الصوتية</h3>
-              <p className="text-slate-400 max-w-xs">اضغط على زر الميكروفون بالأسفل وابدأ بالتحدث. سأرد عليك صوتياً ونصياً.</p>
+              <h3 className="text-xl font-medium text-white mb-2">{t('voiceChat.emptyStateTitle')}</h3>
+              <p className="text-slate-400 max-w-xs">{t('voiceChat.emptyStateSubtitle')}</p>
             </div>
           )}
 
@@ -367,7 +391,7 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
             <div className="flex justify-start">
               <div className="flex items-center gap-2 px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-2xl rounded-bl-none">
                 <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                <span className="text-sm text-slate-300">جاري التفكير...</span>
+                <span className="text-sm text-slate-300">{t('voiceChat.thinkingNow')}</span>
               </div>
             </div>
           )}
@@ -377,7 +401,7 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
             <div className="flex justify-start">
               <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-pink-500/10 to-rose-500/10 border border-pink-400/30 rounded-2xl rounded-bl-none">
                 <Volume2 className="w-4 h-4 text-pink-400 animate-pulse" />
-                <span className="text-sm text-pink-300">جاري التحدث...</span>
+                <span className="text-sm text-pink-300">{t('voiceChat.speakingNow')}</span>
               </div>
             </div>
           )}
@@ -392,7 +416,7 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
             <div className="flex-1 relative">
               <input
                 type="text"
-                placeholder="اكتب رسالة أو اضغط الميكروفون للتحدث..."
+                placeholder={t('voiceChat.typeOrSpeak')}
                 className="w-full bg-slate-800/50 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition-all"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.currentTarget.value.trim()) {
@@ -406,7 +430,7 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
                 onClick={() => handleSendText((document.querySelector('input') as HTMLInputElement)?.value || '')}
                 disabled={state !== 'IDLE'}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-400/10 transition-colors disabled:opacity-50"
-                aria-label="Send text message"
+                aria-label={t('voiceChat.sendText')}
               >
                 <Send className="w-5 h-5" />
               </button>
@@ -427,7 +451,7 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
                   ? 'bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/50 cursor-wait'
                   : 'bg-gradient-to-br from-cyan-500 to-blue-600 border-cyan-400/30 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(34,211,238,0.3)]'
               )}
-              aria-label={state === 'LISTENING' ? 'إيقاف الاستماع' : 'بدء الاستماع'}
+              aria-label={getStateTooltip()}
             >
               {state === 'LISTENING' ? (
                 <Mic className="w-8 h-8 text-white" />
@@ -447,10 +471,10 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
               
               {/* Tooltip */}
               <span className={cn(
-                'absolute bottom-full left-1/2 -translate-x-1/2 mb-3 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-lg opacity-0 transition-opacity',
+                'absolute bottom-full left-1/2 -translate-x-1/2 mb-3 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-lg opacity-0 transition-opacity group-hover:opacity-100',
                 'bg-slate-900 border border-slate-700'
               )}>
-                {state === 'LISTENING' ? 'إيقاف الاستماع' : state === 'SPEAKING' ? 'جاري التحدث...' : state === 'PROCESSING' ? 'جاري المعالجة...' : 'اضغط للتحدث'}
+                {getStateTooltip()}
               </span>
             </button>
 
@@ -459,7 +483,7 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
               <button
                 onClick={handleClearChat}
                 className="p-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-400/10 border border-slate-700 transition-colors"
-                aria-label="Clear conversation"
+                aria-label={t('voiceChat.clearChat')}
               >
                 <Trash2 className="w-5 h-5" />
               </button>
