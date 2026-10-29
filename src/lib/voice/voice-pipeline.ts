@@ -326,14 +326,26 @@ class VoicePipeline {
     private speakImmediate(text: string): Promise<void> {
         return new Promise((resolve, reject) => {
             const utterance = new SpeechSynthesisUtterance(text);
-            const targetVoice = this.voices.find(v =>
-                v.lang.startsWith('ar') || v.lang.startsWith('en')
-            );
+            
+            // Better voice selection - prioritize Arabic voices
+            let targetVoice = this.voices.find(v => v.lang.startsWith('ar'));
+            if (!targetVoice) {
+                targetVoice = this.voices.find(v => v.lang.startsWith('en'));
+            }
+            // Fallback to any voice
+            if (!targetVoice && this.voices.length > 0) {
+                targetVoice = this.voices[0];
+            }
 
             if (targetVoice) {
                 utterance.voice = targetVoice;
                 utterance.lang = targetVoice.lang;
             }
+
+            // Ensure reasonable speech rate and volume
+            utterance.rate = 1.0;
+            utterance.volume = 1.0;
+            utterance.pitch = 1.0;
 
             utterance.onend = () => {
                 this.isSpeaking = false;
@@ -341,11 +353,12 @@ class VoicePipeline {
                 resolve();
             };
 
-            utterance.onerror = () => {
+            utterance.onerror = (event) => {
+                console.error('Speech synthesis error:', event);
                 this.isSpeaking = false;
                 this.currentUtterance = null;
                 this.onError('فشل في النطق');
-                resolve();
+                resolve(); // Resolve even on error to continue queue
             };
 
             this.ttsQueue.push({ utterance, resolve });
@@ -363,7 +376,7 @@ class VoicePipeline {
             const { utterance, resolve } = this.ttsQueue.shift()!;
             this.currentUtterance = utterance;
 
-            return new Promise<void>((resolveQueue) => {
+            await new Promise<void>((resolveQueue) => {
                 utterance.onend = () => {
                     this.isSpeaking = false;
                     this.currentUtterance = null;
@@ -374,6 +387,7 @@ class VoicePipeline {
                 utterance.onerror = () => {
                     this.isSpeaking = false;
                     this.currentUtterance = null;
+                    this.onError('فشل في النطق');
                     resolve();
                     resolveQueue();
                 };

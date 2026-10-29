@@ -1,11 +1,6 @@
 import { getProviderManager } from "../../../lib/ai/manager";
 import { AIRequest } from "@/types";
 
-interface IncomingMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
 
 export async function POST(req: Request) {
   try {
@@ -20,13 +15,16 @@ export async function POST(req: Request) {
 
     const providerManager = getProviderManager();
 
-    const systemMsg: IncomingMessage = {
-      role: "system",
-      content: systemPrompt || "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي."
-    };
+    // Check if first message is already a system message
+    const hasSystemMessage = messages.length > 0 && messages[0].role === 'system';
+    const systemContent = systemPrompt || "أنت مساعد ذكي ناطق بالعربية. اجعل ردودك مختصرة ومباشرة ومحادثة (1-3 جمل كحد أقصى). تجنب التنسيق المعقد. تحدث بشكل طبيعي.";
+    
+    const requestMessages = hasSystemMessage 
+      ? messages 
+      : [{ role: 'system' as const, content: systemContent }, ...messages];
 
     const request: AIRequest = {
-      messages: [systemMsg, ...messages.map((m: IncomingMessage) => ({ role: m.role, content: m.content }))],
+      messages: requestMessages,
       temperature: 0.7,
       maxTokens: 1024,
     };
