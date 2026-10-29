@@ -17,8 +17,10 @@ import {
   MessageSquare,
   Download,
   X,
+  Mic,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import AudioChat from '@/components/chat/audio-chat';
 import { useStreamChat } from "@/lib/hooks/use-stream-chat";
 import {
   FileEditCard,
@@ -32,6 +34,7 @@ import { AIAvatar, UserAvatar, ThinkingDots, StreamingCursor } from "@/component
 import { stripMarkdown } from "@/lib/strip-markdown";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FileTypeIcon, SUPPORTED_FILE_ACCEPT } from "@/components/file-icon";
+import { createClient } from "@/lib/supabase/client";
 
 function getGreeting(name: string) {
   const hour = new Date().getHours();
@@ -187,6 +190,7 @@ function EmptyState({
 
 // ─── Agent Chat Content ───────────────────────────────────────────────────────
 function AgentChatContent({ agentId }: { agentId: string }) {
+    const [isVoiceChatOpen, setIsVoiceChatOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialChatId = searchParams.get("chatId");
@@ -217,6 +221,8 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     isOpen: boolean;
     chatId: string | null;
   }>({ isOpen: false, chatId: null });
+  const [modelIcon, setModelIcon] = useState<string | null>(null);
+  const [modelIconType, setModelIconType] = useState<"preset" | "custom" | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -233,7 +239,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         if (user) {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("name, avatar_url")
+            .select("name, avatar_url, model_icon, model_icon_type")
             .eq("id", user.id)
             .maybeSingle();
           if (!active) return;
@@ -242,6 +248,10 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           }
           if (profile?.avatar_url) {
             setUserAvatar(profile.avatar_url);
+          }
+          if (profile?.model_icon) {
+            setModelIcon(profile.model_icon);
+            setModelIconType(profile.model_icon_type as "preset" | "custom" | null);
           }
         }
       } catch {
@@ -396,6 +406,63 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
+  async function handleModelIconChange(icon: string | File | null, type: "preset" | "custom") {
+    if (!icon) return;
+    
+    let finalIcon: string = typeof icon === "string" ? icon : "";
+    
+    // If it's a custom file, upload it first
+    if (type === "custom" && icon instanceof File) {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const fileName = `model-icon-${user.id}-${Date.now()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, icon, {
+            cacheControl: '3600',
+            upsert: true
+          });
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+        
+        finalIcon = publicUrl;
+      } catch (err) {
+        console.error("Failed to upload model icon:", err);
+        alert("Failed to upload icon");
+        return;
+      }
+    }
+    
+    setModelIcon(finalIcon);
+    setModelIconType(type);
+    
+    // Save to profile
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ 
+            model_icon: finalIcon, 
+            model_icon_type: type 
+          })
+          .eq('id', user.id);
+      }
+    } catch (err) {
+      console.error("Failed to save model icon:", err);
+    }
+  }
+
   function handleCopy(text: string, id: string) {
     navigator.clipboard.writeText(stripMarkdown(text));
     setCopiedId(id);
@@ -545,7 +612,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
               {messages.map((msg, idx) => (
                 <div key={msg.id} className="group">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    {msg.role === "assistant" && <AIAvatar size={28} className="mt-0.5" />}
+                    {msg.role === "assistant" && <AIAvatar size={28} className="mt-0.5" modelIcon={modelIcon} modelIconType={modelIconType} onModelIconChange={handleModelIconChange} />}
 
                     <div className="flex flex-col gap-1.5 max-w-[80%]">
                       <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
@@ -594,7 +661,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                     </div>
 
                     {msg.role === "user" && (
-                      <UserAvatar size={28} src={userAvatar} alt={userName || "Profile"} className="mt-0.5" />
+                      <UserAvatar size={28} src={userAvatar} alt={userName || "Profile"} className="mt-0.5" onClick={() => router.push("/settings")} />
                     )}
                   </div>
 
@@ -622,7 +689,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
               {/* Streaming */}
               {streaming && streamedContent && (
                 <div className="flex gap-3 justify-start">
-                  <AIAvatar size={28} className="mt-0.5" />
+                  <AIAvatar size={28} className="mt-0.5" modelIcon={modelIcon} modelIconType={modelIconType} onModelIconChange={handleModelIconChange} />
                   <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-card border border-border text-foreground text-sm leading-relaxed">
                     <MarkdownRenderer key={streamedContent} content={stripFileEdits(streamedContent)} />
                     {generatedImages.length > 0 && (
@@ -659,7 +726,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
               {streaming && !streamedContent && (
                 <div className="flex gap-3 justify-start">
-                  <AIAvatar size={28} />
+                  <AIAvatar size={28} modelIcon={modelIcon} modelIconType={modelIconType} onModelIconChange={handleModelIconChange} />
                   <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3.5">
                     <ThinkingDots />
                   </div>
@@ -733,19 +800,32 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                   )}
                 </div>
 
-                <button
-                  onClick={() => (streaming ? abort() : handleSend())}
-                  disabled={!streaming && !input.trim()}
-                  className={`p-2 rounded-xl shrink-0 self-end mb-1 transition-all ${
-                    streaming
-                      ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                      : input.trim()
-                      ? "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
-                      : "bg-muted text-muted-foreground cursor-not-allowed"
-                  }`}
-                >
-                  {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => (streaming ? abort() : handleSend())}
+                    disabled={!streaming && !input.trim()}
+                    className={`p-2 rounded-xl shrink-0 self-end mb-1 transition-all ${
+                      streaming
+                        ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                        : input.trim()
+                        ? "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+                        : "bg-muted text-muted-foreground cursor-not-allowed"
+                    }`}
+                  >
+                    {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  </button>
+                  <button
+                    onClick={() => setIsVoiceChatOpen(true)}
+                    disabled={streaming}
+                    className="p-2 rounded-xl bg-blue-500 text-white hover:bg-blue-600 transition-all"
+                    aria-label="Voice Chat"
+                  >
+                    <Mic size={16} className="animate-pulse"/>
+                  </button>
+                </div>
+                {isVoiceChatOpen && (
+                  <AudioChat onClose={() => setIsVoiceChatOpen(false)} />
+                )}
               </div>
             </div>
             <p className="text-center text-[11px] text-muted-foreground/50 mt-1.5">

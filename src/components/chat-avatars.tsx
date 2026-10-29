@@ -1,23 +1,110 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
+import { Bot, Sparkles, Zap, Crown, Heart, Star, Feather, Brain } from "lucide-react";
+import { ModelIconPicker } from "./model-icon-picker";
+
 interface AIAvatarProps {
   size?: number;
   className?: string;
+  modelIcon?: string | null;
+  modelIconType?: "preset" | "custom" | null;
+  onModelIconChange?: (icon: string | File | null, type: "preset" | "custom") => void;
 }
 
-export function AIAvatar({ size = 28, className = "" }: AIAvatarProps) {
+interface UserAvatarProps {
+  size?: number;
+  className?: string;
+  src?: string | null;
+  alt?: string;
+  onClick?: () => void;
+}
+
+function getPresetIcon(iconId: string) {
+  const icons: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+    sparkles: Sparkles,
+    zap: Zap,
+    crown: Crown,
+    heart: Heart,
+    star: Star,
+    feather: Feather,
+    brain: Brain,
+  };
+  return icons[iconId] || Bot;
+}
+
+export function AIAvatar({
+  size = 28,
+  className = "",
+  modelIcon,
+  modelIconType,
+  onModelIconChange,
+}: AIAvatarProps) {
+  const [showPicker, setShowPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        setShowPicker(false);
+      }
+    }
+    if (showPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showPicker]);
+
+  const PresetIcon = modelIcon && modelIconType === "preset" ? getPresetIcon(modelIcon) : null;
+
   return (
-    <div
-      className={`shrink-0 flex items-center justify-center rounded-xl ${className}`}
-      style={{
-        width: size,
-        height: size,
-        background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))",
-      }}
-    >
-      <svg width={size * 0.46} height={size * 0.46} fill="none" viewBox="0 0 24 24">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="white" />
-      </svg>
+    <div className="relative" ref={pickerRef}>
+      <button
+        onClick={() => setShowPicker(!showPicker)}
+        className={`shrink-0 flex items-center justify-center rounded-xl transition-all ${className}`}
+        style={{ width: size, height: size }}
+        aria-label="Change model icon"
+      >
+        {modelIcon && modelIconType === "custom" ? (
+          <img
+            src={modelIcon}
+            alt="Model icon"
+            className="rounded-xl object-cover"
+            style={{ width: "100%", height: "100%" }}
+          />
+        ) : modelIcon && modelIconType === "preset" && PresetIcon ? (
+          <div
+            className="flex items-center justify-center"
+            style={{
+              width: "100%",
+              height: "100%",
+              background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))",
+            }}
+          >
+            <PresetIcon size={size * 0.5} className="text-white" />
+          </div>
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))",
+            }}
+          >
+            <Bot size={size * 0.5} className="text-white" />
+          </div>
+        )}
+      </button>
+
+      {showPicker && onModelIconChange && (
+        <ModelIconPicker
+          isOpen={true}
+          onClose={() => setShowPicker(false)}
+          onSelect={onModelIconChange}
+          currentIcon={modelIcon}
+          currentIconType={modelIconType}
+        />
+      )}
     </div>
   );
 }
@@ -27,22 +114,19 @@ export function UserAvatar({
   className = "",
   src,
   alt = "Profile",
-}: AIAvatarProps & { src?: string | null; alt?: string }) {
-  if (src) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt={alt}
-        width={size}
-        height={size}
-        className={`shrink-0 rounded-xl object-cover border border-border ${className}`}
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-
-  return (
+  onClick,
+}: UserAvatarProps) {
+  const content = src ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      width={size}
+      height={size}
+      className={`shrink-0 rounded-xl object-cover border border-border ${className}`}
+      style={{ width: size, height: size }}
+    />
+  ) : (
     <div
       className={`shrink-0 bg-primary/10 border border-primary/20 flex items-center justify-center rounded-xl ${className}`}
       style={{ width: size, height: size }}
@@ -53,6 +137,22 @@ export function UserAvatar({
       </svg>
     </div>
   );
+
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className="relative"
+        aria-label="Go to settings"
+        style={{ cursor: "pointer" }}
+      >
+        {content}
+        <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" />
+      </button>
+    );
+  }
+
+  return content;
 }
 
 export function ThinkingDots() {

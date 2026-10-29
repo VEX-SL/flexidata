@@ -14,6 +14,7 @@ import {
   RotateCw,
   MessageSquare,
   Download,
+  Settings,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useStreamChat } from "@/lib/hooks/use-stream-chat";
@@ -21,6 +22,7 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AIAvatar, UserAvatar, ThinkingDots, StreamingCursor } from "@/components/chat-avatars";
 import { stripMarkdown } from "@/lib/strip-markdown";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { createClient } from "@/lib/supabase/client";
 
 
 interface Message {
@@ -191,6 +193,8 @@ function ChatContent() {
   const [userName, setUserName] = useState<string | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [modelIcon, setModelIcon] = useState<string | null>(null);
+  const [modelIconType, setModelIconType] = useState<"preset" | "custom" | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -206,7 +210,7 @@ function ChatContent() {
         if (user) {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("name, avatar_url")
+            .select("name, avatar_url, model_icon, model_icon_type")
             .eq("id", user.id)
             .maybeSingle();
           if (!active) return;
@@ -215,6 +219,10 @@ function ChatContent() {
           }
           if (profile?.avatar_url) {
             setUserAvatar(profile.avatar_url);
+          }
+          if (profile?.model_icon) {
+            setModelIcon(profile.model_icon);
+            setModelIconType(profile.model_icon_type as "preset" | "custom" | null);
           }
         }
       } catch {
@@ -357,6 +365,63 @@ function ChatContent() {
     }
   }
 
+  async function handleModelIconChange(icon: string | File | null, type: "preset" | "custom") {
+    if (!icon) return;
+    
+    let finalIcon: string = typeof icon === "string" ? icon : "";
+    
+    // If it's a custom file, upload it first
+    if (type === "custom" && icon instanceof File) {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const fileName = `model-icon-${user.id}-${Date.now()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, icon, {
+            cacheControl: '3600',
+            upsert: true
+          });
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+        
+        finalIcon = publicUrl;
+      } catch (err) {
+        console.error("Failed to upload model icon:", err);
+        alert("Failed to upload icon");
+        return;
+      }
+    }
+    
+    setModelIcon(finalIcon);
+    setModelIconType(type);
+    
+    // Save to profile
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({ 
+            model_icon: finalIcon, 
+            model_icon_type: type 
+          })
+          .eq('id', user.id);
+      }
+    } catch (err) {
+      console.error("Failed to save model icon:", err);
+    }
+  }
+
   async function handleRegenerate(msgIndex: number) {
     if (streaming) return;
     const userMsg = messages[msgIndex];
@@ -444,7 +509,7 @@ function ChatContent() {
               {messages.map((msg, idx) => (
                 <div key={msg.id} className="group">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    {msg.role === "assistant" && <AIAvatar size={28} className="mt-0.5" />}
+                    {msg.role === "assistant" && <AIAvatar size={28} className="mt-0.5" modelIcon={modelIcon} modelIconType={modelIconType} onModelIconChange={handleModelIconChange} />}
 
                     <div className="flex flex-col gap-1.5 max-w-[80%]">
                       <div
@@ -506,7 +571,7 @@ function ChatContent() {
                     </div>
 
                     {msg.role === "user" && (
-                      <UserAvatar size={28} src={userAvatar} alt={userName || "Profile"} className="mt-0.5" />
+                      <UserAvatar size={28} src={userAvatar} alt={userName || "Profile"} className="mt-0.5" onClick={() => router.push("/settings")} />
                     )}
                   </div>
                 </div>
@@ -515,7 +580,7 @@ function ChatContent() {
               {/* Streaming */}
               {streaming && streamedContent && (
                 <div className="flex gap-3 justify-start">
-                  <AIAvatar size={28} className="mt-0.5" />
+                  <AIAvatar size={28} className="mt-0.5" modelIcon={modelIcon} modelIconType={modelIconType} onModelIconChange={handleModelIconChange} />
                   <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-card border border-border text-foreground text-sm leading-relaxed">
                     <MarkdownRenderer key={streamedContent} content={streamedContent} />
                     {generatedImages.length > 0 && (
@@ -551,7 +616,7 @@ function ChatContent() {
 
               {streaming && !streamedContent && (
                 <div className="flex gap-3 justify-start">
-                  <AIAvatar size={28} />
+                  <AIAvatar size={28} modelIcon={modelIcon} modelIconType={modelIconType} onModelIconChange={handleModelIconChange} />
                   <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3.5">
                     <ThinkingDots />
                   </div>
