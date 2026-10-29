@@ -35,11 +35,11 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
-  const [deleteDialog, setDeleteDialog] = useState<{
-    isOpen: boolean;
-    agentId: string | null;
-    agentName: string;
-  }>({ isOpen: false, agentId: null, agentName: "" });
+  const [deleteDialog, setDeleteDialog] = useState({
+    isOpen: false,
+    agentId: null,
+    agentName: ""
+  });
   const router = useRouter();
   const supabase = createClient();
   const { t } = useTranslation();
@@ -58,11 +58,11 @@ export default function AgentsPage() {
     }
   };
 
-  const getTranslation = (key: string, params?: Record<string, string>) => {
-    const translationKey = key.split('.').reduce((obj, part) => obj && obj[part], customTranslations);
-    if (!translationKey) return key;
-    const translation = translationKey;
-    return params ? translation.replace(new RegExp(`{${Object.keys(params)[0]}}`, 'g'), params[Object.keys(params)[0]]) : translation;
+  const getTranslation = (key: string, params?: { name?: string }) => {
+    const [module, subKey] = key.split('.');
+    const translation = customTranslations[module]?.[subKey];
+    if (!translation) return key;
+    return params ? translation[navigator.language || 'en'].replace(new RegExp(`{${Object.keys(params || {})[0]}}`, 'g'), params[Object.keys(params || {})[0]]) : translation[navigator.language || 'en'];
   };
 
   useEffect(() => setMounted(true), []);
@@ -85,25 +85,44 @@ export default function AgentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newName.trim() }),
       });
-      if (res.ok) { const agent = await res.json(); router.push(`/agents/${agent.id}`); }
-    } finally { setLoading(false); }
+      if (res.ok) {
+        const agent = await res.json();
+        router.push(`/agents/${agent.id}`);
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleDelete(agent: Agent) {
-    setDeleteDialog({ isOpen: true, agentId: agent.id, agentName: agent.name });
+    setDeleteDialog({
+      isOpen: true,
+      agentId: agent.id,
+      agentName: agent.name
+    });
   }
 
   function cancelDelete() {
-    setDeleteDialog({ isOpen: false, agentId: null, agentName: "" });
+    setDeleteDialog({
+      isOpen: false,
+      agentId: null,
+      agentName: ""
+    });
   }
 
   async function confirmDelete() {
     const id = deleteDialog.agentId;
-    setDeleteDialog({ isOpen: false, agentId: null, agentName: "" });
+    setDeleteDialog({
+      isOpen: false,
+      agentId: null,
+      agentName: ""
+    });
     if (!id) return;
     try {
       const res = await fetch(`/api/agents/${id}`, { method: "DELETE" });
-      if (res.ok) setAgents((prev) => prev.filter((a) => a.id !== id));
+      if (res.ok) {
+        setAgents(prev => prev.filter(a => a.id !== id));
+      }
     } catch {}
   }
 
@@ -179,56 +198,6 @@ export default function AgentsPage() {
           gap: 0.3rem;
           color: var(--color-muted-foreground);
         }
-        .fd-agents-create {
-          position: fixed;
-          bottom: 2rem;
-          right: 2rem;
-          width: 56px;
-          height: 56px;
-          border-radius: 50%;
-          background: var(--color-primary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .fd-agents-create:hover {
-          transform: scale(1.05);
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-        }
-        .fd-agents-create-button {
-          width: 100%;
-          height: 100%;
-          border-radius: 50%;
-          background: var(--color-primary);
-          border: none;
-          color: var(--color-primary-foreground);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 0.2s;
-        }
-        .fd-agents-create-button:hover {
-          background: var(--color-primary-hover);
-        }
-        .fd-agents-create-input {
-          width: 100%;
-          padding: 0.75rem;
-          border-radius: 24px;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          background: rgba(255, 255, 255, 0.05);
-          color: var(--color-foreground);
-          font-size: 0.9rem;
-          margin-top: 0.5rem;
-        }
-        .fd-agents-create-input:focus {
-          outline: none;
-          border-color: var(--color-primary);
-          box-shadow: 0 0 0 2px var(--color-primary-focus);
-        }
       `}
     </style>
     <div className="fd-agents-root">
@@ -257,7 +226,7 @@ export default function AgentsPage() {
             </div>
             <div className="fd-agents-card-actions" onClick={(e) => e.stopPropagation()}>
               <button
-                onClick={() => setDeleteDialog({ isOpen: true, agentId: agent.id, agentName: agent.name })}
+                onClick={() => handleDelete(agent)}
                 style={{ padding: 6, borderRadius: 8, background: 'var(--color-muted)', border: 'none', cursor: 'pointer', color: 'var(--color-muted-foreground)', display: 'flex', transition: 'color .2s' }}
                 onMouseEnter={(ev) => ev.currentTarget.style.color = '#EF4444'}
                 onMouseLeave={(ev) => ev.currentTarget.style.color = 'var(--color-muted-foreground)'}
