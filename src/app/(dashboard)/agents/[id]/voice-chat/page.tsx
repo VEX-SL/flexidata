@@ -72,7 +72,7 @@
 
         {/* Voice Chat Component - Full Screen */}
         <main className="flex-1 relative z-10">
-          <AudioChat onClose={() => window.history.back()} />
+          <AudioChat onClose={() => window.history.back()} agentId={agentId} />
         </main>
 
         {/* Update time */}

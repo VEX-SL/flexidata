@@ -58,6 +58,10 @@ class VoicePipeline {
     private voices: SpeechSynthesisVoice[] = [];
     private voicesLoaded: boolean = false;
 
+    // Chat persistence
+    private chatId: string | null = null;
+    private agentId: string | null = null;
+
     // Callbacks
     private onStateChange: (state: 'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR') => void;
     private onInterimTranscript: (transcript: string) => void;
@@ -82,12 +86,17 @@ class VoicePipeline {
         onTranscript?: (transcript: string) => void;
         onAIResponse?: (chunk: string, isComplete: boolean) => void;
         onError?: (error: string) => void;
+        chatId?: string;
+        agentId?: string;
     } = {}) {
         this.onStateChange = options.onStateChange || (() => {});
         this.onInterimTranscript = options.onInterimTranscript || (() => {});
         this.onTranscript = options.onTranscript || (() => {});
         this.onAIResponse = options.onAIResponse || (() => {});
         this.onError = options.onError || (() => {});
+
+        this.chatId = options.chatId || null;
+        this.agentId = options.agentId || null;
 
         this.synth = window.speechSynthesis;
         this.recognition = null;
@@ -244,6 +253,8 @@ class VoicePipeline {
                     ],
                     temperature: 0.7,
                     maxTokens: 1024,
+                    chatId: this.chatId,
+                    agentId: this.agentId,
                 }),
                 signal: this.currentRequestAbortController.signal
             });

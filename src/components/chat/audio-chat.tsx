@@ -14,7 +14,7 @@ interface VoiceMessage {
   isInterim?: boolean;
 }
 
-const AudioChat = ({ onClose }: { onClose: () => void }) => {
+const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?: string; agentId?: string }) => {
   const { t } = useTranslation();
   const [state, setState] = useState<'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR'>('IDLE');
   const [messages, setMessages] = useState<VoiceMessage[]>([]);
@@ -36,6 +36,8 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
     }
 
     voicePipelineRef.current = new VoicePipeline({
+      chatId,
+      agentId,
       onStateChange: (newState) => {
         setState(newState);
         if (newState === 'IDLE') {
