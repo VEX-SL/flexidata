@@ -52,7 +52,6 @@ interface VoicePipelineState {
 }
 
 class VoicePipeline {
-    private apiKey: string;
     private synth: SpeechSynthesis;
     private recognition: SpeechRecognition | null;
     private isListening: boolean;
@@ -123,18 +122,22 @@ class VoicePipeline {
     }
 
     private initSTT() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
+        const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognitionCtor) {
             this.onError("التعرف على الصوت غير مدعوم في هذا المتصفح");
             return;
         }
 
-        this.recognition = new SpeechRecognition();
-        this.recognition.continuous = false;
-        this.recognition.interimResults = true;
-        this.recognition.lang = 'ar-EG';
+        // Create local variable so TypeScript knows it's non-null
+        const recognition = new SpeechRecognitionCtor();
 
-        this.recognition.onresult = (event) => {
+        // Set all properties on local variable
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = 'ar-EG';
+
+        // Set event handlers
+        recognition.onresult = (event: any) => {
             let interimTranscript = '';
             let finalTranscript = '';
 
@@ -157,7 +160,7 @@ class VoicePipeline {
             }
         };
 
-        this.recognition.onerror = (err) => {
+        recognition.onerror = (err: any) => {
             console.error("STT Error:", err);
             if (err.error !== 'no-speech') {
                 this.onError(`خطأ في التعرف على الصوت: ${err.error}`);
@@ -166,9 +169,12 @@ class VoicePipeline {
             this.setState('ERROR');
         };
 
-        this.recognition.onend = () => {
+        recognition.onend = () => {
             this.isListening = false;
         };
+
+        // Assign to instance property after all setup
+        this.recognition = recognition;
     }
 
     public start() {
@@ -318,7 +324,7 @@ class VoicePipeline {
     }
 
     private speakImmediate(text: string): Promise<void> {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const utterance = new SpeechSynthesisUtterance(text);
             const targetVoice = this.voices.find(v =>
                 v.lang.startsWith('ar') || v.lang.startsWith('en')
@@ -353,12 +359,29 @@ class VoicePipeline {
         this.isSpeaking = true;
         this.onStateChange('SPEAKING');
 
-        const { utterance, resolve } = this.ttsQueue.shift()!;
-        this.currentUtterance = utterance;
+        while (this.ttsQueue.length > 0) {
+            const { utterance, resolve } = this.ttsQueue.shift()!;
+            this.currentUtterance = utterance;
 
-        this.synth.speak(utterance);
-        await utterance.onend.promise;
-        resolve();
+            return new Promise<void>((resolveQueue) => {
+                utterance.onend = () => {
+                    this.isSpeaking = false;
+                    this.currentUtterance = null;
+                    resolve();
+                    resolveQueue();
+                };
+
+                utterance.onerror = () => {
+                    this.isSpeaking = false;
+                    this.currentUtterance = null;
+                    resolve();
+                    resolveQueue();
+                };
+
+                this.synth.speak(utterance);
+            });
+        }
+
         this.isSpeaking = false;
         this.currentUtterance = null;
     }
@@ -399,9 +422,9 @@ class VoicePipeline {
         this.chatHistory = [];
 
         if (this.recognition) {
-            this.recognition.onresult = null;
-            this.recognition.onerror = null;
-            this.recognition.onend = null;
+            (this.recognition as any).onresult = null;
+            (this.recognition as any).onerror = null;
+            (this.recognition as any).onend = null;
             this.recognition = null;
         }
 

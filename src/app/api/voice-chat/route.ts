@@ -2,7 +2,7 @@ import { getProviderManager } from "../../../lib/ai/manager";
 import { AIRequest } from "@/types";
 
 interface IncomingMessage {
-  role: "user" | "assistant";
+  role: "system" | "user" | "assistant";
   content: string;
 }
 

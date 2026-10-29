@@ -30,8 +30,8 @@ const AudioChat = ({ onClose }: { onClose: () => void }) => {
 
   // Initialize voice pipeline
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
       setSttSupported(false);
     }
 
