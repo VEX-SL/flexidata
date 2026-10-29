@@ -5,7 +5,6 @@ import { GroqProvider } from "./providers/groq";
 import { GeminiProvider } from "./providers/gemini";
 import { CerebrasProvider } from "./providers/cerebras";
 import { MistralProvider } from "./providers/mistral";
-import { RdpProvider } from "./providers/rdp";
 import { HuggingFaceProvider } from "./providers/huggingface";
 import type { BaseAIProvider } from "./providers/base";
 
@@ -20,20 +19,6 @@ export class ProviderManager {
   private disabledProviders = new Set<string>();
 
   constructor() {
-    // RDP is opt-in and requires BOTH RDP_API_URL and RDP_API_KEY. No tunnel
-    // URL or secret is ever baked into the source; a partial configuration is
-    // a bootstrap error and must fail fast (loud) rather than silently
-    // dropping a provider the operator believed was configured.
-    const rdpUrl = process.env.RDP_API_URL;
-    const rdpKey = process.env.RDP_API_KEY;
-    if (rdpUrl && rdpKey) {
-      this.providers.push(new RdpProvider(rdpUrl, rdpKey));
-    } else if (rdpUrl || rdpKey) {
-      throw new Error(
-        "RDP_API_URL and RDP_API_KEY must both be set to enable the RDP provider"
-      );
-    }
-
     // باقي الproviders العادية...
     if (process.env.GROQ_API_KEY) {
       this.providers.push(new GroqProvider(process.env.GROQ_API_KEY));

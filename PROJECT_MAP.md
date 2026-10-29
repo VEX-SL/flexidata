@@ -15,7 +15,7 @@ Auth:         Supabase Auth (@supabase/ssr ^0.12 + @supabase/supabase-js ^2.110)
 Database:     Supabase PostgreSQL + pgvector (HNSW)
 Storage:      Supabase Storage (bucket: "files")
 Styling:      Tailwind CSS 4.x (+ @tailwindcss/typography)
-AI Providers: RDP (opt-in) → Groq → Cerebras → Mistral → Gemini → ProAPI → OpenRouter → HuggingFace
+AI Providers: Groq → Cerebras → Mistral → Gemini → ProAPI → OpenRouter → HuggingFace
 Streaming:    SSE (Server-Sent Events) via /api/chat/stream
 Embeddings:   @xenova/transformers ^2.17 (local, Xenova/all-MiniLM-L6-v2, 384 dims)
 OCR:          Gemini Vision (primary) + Tesseract.js-core (main-thread fallback)
@@ -102,7 +102,7 @@ src/
 │   │   ├── manager.ts            # ProviderManager (fallback + streaming + disable-on-permanent)
 │   │   ├── prompts.ts            # buildSystemPrompt (general | agent) + file-edit contracts
 │   │   ├── image-generation.ts   # Together.ai FLUX → Pollinations fallback
-│   │   └── providers/            # base + groq/cerebras/mistral/gemini/proapi/openrouter/huggingface/rdp
+│   │   └── providers/            # base + groq/cerebras/mistral/gemini/proapi/openrouter/huggingface
 │   ├── ocr/                      # OCR engines + preprocessing + Arabic + Paddle rescue
 │   │   ├── vision-service.ts     # Gemini Vision OCR (primary) + ReceiptExtraction
 │   │   ├── preprocess.ts         # deskew/warp/contrast/threshold (pure, engine-independent)
@@ -212,7 +212,6 @@ extraction (better prompt text + evidence priority).
 
 ```
 Request → ProviderManager (src/lib/ai/manager.ts)
-            ├── 0. RDP / deepseek (rdp-deepseek)  — OPT-IN, requires BOTH RDP_API_URL + RDP_API_KEY
             ├── 1. Groq        (llama-3.3-70b-versatile)            streaming ✓
             ├── 2. Cerebras    (gpt-oss-120b)                       streaming ✓
             ├── 3. Mistral     (mistral-small-latest)               streaming ✓
@@ -290,7 +289,7 @@ Reports live at the repo root: `M12…M24-*.md`, `OCR-REPORT.md`, `BENCHMARK-REP
 |------|--------|-------|
 | `/api/files` (collection) | Active (legacy) | Owner-scoped list; DELETE also cleans the Storage object now. |
 | `/api/chat/message` | Fallback | Non-streaming fallback; primary is `/api/chat/stream`. |
-| DeepSeek standalone provider | Removed | Dead adapter deleted; DeepSeek still reachable via the opt-in `rdp-deepseek` provider. |
+| DeepSeek standalone provider | Removed | Dead adapter deleted. |
 | `/api/ocr` | Active | Vision-LLM OCR proxy (POST image → text/structured extraction). |
 | XLSX / PDF export (`/api/pipeline/extractions/[id]/export`) | Active | All five formats implemented: `json` / `csv` / `word` / `xlsx` (flat record + per-field detail + OCR sheets) / `pdf` (Amiri-embedded, Arabic shaped + reordered for RTL). |
 | MCP integration | Deferred | Agent self-knowledge from external tools. |
