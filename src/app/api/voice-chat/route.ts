@@ -1,5 +1,5 @@
 import { getProviderManager } from "../../../lib/ai/manager";
-import type { AIRequest } from "../../../../../types/index";
+import { AIRequest } from "@/types";
 
 
 export async function POST(req: Request) {
