@@ -136,7 +136,7 @@ export function UserAvatar({
     />
   ) : (
     <div
-      className={`shrink-0 bg-primary/15 border border-primary/20 flex items-center justify-center rounded-[14px] ${className}`}
+      className={`shrink-0 bg-primary/15 border border-primary/25 flex items-center justify-center rounded-[14px] ${className}`}
       style={{ width: size, height: size }}
     >
       <svg width={size * 0.46} height={size * 0.46} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
