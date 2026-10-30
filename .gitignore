@@ -47,3 +47,4 @@ supabase/.env
 .html
 
 puter-proxy.js
+test-tool.json

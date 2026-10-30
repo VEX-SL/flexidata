@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { downloadConverted } from "@/lib/download";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface Agent {
   id: string;
@@ -67,6 +68,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [saving, setSaving] = useState(false);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  
+  // حالة نافذة تأكيد الحذف الجديدة
+  const [deleteFileDialog, setDeleteFileDialog] = useState<{
+    isOpen: boolean;
+    fileId: string | null;
+    fileName: string;
+  }>({ isOpen: false, fileId: null, fileName: "" });
+
   const router = useRouter();
   const supabase = createClient();
   const { t } = useTranslation();
@@ -116,16 +125,28 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     if (file) await uploadFile(file);
   }
 
-  async function handleFileDelete(fileId: string) {
-    if (!confirm(t("agents.confirmDeleteFile"))) return;
+  // فتح نافذة التأكيد بدلًا من confirm()
+  function handleFileDelete(fileId: string, fileName: string) {
+    setDeleteFileDialog({ isOpen: true, fileId, fileName });
+  }
+
+  // تأكيد الحذف الفعلي بعد الضغط في النافذة
+  async function confirmFileDelete() {
+    if (!deleteFileDialog.fileId || !agent) return;
+    const fileId = deleteFileDialog.fileId;
     try {
-      const res = await fetch(`/api/agents/${agent!.id}/files?fileId=${fileId}`, { method: "DELETE" });
+      const res = await fetch(`/api/agents/${agent.id}/files?fileId=${fileId}`, { method: "DELETE" });
       if (res.ok) {
         setFiles((prev) => prev.filter((f) => f.id !== fileId));
         if (viewingFile === fileId) { setViewingFile(null); setViewingContent(""); }
         if (editingFile === fileId) { setEditingFile(null); setEditContent(""); }
       }
     } catch {}
+    setDeleteFileDialog({ isOpen: false, fileId: null, fileName: "" });
+  }
+
+  function cancelFileDelete() {
+    setDeleteFileDialog({ isOpen: false, fileId: null, fileName: "" });
   }
 
   async function fetchFileContent(fileId: string): Promise<string | null> {
@@ -420,7 +441,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                         <button onClick={() => handleDownloadFile(file.id, file.file_name)} disabled={loadingFile === file.id} className="fd-detail-file-btn" title="Download">
                           <Download size={13} />
                         </button>
-                        <button onClick={() => handleFileDelete(file.id)} className="fd-detail-file-btn danger" title="Delete">
+                        <button onClick={() => handleFileDelete(file.id, file.file_name)} className="fd-detail-file-btn danger" title="Delete">
                           <Trash2 size={13} />
                         </button>
                       </div>
@@ -464,6 +485,17 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         )}
       </div>
+
+      {/* نافذة تأكيد الحذف المطابقة لنظام /chat */}
+      <ConfirmDialog
+        isOpen={deleteFileDialog.isOpen}
+        title={t("chat.deleteTitle") || "Delete File"}
+        message={`Are you sure you want to delete "${deleteFileDialog.fileName}"? This action cannot be undone.`}
+        confirmText={t("common.delete") || "Delete"}
+        cancelText={t("common.cancel") || "Cancel"}
+        onConfirm={confirmFileDelete}
+        onCancel={cancelFileDelete}
+      />
     </div>
     </>
   );
