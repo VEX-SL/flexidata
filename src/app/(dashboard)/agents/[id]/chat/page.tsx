@@ -79,17 +79,15 @@ function SidebarList({
       {chats.map((chat) => (
         <div
           key={chat.id}
-          className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer transition-colors ${
-            chatId === chat.id
+          className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer transition-colors ${chatId === chat.id
               ? "bg-primary/10 text-foreground border border-primary/15"
               : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-          }`}
+            }`}
           onClick={() => onSelect(chat.id)}
         >
           <div
-            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
-              chatId === chat.id ? "bg-primary" : "bg-transparent"
-            }`}
+            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${chatId === chat.id ? "bg-primary" : "bg-transparent"
+              }`}
           />
           <span className="flex-1 truncate text-xs font-medium">
             {chat.title || newChatLabel}
@@ -191,7 +189,7 @@ function EmptyState({
 
 // ─── Agent Chat Content ───────────────────────────────────────────────────────
 function AgentChatContent({ agentId }: { agentId: string }) {
-    const [isVoiceChatOpen, setIsVoiceChatOpen] = useState(false);
+  const [isVoiceChatOpen, setIsVoiceChatOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialChatId = searchParams.get("chatId");
@@ -272,7 +270,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   useEffect(() => {
     try {
       localStorage.setItem(`applied-edits-${agentId}`, JSON.stringify([...appliedEdits]));
-    } catch {}
+    } catch { }
   }, [appliedEdits, agentId]);
 
   // Auto-scroll
@@ -296,7 +294,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     try {
       const res = await fetch(`/api/chat-history?agentId=${agentId}`);
       if (res.ok) setChatHistory(await res.json());
-    } catch {}
+    } catch { }
   }, [agentId]);
 
   const fetchMessages = useCallback(async (id: string) => {
@@ -320,7 +318,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       }
       if (Object.keys(editsMap).length > 0)
         setMessageEdits((prev) => ({ ...prev, ...editsMap }));
-    } catch {}
+    } catch { }
   }, [agentId, router]);
 
   useEffect(() => {
@@ -409,9 +407,9 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
   async function handleModelIconChange(icon: string | File | null, type: "preset" | "custom") {
     if (!icon) return;
-    
+
     let finalIcon: string = typeof icon === "string" ? icon : "";
-    
+
     // If it's a custom file, upload it first
     if (type === "custom" && icon instanceof File) {
       try {
@@ -419,7 +417,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        
+
         const fileName = `model-icon-${user.id}-${Date.now()}.jpg`;
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -427,13 +425,13 @@ function AgentChatContent({ agentId }: { agentId: string }) {
             cacheControl: '3600',
             upsert: true
           });
-        
+
         if (uploadError) throw uploadError;
-        
+
         const { data: { publicUrl } } = supabase.storage
           .from('avatars')
           .getPublicUrl(fileName);
-        
+
         finalIcon = publicUrl;
       } catch (err) {
         console.error("Failed to upload model icon:", err);
@@ -441,10 +439,10 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         return;
       }
     }
-    
+
     setModelIcon(finalIcon);
     setModelIconType(type);
-    
+
     // Save to profile
     try {
       const { createClient } = await import("@/lib/supabase/client");
@@ -453,9 +451,9 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       if (user) {
         await supabase
           .from('profiles')
-          .update({ 
-            model_icon: finalIcon, 
-            model_icon_type: type 
+          .update({
+            model_icon: finalIcon,
+            model_icon_type: type
           })
           .eq('id', user.id);
       }
@@ -497,7 +495,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
-    try { await fetch(`/api/agents/${agentId}/files`, { method: "POST", body: formData }); } catch {}
+    try { await fetch(`/api/agents/${agentId}/files`, { method: "POST", body: formData }); } catch { }
     setUploading(false);
     e.target.value = "";
   }
@@ -616,11 +614,10 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                     {msg.role === "assistant" && <AIAvatar size={28} className="mt-0.5" modelIcon={modelIcon} modelIconType={modelIconType} onModelIconChange={handleModelIconChange} />}
 
                     <div className="flex flex-col gap-1.5 max-w-[80%]">
-                      <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                        msg.role === "user"
+                      <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user"
                           ? "bg-primary text-primary-foreground rounded-tr-sm"
                           : "bg-card border border-border text-foreground rounded-tl-sm"
-                      }`}>
+                        }`}>
                         {msg.role === "user"
                           ? <span dir="auto" className="whitespace-pre-wrap">{msg.content}</span>
                           : <MarkdownRenderer key={msg.content} content={stripFileEdits(msg.content)} />
@@ -628,9 +625,8 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                       </div>
 
                       {/* Action buttons */}
-                      <div className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${
-                        msg.role === "user" ? "justify-end" : "justify-start"
-                      }`}>
+                      <div className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === "user" ? "justify-end" : "justify-start"
+                        }`}>
                         <button
                           onClick={() => handleCopy(msg.content, msg.id)}
                           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -662,7 +658,13 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                     </div>
 
                     {msg.role === "user" && (
-                      <UserAvatar size={28} src={userAvatar} alt={userName || "Profile"} className="mt-0.5" onClick={() => router.push("/settings")} />
+                      <UserAvatar
+                        size={28}
+                        src={userAvatar}
+                        alt={userName || "Profile"}
+                        className="mt-0.5"
+                        onClick={() => router.push("/settings")}
+                      />
                     )}
                   </div>
 
@@ -714,9 +716,9 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                       <div className="mt-3 space-y-3">
                         {parseFileEdits(streamedContent).map((edit) =>
                           edit.isNew ? (
-                            <NewFileCard key={edit.id} edit={edit} agentId={agentId} onApply={handleApplyEdit} onReject={() => {}} onEdit={handleEditCode} />
+                            <NewFileCard key={edit.id} edit={edit} agentId={agentId} onApply={handleApplyEdit} onReject={() => { }} onEdit={handleEditCode} />
                           ) : (
-                            <FileEditCard key={edit.id} edit={edit} agentId={agentId} onApply={handleApplyEdit} onReject={() => {}} onEdit={handleEditCode} />
+                            <FileEditCard key={edit.id} edit={edit} agentId={agentId} onApply={handleApplyEdit} onReject={() => { }} onEdit={handleEditCode} />
                           )
                         )}
                       </div>
@@ -807,11 +809,10 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                     <button
                       onClick={() => (streaming ? abort() : handleSend())}
                       disabled={!streaming && !input.trim()}
-                      className={`p-2 rounded-xl shrink-0 self-end mb-1 transition-all ${
-                        streaming
+                      className={`p-2 rounded-xl shrink-0 self-end mb-1 transition-all ${streaming
                           ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
                           : "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
-                      }`}
+                        }`}
                     >
                       {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                     </button>

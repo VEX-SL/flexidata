@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { X, Upload, Sparkles, Zap, Crown, Heart, Star, Bot, Brain } from "lucide-react";
+import { WingsIcon } from "@/components/icons/WingsIcon";
 
 interface ModelIconPickerProps {
   isOpen: boolean;
@@ -11,13 +12,7 @@ interface ModelIconPickerProps {
   currentIconType?: "preset" | "custom" | null;
 }
 
-const WingsIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 512 512" fill="currentColor" className={className}>
-    <path d="M256 464c-32-53.3-96-117.3-160-149.3-48-24-80-48-80-96 0-53.3 42.7-96 96-96 26.7 0 53.3 10.7 80 37.3C189.3 133.3 216 122.7 242.7 122.7c53.3 0 96 42.7 96 96 0 48-32 72-80 96-64 32-128 96-160 149.3zm181.3-341.3c-26.7 26.7-53.3 37.3-80 37.3-53.3 0-96-42.7-96-96 0-48 32-72 80-96 64-32 128-96 160-149.3 32 53.3 96 117.3 160 149.3 48 24 80 48 80 96 0 53.3-42.7 96-96 96-26.7 0-53.3-10.7-80-37.3z" />
-    {/* تفاصيل ريش الأجنحة المنمقة */}
-    <path d="M128 170.7c21.3 10.7 48 24 80 42.7-32 21.3-58.7 32-80 42.7-21.3-10.7-48-21.3-80-42.7 32-18.7 58.7-32 80-42.7zm256 0c-21.3 10.7-48 24-80 42.7 32 21.3 58.7 32 80 42.7 21.3-10.7 48-21.3 80-42.7-32-18.7-58.7-32-80-42.7z" fillOpacity="0.8" />
-  </svg>
-);
+// تم حذف التعريف المحلي المتضارب لـ WingsIcon والاعتماد على المستورد بالاعلى
 
 const PRESET_ICONS = [
   { id: "sparkles", icon: Sparkles, label: "Sparkles" },
@@ -25,7 +20,7 @@ const PRESET_ICONS = [
   { id: "crown", icon: Crown, label: "Crown" },
   { id: "heart", icon: Heart, label: "Heart" },
   { id: "star", icon: Star, label: "Star" },
-  { id: "feather", icon: WingsIcon, label: "Wings" }, // تم استبدالها بأجنحة اللوجو
+  { id: "feather", icon: WingsIcon, label: "Wings" },
   { id: "bot", icon: Bot, label: "Bot" },
   { id: "brain", icon: Brain, label: "Brain" },
 ];

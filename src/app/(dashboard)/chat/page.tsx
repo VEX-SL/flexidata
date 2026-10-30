@@ -64,17 +64,15 @@ function SidebarList({
       {chats.map((chat) => (
         <div
           key={chat.id}
-          className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer transition-colors ${
-            chatId === chat.id
+          className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer transition-colors ${chatId === chat.id
               ? "bg-primary/10 text-foreground border border-primary/15"
               : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-          }`}
+            }`}
           onClick={() => onSelect(chat.id)}
         >
           <div
-            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${
-              chatId === chat.id ? "bg-primary" : "bg-transparent"
-            }`}
+            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors ${chatId === chat.id ? "bg-primary" : "bg-transparent"
+              }`}
           />
           <span className="flex-1 truncate text-xs font-medium">
             {chat.title || newChatLabel}
@@ -367,9 +365,9 @@ function ChatContent() {
 
   async function handleModelIconChange(icon: string | File | null, type: "preset" | "custom") {
     if (!icon) return;
-    
+
     let finalIcon: string = typeof icon === "string" ? icon : "";
-    
+
     // If it's a custom file, upload it first
     if (type === "custom" && icon instanceof File) {
       try {
@@ -377,7 +375,7 @@ function ChatContent() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        
+
         const fileName = `model-icon-${user.id}-${Date.now()}.jpg`;
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -385,13 +383,13 @@ function ChatContent() {
             cacheControl: '3600',
             upsert: true
           });
-        
+
         if (uploadError) throw uploadError;
-        
+
         const { data: { publicUrl } } = supabase.storage
           .from('avatars')
           .getPublicUrl(fileName);
-        
+
         finalIcon = publicUrl;
       } catch (err) {
         console.error("Failed to upload model icon:", err);
@@ -399,10 +397,10 @@ function ChatContent() {
         return;
       }
     }
-    
+
     setModelIcon(finalIcon);
     setModelIconType(type);
-    
+
     // Save to profile
     try {
       const { createClient } = await import("@/lib/supabase/client");
@@ -411,9 +409,9 @@ function ChatContent() {
       if (user) {
         await supabase
           .from('profiles')
-          .update({ 
-            model_icon: finalIcon, 
-            model_icon_type: type 
+          .update({
+            model_icon: finalIcon,
+            model_icon_type: type
           })
           .eq('id', user.id);
       }
@@ -513,11 +511,10 @@ function ChatContent() {
 
                     <div className="flex flex-col gap-1.5 max-w-[80%]">
                       <div
-                        className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                          msg.role === "user"
+                        className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user"
                             ? "bg-primary text-primary-foreground rounded-tr-sm"
                             : "bg-card border border-border text-foreground rounded-tl-sm"
-                        }`}
+                          }`}
                       >
                         {msg.role === "user" ? (
                           <span dir="auto" className="whitespace-pre-wrap">
@@ -530,9 +527,8 @@ function ChatContent() {
 
                       {/* Action buttons */}
                       <div
-                        className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${
-                          msg.role === "user" ? "justify-end" : "justify-start"
-                        }`}
+                        className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${msg.role === "user" ? "justify-end" : "justify-start"
+                          }`}
                       >
                         <button
                           onClick={() => handleCopy(msg.content, msg.id)}
@@ -571,7 +567,13 @@ function ChatContent() {
                     </div>
 
                     {msg.role === "user" && (
-                      <UserAvatar size={28} src={userAvatar} alt={userName || "Profile"} className="mt-0.5" onClick={() => router.push("/settings")} />
+                      <UserAvatar
+                        size={28}
+                        src={userAvatar}
+                        alt={userName || "Profile"}
+                        className="mt-0.5"
+                        onClick={() => router.push("/settings")}
+                      />
                     )}
                   </div>
                 </div>
@@ -655,13 +657,12 @@ function ChatContent() {
               <button
                 onClick={() => (streaming ? abort() : handleSend())}
                 disabled={!streaming && !input.trim()}
-                className={`p-2 rounded-xl shrink-0 self-end mb-1 transition-all ${
-                  streaming
+                className={`p-2 rounded-xl shrink-0 self-end mb-1 transition-all ${streaming
                     ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
                     : input.trim()
                       ? "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
                       : "bg-muted text-muted-foreground cursor-not-allowed"
-                }`}
+                  }`}
               >
                 {streaming ? (
                   <Loader2 size={16} className="animate-spin" />
