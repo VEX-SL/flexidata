@@ -61,7 +61,7 @@ export function AIAvatar({
     <div className="relative" ref={pickerRef}>
       <button
         onClick={() => setShowPicker(!showPicker)}
-        className={`shrink-0 flex items-center justify-center rounded-xl transition-all ${className}`}
+        className={`shrink-0 flex items-center justify-center rounded-[14px] overflow-hidden transition-all ${className}`}
         style={{ width: size, height: size }}
         aria-label="Change model icon"
       >
@@ -69,15 +69,12 @@ export function AIAvatar({
           <img
             src={modelIcon}
             alt="Model icon"
-            className="rounded-xl object-cover"
-            style={{ width: "100%", height: "100%" }}
+            className="w-full h-full object-cover"
           />
         ) : modelIcon && modelIconType === "preset" && PresetIcon ? (
           <div
-            className="flex items-center justify-center"
+            className="w-full h-full flex items-center justify-center"
             style={{
-              width: "100%",
-              height: "100%",
               background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))",
             }}
           >
@@ -85,9 +82,8 @@ export function AIAvatar({
           </div>
         ) : (
           <div
+            className="w-full h-full flex items-center justify-center"
             style={{
-              width: "100%",
-              height: "100%",
               background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))",
             }}
           >
@@ -100,7 +96,10 @@ export function AIAvatar({
         <ModelIconPicker
           isOpen={true}
           onClose={() => setShowPicker(false)}
-          onSelect={onModelIconChange}
+          onSelect={(icon, type) => {
+            onModelIconChange(icon, type);
+            setShowPicker(false); // إغلاق النافذة فوراً عند الاختيار
+          }}
           currentIcon={modelIcon}
           currentIconType={modelIconType}
         />
@@ -123,12 +122,12 @@ export function UserAvatar({
       alt={alt}
       width={size}
       height={size}
-      className={`shrink-0 rounded-xl object-cover border border-border ${className}`}
+      className={`shrink-0 rounded-[14px] object-cover border border-border ${className}`}
       style={{ width: size, height: size }}
     />
   ) : (
     <div
-      className={`shrink-0 bg-primary/10 border border-primary/20 flex items-center justify-center rounded-xl ${className}`}
+      className={`shrink-0 bg-primary/15 border border-primary/20 flex items-center justify-center rounded-[14px] ${className}`}
       style={{ width: size, height: size }}
     >
       <svg width={size * 0.46} height={size * 0.46} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
@@ -142,9 +141,8 @@ export function UserAvatar({
     return (
       <button
         onClick={onClick}
-        className="relative"
+        className="relative group cursor-pointer"
         aria-label="Go to settings"
-        style={{ cursor: "pointer" }}
       >
         {content}
         <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" />

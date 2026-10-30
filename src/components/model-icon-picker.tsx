@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Upload, Image as ImageIcon, Sparkles, Zap, Crown, Heart, Star, Feather, Bot, Brain } from "lucide-react";
+import { X, Upload, Sparkles, Zap, Crown, Heart, Star, Feather, Bot, Brain } from "lucide-react";
 
 interface ModelIconPickerProps {
   isOpen: boolean;
@@ -40,7 +40,6 @@ export function ModelIconPicker({
         onClose();
       }
     }
-
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
@@ -68,12 +67,14 @@ export function ModelIconPicker({
 
   function handleConfirmCustom() {
     if (customFile) {
-      onSelect(customFile as any, "custom");
+      onSelect(customFile, "custom");
+      onClose(); // إغلاق النافذة فوراً عند الضغط على Use This
     }
   }
 
   function handlePresetSelect(iconId: string) {
     onSelect(iconId, "preset");
+    onClose(); // إغلاق النافذة فوراً عند اختيار أيقونة جاهزة
   }
 
   if (!isOpen) return null;
@@ -117,11 +118,6 @@ export function ModelIconPicker({
                 >
                   <Icon size={24} className="text-current" />
                   <span className="text-xs text-center">{label}</span>
-                  {isSelected && (
-                    <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                      <X size={10} className="text-primary-foreground" />
-                    </div>
-                  )}
                 </button>
               );
             })}
@@ -141,15 +137,15 @@ export function ModelIconPicker({
               className="hidden"
             />
             
-            <div className="border-2 border-dashed border-border rounded-xl p-6 text-center transition-colors hover:border-primary/50">
+            <div className="border-2 border-dashed border-border rounded-xl p-6 text-center transition-colors hover:border-primary/50 flex flex-col items-center justify-center">
               {customImage ? (
-                <div className="flex flex-col items-center gap-3">
+                <div className="flex flex-col items-center justify-center gap-3 w-full">
                   <img
                     src={customImage}
                     alt="Custom preview"
-                    className="w-20 h-20 rounded-xl object-cover border border-border"
+                    className="w-20 h-20 rounded-xl object-cover border border-border mx-auto"
                   />
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 justify-center">
                     <button
                       type="button"
                       onClick={() => {
@@ -174,9 +170,9 @@ export function ModelIconPicker({
                 <button
                   type="button"
                   onClick={handleCustomSelect}
-                  className="flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  className="flex flex-col items-center justify-center w-full gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
-                  <div className="p-3 rounded-full bg-muted">
+                  <div className="p-3 rounded-full bg-muted flex items-center justify-center">
                     <Upload size={24} className="text-muted-foreground" />
                   </div>
                   <span className="text-sm font-medium">Upload Custom Icon</span>
