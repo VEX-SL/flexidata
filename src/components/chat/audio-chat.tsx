@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import VoicePipeline, { SUPPORTED_LANGUAGES, isRtlLanguage } from '@/lib/voice/voice-pipeline';
-import { X, Mic, Volume2, Loader2, Send, Trash2, Minimize2, Sparkles, Languages } from 'lucide-react';
+import VoicePipeline from '@/lib/voice/voice-pipeline';
+import { X, Mic, Volume2, Loader2, Send, Trash2, Minimize2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/lib/i18n';
 
@@ -23,12 +23,9 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
   const [textInput, setTextInput] = useState('');
   const [sttSupported, setSttSupported] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [language, setLanguage] = useState<string>('ar-EG');
 
   const voicePipelineRef = useRef<VoicePipeline | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const isRtl = isRtlLanguage(language);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -40,15 +37,9 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
       setSttSupported(false);
     }
 
-    let savedLang: string | null = null;
-    try { savedLang = localStorage.getItem('voice-chat-lang'); } catch {}
-    if (savedLang) setLanguage(savedLang);
-
     voicePipelineRef.current = new VoicePipeline({
       chatId,
       agentId,
-      language: savedLang || undefined,
-      onLanguageChange: (lang) => setLanguage(lang),
       onStateChange: (newState) => {
         setState(newState);
         if (newState === 'IDLE') {
@@ -112,12 +103,6 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
     setTextInput('');
   }, []);
 
-  const handleLanguageChange = useCallback((lang: string) => {
-    setLanguage(lang);
-    try { localStorage.setItem('voice-chat-lang', lang); } catch {}
-    voicePipelineRef.current?.setLanguage(lang);
-  }, []);
-
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -157,21 +142,6 @@ const AudioChat = ({ onClose, chatId, agentId }: { onClose: () => void; chatId?:
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
       <div className="flex-1 flex flex-col max-w-3xl w-full mx-auto my-auto relative z-10">
-        <div className={cn('absolute top-20 z-20 flex items-center gap-1.5', isRtl ? 'left-4' : 'right-4')}>
-          <div className="flex items-center gap-2 bg-slate-800/40 border border-slate-700/40 rounded-full px-3 py-1.5 backdrop-blur-sm">
-            <Languages className="w-3.5 h-3.5 text-slate-500" />
-            <select
-              value={language}
-              onChange={(e) => handleLanguageChange(e.target.value)}
-              className="bg-transparent text-xs text-slate-400 focus:outline-none cursor-pointer [&>option]:bg-slate-900"
-            >
-              {SUPPORTED_LANGUAGES.map(l => (
-                <option key={l.code} value={l.code}>{l.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
         <div className="flex items-center justify-between p-4 bg-slate-900/80 border-b border-slate-800/50 rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div className="relative p-2.5 rounded-xl bg-cyan-500/15 border border-cyan-400/20">

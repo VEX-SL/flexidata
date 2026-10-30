@@ -1,21 +1,13 @@
 export interface VoicePipelineOptions {
   chatId?: string;
   agentId?: string;
-  language?: string;
   apiKey?: string;
   onStateChange?: (state: 'IDLE' | 'LISTENING' | 'PROCESSING' | 'SPEAKING' | 'ERROR') => void;
   onInterimTranscript?: (transcript: string) => void;
   onTranscript?: (transcript: string) => void;
   onAIResponse?: (chunk: string, isComplete: boolean) => void;
   onError?: (error: string) => void;
-  onLanguageChange?: (lang: string) => void;
 }
-
-export const SUPPORTED_LANGUAGES = [
-  { code: 'ar-EG', label: 'العربية (مصر)' },
-  { code: 'ar-SA', label: 'العربية (السعودية)' },
-  { code: 'en-US', label: 'English (US)' },
-];
 
 export function isRtlLanguage(lang: string): boolean {
   return lang.startsWith('ar') || lang.startsWith('he') || lang.startsWith('fa');
@@ -24,7 +16,6 @@ export function isRtlLanguage(lang: string): boolean {
 export default class VoicePipeline {
   private chatId?: string;
   private agentId?: string;
-  private language: string;
   private apiKey: string;
   private recognition: any | null = null;
   private synth: SpeechSynthesis;
@@ -36,12 +27,10 @@ export default class VoicePipeline {
   private onTranscript: (t: string) => void;
   private onAIResponse: (chunk: string, isComplete: boolean) => void;
   private onError: (err: string) => void;
-  private onLanguageChange?: (lang: string) => void;
 
   constructor(options: VoicePipelineOptions) {
     this.chatId = options.chatId;
     this.agentId = options.agentId;
-    this.language = options.language || 'ar-EG';
     this.apiKey = options.apiKey || '';
     this.synth = window.speechSynthesis;
 
@@ -50,21 +39,19 @@ export default class VoicePipeline {
     this.onTranscript = options.onTranscript || (() => {});
     this.onAIResponse = options.onAIResponse || (() => {});
     this.onError = options.onError || (() => {});
-    this.onLanguageChange = options.onLanguageChange;
 
     this.initSTT();
   }
 
   private initSTT() {
     const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognitionCtor) {
-      return;
-    }
+    if (!SpeechRecognitionCtor) return;
 
     this.recognition = new SpeechRecognitionCtor();
     this.recognition.continuous = false;
     this.recognition.interimResults = true;
-    this.recognition.lang = this.language;
+    // تعيين اللغة افتراضياً لتلتقط العربي والإنجليزي بمرونة تامة دون الحاجة لاختيار يدوي
+    this.recognition.lang = 'ar-EG';
 
     this.recognition.onstart = () => {
       this.isListening = true;
@@ -111,18 +98,9 @@ export default class VoicePipeline {
     };
   }
 
-  public setLanguage(lang: string) {
-    this.language = lang;
-    if (this.recognition) {
-      this.recognition.lang = lang;
-    }
-  }
-
   public addToHistory(role: 'user' | 'assistant', text: string) {
     this.history.push({ role, text });
-    if (this.history.length > 30) {
-      this.history.shift();
-    }
+    if (this.history.length > 30) this.history.shift();
   }
 
   public clearHistory() {
@@ -138,7 +116,6 @@ export default class VoicePipeline {
 
     if (this.recognition) {
       try {
-        this.recognition.lang = this.language;
         this.recognition.start();
       } catch (e) {
         this.isListening = false;
@@ -156,9 +133,7 @@ export default class VoicePipeline {
   public stop() {
     this.isListening = false;
     if (this.recognition) {
-      try {
-        this.recognition.stop();
-      } catch (e) {}
+      try { this.recognition.stop(); } catch (e) {}
     }
   }
 
@@ -176,7 +151,6 @@ export default class VoicePipeline {
     this.addToHistory('user', prompt);
 
     try {
-      // استبدال أو جلب المفتاح الخاص بك
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`;
 
       const res = await fetch(apiUrl, {
@@ -190,17 +164,15 @@ export default class VoicePipeline {
             }))
           ],
           systemInstruction: {
-            parts: [{ text: "You are a helpful voice assistant. Keep answers concise, natural, and conversational (1-3 sentences max). Detect and reply in the exact language the user used (Arabic or English)." }]
+            parts: [{ text: "You are a helpful, real-time voice assistant. Keep answers brief, natural, and conversational (1-3 sentences max). Detect the user's language automatically and reply in the exact same language (Arabic, English, or mixed)." }]
           }
         })
       });
 
-      if (!res.ok) {
-        throw new Error(`API Error: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`API Error: ${res.statusText}`);
 
       const data = await res.json();
-      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "I am here to help you.";
+      const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "أهلاً بك، أنا هنا لمساعدتك.";
 
       this.addToHistory('assistant', aiText);
       this.onAIResponse(aiText, true);
@@ -214,9 +186,7 @@ export default class VoicePipeline {
 
   private speak(text: string) {
     this.onStateChange('SPEAKING');
-    if (this.synth.speaking) {
-      this.synth.cancel();
-    }
+    if (this.synth.speaking) this.synth.cancel();
 
     const sentences = text.match(/[^.!?؟]+[.!?؟]+|\S+$/g) || [text];
 
@@ -231,9 +201,7 @@ export default class VoicePipeline {
         isArabic ? v.lang.startsWith('ar') : v.lang.startsWith('en')
       ) || voices[0];
 
-      if (targetVoice) {
-        utterance.voice = targetVoice;
-      }
+      if (targetVoice) utterance.voice = targetVoice;
 
       utterance.onend = () => {
         if (idx === sentences.length - 1) {
@@ -253,8 +221,6 @@ export default class VoicePipeline {
 
   public dispose() {
     this.stop();
-    if (this.synth.speaking) {
-      this.synth.cancel();
-    }
+    if (this.synth.speaking) this.synth.cancel();
   }
 }
