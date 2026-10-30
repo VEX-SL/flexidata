@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Upload, Sparkles, Zap, Crown, Heart, Star, Feather, Bot, Brain } from "lucide-react";
+import { X, Upload, Sparkles, Zap, Crown, Heart, Star, Bot, Brain } from "lucide-react";
 
 interface ModelIconPickerProps {
   isOpen: boolean;
@@ -11,13 +11,20 @@ interface ModelIconPickerProps {
   currentIconType?: "preset" | "custom" | null;
 }
 
+// أيقونة الأجنحة المخصصة المطابقة للوجو
+const WingsIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 512 512" fill="none" stroke="currentColor" strokeWidth="32" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M458.2 165c-28.5-14.2-65.7-32.5-108.2-57-31.2-18.1-66.2-39.2-94-63.9-27.8 24.7-62.8 45.8-94 63.9-42.5 24.5-79.7 42.8-108.2 57C23.6 182.2 6.6 199.3 6.6 226c0 53.6 42.2 98.4 99.4 127.3 54.5 27.2 120 62.5 150 112.7 30-50.2 95.5-85.5 150-112.7 57.2-28.9 99.4-73.7 99.4-127.3 0-26.7-17-43.8-47.2-61z" />
+  </svg>
+);
+
 const PRESET_ICONS = [
   { id: "sparkles", icon: Sparkles, label: "Sparkles" },
   { id: "zap", icon: Zap, label: "Lightning" },
   { id: "crown", icon: Crown, label: "Crown" },
   { id: "heart", icon: Heart, label: "Heart" },
   { id: "star", icon: Star, label: "Star" },
-  { id: "feather", icon: Feather, label: "Wings" },
+  { id: "feather", icon: WingsIcon, label: "Wings" }, // تم استبدالها بأجنحة اللوجو
   { id: "bot", icon: Bot, label: "Bot" },
   { id: "brain", icon: Brain, label: "Brain" },
 ];
@@ -68,13 +75,13 @@ export function ModelIconPicker({
   function handleConfirmCustom() {
     if (customFile) {
       onSelect(customFile, "custom");
-      onClose(); // إغلاق النافذة فوراً عند الضغط على Use This
+      onClose();
     }
   }
 
   function handlePresetSelect(iconId: string) {
     onSelect(iconId, "preset");
-    onClose(); // إغلاق النافذة فوراً عند اختيار أيقونة جاهزة
+    onClose();
   }
 
   if (!isOpen) return null;
