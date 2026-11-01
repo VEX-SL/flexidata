@@ -80,8 +80,8 @@ function SidebarList({
         <div
           key={chat.id}
           className={`group relative flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm cursor-pointer transition-colors ${chatId === chat.id
-              ? "bg-primary/10 text-foreground border border-primary/15"
-              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+            ? "bg-primary/10 text-foreground border border-primary/15"
+            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
             }`}
           onClick={() => onSelect(chat.id)}
         >
@@ -615,8 +615,8 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
                     <div className="flex flex-col gap-1.5 max-w-[80%]">
                       <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user"
-                          ? "bg-primary text-primary-foreground rounded-tr-sm"
-                          : "bg-card border border-border text-foreground rounded-tl-sm"
+                        ? "bg-primary text-primary-foreground rounded-tr-sm"
+                        : "bg-card border border-border text-foreground rounded-tl-sm"
                         }`}>
                         {msg.role === "user"
                           ? <span dir="auto" className="whitespace-pre-wrap">{msg.content}</span>
@@ -810,8 +810,8 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                       onClick={() => (streaming ? abort() : handleSend())}
                       disabled={!streaming && !input.trim()}
                       className={`p-2 rounded-xl shrink-0 self-end mb-1 transition-all ${streaming
-                          ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                          : "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
+                        ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                        : "bg-primary text-primary-foreground hover:opacity-90 shadow-sm"
                         }`}
                     >
                       {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
