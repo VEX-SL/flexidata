@@ -427,10 +427,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         const fileName = `model-icon-${user.id}-${Date.now()}.jpg`;
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(fileName, icon, {
-            cacheControl: '3600',
-            upsert: true
-          });
+          .upload(fileName, icon, { cacheControl: '3600', upsert: true });
 
         if (uploadError) throw uploadError;
 
@@ -441,35 +438,36 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         finalIcon = publicUrl;
       } catch (err) {
         console.error("Failed to upload model icon:", err);
-        alert("Failed to upload icon");
         return;
       }
     }
 
+    // تحديث الـ States فوراً لتظهر التعديلات مباشرة في الشات
     setModelIcon(finalIcon);
     setModelIconType(type);
     if (color !== undefined) setModelColor(color);
     if (shape !== undefined) setModelShape(shape);
 
+    // الحفظ المباشر في Supabase
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const updateData: any = {
+        const updatePayload: any = {
           model_icon: finalIcon,
           model_icon_type: type,
         };
-        if (color !== undefined) updateData.model_color = color;
-        if (shape !== undefined) updateData.model_shape = shape;
+        if (color !== undefined) updatePayload.model_color = color;
+        if (shape !== undefined) updatePayload.model_shape = shape;
 
         await supabase
           .from('profiles')
-          .update(updateData)
+          .update(updatePayload)
           .eq('id', user.id);
       }
     } catch (err) {
-      console.error("Failed to save model icon settings:", err);
+      console.error("Failed to save model settings:", err);
     }
   }
 

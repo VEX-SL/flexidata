@@ -87,6 +87,21 @@ export default function SettingsPage() {
     // Handle avatar upload if provided
     if (avatar) {
       try {
+        // Delete old avatar from storage first if exists
+        const { data: oldProfile } = await supabase
+          .from('profiles')
+          .select('avatar_url')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (oldProfile?.avatar_url) {
+          const oldParts = oldProfile.avatar_url.split('/');
+          const oldFileName = oldParts[oldParts.length - 1];
+          if (oldFileName) {
+            await supabase.storage.from('avatars').remove([oldFileName]);
+          }
+        }
+
         const fileName = `${user.id}-${Date.now()}.jpg`;
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -116,7 +131,6 @@ export default function SettingsPage() {
     }
     // Handle avatar removal (if user deleted avatar but didn't upload new one)
     else if (avatar === null && avatarPreview === null) {
-      // Check if user had an avatar before - if so, explicitly set to null
       const { data: profile } = await supabase
         .from('profiles')
         .select('avatar_url')
@@ -124,6 +138,12 @@ export default function SettingsPage() {
         .maybeSingle();
       
       if (profile?.avatar_url) {
+        const urlParts = profile.avatar_url.split('/');
+        const fileName = urlParts[urlParts.length - 1];
+        if (fileName) {
+          await supabase.storage.from('avatars').remove([fileName]);
+        }
+
         await supabase
           .from('profiles')
           .update({ avatar_url: null })
@@ -144,17 +164,36 @@ export default function SettingsPage() {
   }
 
   async function handleRemoveAvatar() {
-    setAvatar(null);
-    setAvatarPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-    // Also update profiles table to explicitly set avatar_url to null
-    if (user) {
+    if (!user) return;
+
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile?.avatar_url) {
+        const urlParts = profile.avatar_url.split('/');
+        const fileName = urlParts[urlParts.length - 1];
+
+        if (fileName) {
+          await supabase.storage.from('avatars').remove([fileName]);
+        }
+      }
+
       await supabase
         .from('profiles')
         .update({ avatar_url: null })
         .eq('id', user.id);
+
+      setAvatar(null);
+      setAvatarPreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error("Failed to remove avatar:", err);
     }
   }
 
@@ -165,7 +204,6 @@ export default function SettingsPage() {
 
     if (!user) return;
 
-    // Validate inputs
     if (!currentPassword) {
       setPasswordError(t("settings.currentPasswordRequired"));
       return;
@@ -186,13 +224,11 @@ export default function SettingsPage() {
     setPasswordLoading(true);
 
     try {
-      // Update password using Supabase auth
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
       if (error) {
-        // Check if error is due to wrong current password
         if (error.message.includes("Invalid login") || error.message.includes("wrong password") || error.message.includes("current password")) {
           setPasswordError(t("settings.wrongCurrentPassword"));
         } else {
@@ -231,7 +267,6 @@ export default function SettingsPage() {
         return;
       }
 
-      // Session is invalid now — clear it locally and send the user to login.
       try {
         await supabase.auth.signOut();
       } catch {}
