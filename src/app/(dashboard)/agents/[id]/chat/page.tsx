@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import AudioChat from '@/components/chat/audio-chat';
+import AgentSidebar from '@/components/agent-sidebar';
 import { useStreamChat } from "@/lib/hooks/use-stream-chat";
 import {
   FileEditCard,
@@ -562,41 +563,22 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
   return (
     <div className="flex h-full bg-background">
-      {/* ── Sidebar ── */}
-      <div
-        className={`${sidebarOpen ? "w-64" : "w-0"} transition-all duration-200 overflow-hidden border-r border-border flex-shrink-0`}
-      >
-        <div className="w-64 h-full flex flex-col bg-card">
-          <div className="p-3 border-b border-border space-y-2">
-            <button
-              onClick={() => router.push(`/agents/${agentId}`)}
-              className="flex items-center gap-2 w-full px-3 py-2 rounded-xl border border-border text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            >
-              <ArrowLeft size={13} />
-              {t("agents.backToFiles")}
-            </button>
-            <button
-              onClick={handleNewChat}
-              className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              <Plus size={15} />
-              {t("nav.newChat")}
-            </button>
-          </div>
-
-          <SidebarList
-            chats={chatHistory}
-            chatId={chatId}
-            newChatLabel={t("nav.newChat")}
-            onSelect={(id) => {
-              setChatId(id);
-              fetchMessages(id);
-              router.replace(`/agents/${agentId}/chat?chatId=${id}`, { scroll: false });
-            }}
-            onDelete={handleDeleteChat}
-          />
-        </div>
-      </div>
+      {/* ── Agent Sidebar ── */}
+      <AgentSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        chats={chatHistory}
+        selectedChatId={chatId}
+        onSelectChat={(id) => {
+          setChatId(id);
+          fetchMessages(id);
+        }}
+        onNewChat={handleNewChat}
+        onDeleteChat={handleDeleteChat}
+        agentId={agentId}
+        onBackToFiles={(id) => router.push(`/agents/${id}`)}
+        userName={userName || "User Name"}
+      />
 
       {/* ── Main ── */}
       <div className="flex-1 flex flex-col min-w-0">
