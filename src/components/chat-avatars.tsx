@@ -65,35 +65,22 @@ export function AIAvatar({
 
   const PresetIcon = modelIcon && modelIconType === "preset" ? getPresetIcon(modelIcon) : null;
 
-  // تحديد شكل الحواف بناءً على طلبك (الافتراضي rounded بنعومة 14px)
-  let shapeClass = "rounded-[14px]";
-  if (modelShape === "circle") {
-    shapeClass = "rounded-full";
-  } else if (modelShape === "square") {
-    shapeClass = "rounded-none";
-  }
+  // فرض الشكل الافتراضي Soft Square (rounded-[14px]) بدقة
+  const finalShape = modelShape === "circle" ? "rounded-full" : modelShape === "square" ? "rounded-none" : "rounded-[14px]";
 
-  // تحديد لون الخلفية (gradient)
-  const bgStyle = modelColor
-    ? { background: undefined }
-    : { background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))" };
-
-  const colorClassName = modelColor ? `bg-gradient-to-br ${modelColor}` : "";
+  const colorStyle = modelColor ? { background: undefined } : { background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))" };
+  const colorClass = modelColor ? `bg-gradient-to-br ${modelColor}` : "";
 
   return (
     <div className="relative" ref={pickerRef}>
       <button
         onClick={() => setShowPicker(!showPicker)}
-        className={`shrink-0 flex items-center justify-center overflow-hidden transition-all ${shapeClass} ${colorClassName} ${className}`}
-        style={{ width: size, height: size, ...bgStyle }}
+        className={`shrink-0 flex items-center justify-center overflow-hidden transition-all ${finalShape} ${colorClass} ${className}`}
+        style={{ width: size, height: size, ...colorStyle }}
         aria-label="Change model icon"
       >
         {modelIcon && modelIconType === "custom" ? (
-          <img
-            src={modelIcon}
-            alt="Model icon"
-            className="w-full h-full object-cover"
-          />
+          <img src={modelIcon} alt="Model icon" className="w-full h-full object-cover" />
         ) : modelIcon && modelIconType === "preset" && PresetIcon ? (
           <div className="w-full h-full flex items-center justify-center text-white">
             <PresetIcon size={size * 0.55} className="text-white" />
