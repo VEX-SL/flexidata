@@ -53,7 +53,7 @@ export function ModelIconPicker({
   const [selectedShape, setSelectedShape] = useState(currentShape || "rounded");
   const [customImage, setCustomImage] = useState<string | null>(null);
   const [customFile, setCustomFile] = useState<File | null>(null);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +92,7 @@ export function ModelIconPicker({
         </div>
 
         {/* Shape Selection */}
+        {/* Shape Selection */}
         <div className="space-y-3 mb-5">
           <p className="text-sm font-medium text-muted-foreground">Avatar Shape</p>
           <div className="grid grid-cols-3 gap-2">
@@ -99,12 +100,14 @@ export function ModelIconPicker({
               <button
                 key={shape.id}
                 type="button"
-                onClick={() => setSelectedShape(shape.id)}
-                className={`py-2 px-3 text-xs font-medium border rounded-xl transition-all ${
-                  selectedShape === shape.id
+                onClick={() => {
+                  setSelectedShape(shape.id);
+                  onSelect(currentIcon || "bot", currentIconType || "preset", selectedColor, shape.id);
+                }}
+                className={`py-2 px-3 text-xs font-medium border rounded-xl transition-all ${selectedShape === shape.id
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-background text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 {shape.label}
               </button>
@@ -120,10 +123,29 @@ export function ModelIconPicker({
               <button
                 key={idx}
                 type="button"
+                onClick={() => {
+                  setSelectedColor(col.value);
+                  onSelect(currentIcon || "bot", currentIconType || "preset", col.value, selectedShape);
+                }}
+                className={`w-8 h-8 rounded-full border-2 transition-all bg-gradient-to-br ${col.value || "from-primary to-primary/80"
+                  } ${selectedColor === col.value ? "ring-2 ring-primary ring-offset-2 border-white" : "border-transparent"}`}
+                title={col.label}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Color Selection */}
+        <div className="space-y-3 mb-5">
+          <p className="text-sm font-medium text-muted-foreground">Gradient Color</p>
+          <div className="flex gap-2 flex-wrap">
+            {COLORS.map((col, idx) => (
+              <button
+                key={idx}
+                type="button"
                 onClick={() => setSelectedColor(col.value)}
-                className={`w-8 h-8 rounded-full border-2 transition-all bg-gradient-to-br ${
-                  col.value || "from-primary to-primary/80"
-                } ${selectedColor === col.value ? "ring-2 ring-primary ring-offset-2 border-white" : "border-transparent"}`}
+                className={`w-8 h-8 rounded-full border-2 transition-all bg-gradient-to-br ${col.value || "from-primary to-primary/80"
+                  } ${selectedColor === col.value ? "ring-2 ring-primary ring-offset-2 border-white" : "border-transparent"}`}
                 title={col.label}
               />
             ))}
@@ -143,11 +165,10 @@ export function ModelIconPicker({
                     onSelect(id, "preset", selectedColor, selectedShape);
                     onClose();
                   }}
-                  className={`relative p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
-                    isSelected
+                  className={`relative p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${isSelected
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:bg-accent hover:text-foreground"
-                  }`}
+                    }`}
                 >
                   <Icon size={22} className="text-current" />
                   <span className="text-[11px] text-center">{label}</span>

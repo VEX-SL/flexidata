@@ -218,10 +218,6 @@ function ChatContent() {
           }
           if (profile?.avatar_url) {
             setUserAvatar(profile.avatar_url);
-            console.log("Loaded User Avatar URL:", profile.avatar_url); // للتأكد في الـ Console
-          }
-          if (profile?.avatar_url) {
-            setUserAvatar(profile.avatar_url);
           }
           if (profile?.model_icon) {
             setModelIcon(profile.model_icon);
@@ -232,6 +228,8 @@ function ChatContent() {
           }
           if (profile?.model_shape) {
             setModelShape(profile.model_shape);
+          } else {
+            setModelShape("rounded"); // القيمة الافتراضية Soft Square
           }
         }
       } catch {

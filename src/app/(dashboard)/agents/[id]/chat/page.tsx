@@ -262,6 +262,8 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           }
           if (profile?.model_shape) {
             setModelShape(profile.model_shape);
+          } else {
+            setModelShape("rounded"); // القيمة الافتراضية Soft Square
           }
         }
       } catch {
