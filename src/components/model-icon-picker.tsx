@@ -7,12 +7,12 @@ import { WingsIcon } from "@/components/icons/WingsIcon";
 interface ModelIconPickerProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (icon: string | File | null, type: "preset" | "custom") => void;
+  onSelect: (icon: string | File | null, type: "preset" | "custom", color?: string, shape?: string) => void;
   currentIcon?: string | null;
   currentIconType?: "preset" | "custom" | null;
+  currentColor?: string | null;
+  currentShape?: string | null;
 }
-
-// تم حذف التعريف المحلي المتضارب لـ WingsIcon والاعتماد على المستورد بالاعلى
 
 const PRESET_ICONS = [
   { id: "sparkles", icon: Sparkles, label: "Sparkles" },
@@ -25,15 +25,35 @@ const PRESET_ICONS = [
   { id: "brain", icon: Brain, label: "Brain" },
 ];
 
+const COLORS = [
+  { label: "Default", value: "" },
+  { label: "Blue", value: "from-blue-600 to-indigo-600" },
+  { label: "Purple", value: "from-purple-600 to-pink-600" },
+  { label: "Emerald", value: "from-emerald-600 to-teal-600" },
+  { label: "Amber", value: "from-amber-600 to-orange-600" },
+  { label: "Rose", value: "from-rose-600 to-red-600" },
+];
+
+const SHAPES = [
+  { id: "rounded", label: "Soft Square", class: "rounded-[14px]" },
+  { id: "circle", label: "Circle", class: "rounded-full" },
+  { id: "square", label: "Square", class: "rounded-none" },
+];
+
 export function ModelIconPicker({
   isOpen,
   onClose,
   onSelect,
   currentIcon,
   currentIconType,
+  currentColor,
+  currentShape,
 }: ModelIconPickerProps) {
+  const [selectedColor, setSelectedColor] = useState(currentColor || "");
+  const [selectedShape, setSelectedShape] = useState(currentShape || "rounded");
   const [customImage, setCustomImage] = useState<string | null>(null);
   const [customFile, setCustomFile] = useState<File | null>(null);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -49,37 +69,6 @@ export function ModelIconPicker({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, onClose]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setCustomImage(null);
-      setCustomFile(null);
-    }
-  }, [isOpen]);
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) {
-      setCustomFile(file);
-      setCustomImage(URL.createObjectURL(file));
-    }
-  }
-
-  function handleCustomSelect() {
-    fileInputRef.current?.click();
-  }
-
-  function handleConfirmCustom() {
-    if (customFile) {
-      onSelect(customFile, "custom");
-      onClose();
-    }
-  }
-
-  function handlePresetSelect(iconId: string) {
-    onSelect(iconId, "preset");
-    onClose();
-  }
-
   if (!isOpen) return null;
 
   return (
@@ -89,38 +78,79 @@ export function ModelIconPicker({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md bg-card border border-border rounded-2xl p-6 shadow-xl animate-slide-up"
+        className="relative w-full max-w-md bg-card border border-border rounded-2xl p-6 shadow-xl animate-slide-up max-h-[90vh] overflow-y-auto fd-scroll"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-foreground">Choose Model Icon</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-foreground">Customize AI Avatar</h3>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            aria-label="Close"
           >
             <X size={20} />
           </button>
         </div>
 
+        {/* Shape Selection */}
+        <div className="space-y-3 mb-5">
+          <p className="text-sm font-medium text-muted-foreground">Avatar Shape</p>
+          <div className="grid grid-cols-3 gap-2">
+            {SHAPES.map((shape) => (
+              <button
+                key={shape.id}
+                type="button"
+                onClick={() => setSelectedShape(shape.id)}
+                className={`py-2 px-3 text-xs font-medium border rounded-xl transition-all ${
+                  selectedShape === shape.id
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {shape.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Color Selection */}
+        <div className="space-y-3 mb-5">
+          <p className="text-sm font-medium text-muted-foreground">Gradient Color</p>
+          <div className="flex gap-2 flex-wrap">
+            {COLORS.map((col, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setSelectedColor(col.value)}
+                className={`w-8 h-8 rounded-full border-2 transition-all bg-gradient-to-br ${
+                  col.value || "from-primary to-primary/80"
+                } ${selectedColor === col.value ? "ring-2 ring-primary ring-offset-2 border-white" : "border-transparent"}`}
+                title={col.label}
+              />
+            ))}
+          </div>
+        </div>
+
         {/* Preset Icons */}
-        <div className="space-y-4 mb-6">
+        <div className="space-y-3 mb-5">
           <p className="text-sm font-medium text-muted-foreground">Preset Icons</p>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-4 gap-2">
             {PRESET_ICONS.map(({ id, icon: Icon, label }) => {
               const isSelected = currentIcon === id && currentIconType === "preset";
               return (
                 <button
                   key={id}
-                  onClick={() => handlePresetSelect(id)}
+                  onClick={() => {
+                    onSelect(id, "preset", selectedColor, selectedShape);
+                    onClose();
+                  }}
                   className={`relative p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1.5 ${
                     isSelected
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:bg-accent hover:text-foreground"
                   }`}
                 >
-                  <Icon size={24} className="text-current" />
-                  <span className="text-xs text-center">{label}</span>
+                  <Icon size={22} className="text-current" />
+                  <span className="text-[11px] text-center">{label}</span>
                 </button>
               );
             })}
@@ -128,62 +158,29 @@ export function ModelIconPicker({
         </div>
 
         {/* Custom Upload */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <p className="text-sm font-medium text-muted-foreground">Custom Icon</p>
-          
-          <div className="relative">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            
-            <div className="border-2 border-dashed border-border rounded-xl p-6 text-center transition-colors hover:border-primary/50 flex flex-col items-center justify-center">
-              {customImage ? (
-                <div className="flex flex-col items-center justify-center gap-3 w-full">
-                  <img
-                    src={customImage}
-                    alt="Custom preview"
-                    className="w-20 h-20 rounded-xl object-cover border border-border mx-auto"
-                  />
-                  <div className="flex gap-2 justify-center">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomImage(null);
-                        setCustomFile(null);
-                        if (fileInputRef.current) fileInputRef.current.value = "";
-                      }}
-                      className="px-3 py-1.5 rounded-lg text-sm font-medium border border-border bg-background text-foreground hover:bg-accent transition-colors"
-                    >
-                      Change
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleConfirmCustom}
-                      className="px-3 py-1.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
-                    >
-                      Use This
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleCustomSelect}
-                  className="flex flex-col items-center justify-center w-full gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                >
-                  <div className="p-3 rounded-full bg-muted flex items-center justify-center">
-                    <Upload size={24} className="text-muted-foreground" />
-                  </div>
-                  <span className="text-sm font-medium">Upload Custom Icon</span>
-                  <p className="text-xs text-muted-foreground/70">PNG, JPG up to 2MB</p>
-                </button>
-              )}
-            </div>
-          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                onSelect(file, "custom", selectedColor, selectedShape);
+                onClose();
+              }
+            }}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full border-2 border-dashed border-border rounded-xl p-4 text-center hover:border-primary/50 flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Upload size={18} />
+            <span className="text-sm font-medium">Upload Custom Icon</span>
+          </button>
         </div>
       </div>
     </div>

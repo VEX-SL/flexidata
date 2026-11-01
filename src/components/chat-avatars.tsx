@@ -3,14 +3,16 @@
 import { useState, useRef, useEffect } from "react";
 import { Bot, Sparkles, Zap, Crown, Heart, Star, Brain } from "lucide-react";
 import { ModelIconPicker } from "./model-icon-picker";
-import { WingsIcon } from "@/components/icons/WingsIcon"; // استيراد الأجنحة الأصلية الصحيحة
+import { WingsIcon } from "@/components/icons/WingsIcon";
 
 interface AIAvatarProps {
   size?: number;
   className?: string;
   modelIcon?: string | null;
   modelIconType?: "preset" | "custom" | null;
-  onModelIconChange?: (icon: string | File | null, type: "preset" | "custom") => void;
+  modelColor?: string | null;
+  modelShape?: string | null;
+  onModelIconChange?: (icon: string | File | null, type: "preset" | "custom", color?: string, shape?: string) => void;
 }
 
 interface UserAvatarProps {
@@ -23,7 +25,7 @@ interface UserAvatarProps {
 
 function getPresetIcon(iconId: string) {
   if (iconId === "feather") {
-    return WingsIcon; // استخدام المكون الصحيح المضبوط 100%
+    return WingsIcon;
   }
 
   const icons: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -42,6 +44,8 @@ export function AIAvatar({
   className = "",
   modelIcon,
   modelIconType,
+  modelColor,
+  modelShape,
   onModelIconChange,
 }: AIAvatarProps) {
   const [showPicker, setShowPicker] = useState(false);
@@ -61,12 +65,27 @@ export function AIAvatar({
 
   const PresetIcon = modelIcon && modelIconType === "preset" ? getPresetIcon(modelIcon) : null;
 
+  // تحديد شكل الحواف بناءً على طلبك (الافتراضي rounded بنعومة 14px)
+  let shapeClass = "rounded-[14px]";
+  if (modelShape === "circle") {
+    shapeClass = "rounded-full";
+  } else if (modelShape === "square") {
+    shapeClass = "rounded-none";
+  }
+
+  // تحديد لون الخلفية (gradient)
+  const bgStyle = modelColor
+    ? { background: undefined }
+    : { background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))" };
+
+  const colorClassName = modelColor ? `bg-gradient-to-br ${modelColor}` : "";
+
   return (
     <div className="relative" ref={pickerRef}>
       <button
         onClick={() => setShowPicker(!showPicker)}
-        className={`shrink-0 flex items-center justify-center rounded-[14px] overflow-hidden transition-all ${className}`}
-        style={{ width: size, height: size }}
+        className={`shrink-0 flex items-center justify-center overflow-hidden transition-all ${shapeClass} ${colorClassName} ${className}`}
+        style={{ width: size, height: size, ...bgStyle }}
         aria-label="Change model icon"
       >
         {modelIcon && modelIconType === "custom" ? (
@@ -76,21 +95,11 @@ export function AIAvatar({
             className="w-full h-full object-cover"
           />
         ) : modelIcon && modelIconType === "preset" && PresetIcon ? (
-          <div
-            className="w-full h-full flex items-center justify-center text-white"
-            style={{
-              background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))",
-            }}
-          >
+          <div className="w-full h-full flex items-center justify-center text-white">
             <PresetIcon size={size * 0.55} className="text-white" />
           </div>
         ) : (
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{
-              background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))",
-            }}
-          >
+          <div className="w-full h-full flex items-center justify-center text-white">
             <Bot size={size * 0.55} className="text-white" />
           </div>
         )}
@@ -100,12 +109,14 @@ export function AIAvatar({
         <ModelIconPicker
           isOpen={true}
           onClose={() => setShowPicker(false)}
-          onSelect={(icon, type) => {
-            onModelIconChange(icon, type);
+          onSelect={(icon, type, color, shape) => {
+            onModelIconChange(icon, type, color, shape);
             setShowPicker(false);
           }}
           currentIcon={modelIcon}
           currentIconType={modelIconType}
+          currentColor={modelColor}
+          currentShape={modelShape}
         />
       )}
     </div>
@@ -119,11 +130,6 @@ export function UserAvatar({
   alt = "Profile",
   onClick,
 }: UserAvatarProps) {
-  // فحص سريع في الـ Console لو الصورة مش بتظهر معاك عشان نعرف السبب
-  useEffect(() => {
-    console.log("UserAvatar src received:", src);
-  }, [src]);
-
   const content = src && src.trim() !== "" ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img

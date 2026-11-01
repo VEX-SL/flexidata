@@ -136,14 +136,10 @@ function EmptyState({
   agentName?: string;
   onSuggestion: (s: string) => void;
   userName?: string | null;
-  /** False until the client knows the real name and local time. */
   ready: boolean;
 }) {
   const { t } = useTranslation();
   const name = userName && userName.trim() ? userName.trim() : "Hamza";
-  // The greeting depends on the visitor's clock and profile, so it must never
-  // be painted from the prerendered HTML: a placeholder keeps the space until
-  // the real greeting can be rendered in one go.
   const greeting = getGreeting(name);
 
   const suggestions = [
@@ -220,8 +216,12 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     isOpen: boolean;
     chatId: string | null;
   }>({ isOpen: false, chatId: null });
+
+  // States الخاصة بأيقونة وألوان وشكل الـ AI
   const [modelIcon, setModelIcon] = useState<string | null>(null);
   const [modelIconType, setModelIconType] = useState<"preset" | "custom" | null>(null);
+  const [modelColor, setModelColor] = useState<string | null>(null);
+  const [modelShape, setModelShape] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -236,9 +236,10 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          // جلب الأعمدة المطلوبة بالكامل بما فيها model_color و model_shape
           const { data: profile } = await supabase
             .from("profiles")
-            .select("name, avatar_url, model_icon, model_icon_type")
+            .select("name, avatar_url, model_icon, model_icon_type, model_color, model_shape")
             .eq("id", user.id)
             .maybeSingle();
           if (!active) return;
@@ -252,9 +253,15 @@ function AgentChatContent({ agentId }: { agentId: string }) {
             setModelIcon(profile.model_icon);
             setModelIconType(profile.model_icon_type as "preset" | "custom" | null);
           }
+          if (profile?.model_color) {
+            setModelColor(profile.model_color);
+          }
+          if (profile?.model_shape) {
+            setModelShape(profile.model_shape);
+          }
         }
       } catch {
-        // Ignore — the greeting falls back to the default name.
+        // Ignore
       }
       if (active) setProfileLoaded(true);
     })();
@@ -301,7 +308,6 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     try {
       const res = await fetch(`/api/chat-history/${id}?agentId=${agentId}`);
       if (!res.ok) {
-        // Only chats belonging to this agent may open in this page.
         setChatId(null);
         setMessages([]);
         router.replace(`/agents/${agentId}/chat`, { scroll: false });
@@ -405,12 +411,12 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
-  async function handleModelIconChange(icon: string | File | null, type: "preset" | "custom") {
+  // تحديث الأيقونة واللون والشكل وحفظهم في قاعدة البيانات
+  async function handleModelIconChange(icon: string | File | null, type: "preset" | "custom", color?: string, shape?: string) {
     if (!icon) return;
 
     let finalIcon: string = typeof icon === "string" ? icon : "";
 
-    // If it's a custom file, upload it first
     if (type === "custom" && icon instanceof File) {
       try {
         const { createClient } = await import("@/lib/supabase/client");
@@ -442,23 +448,28 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
     setModelIcon(finalIcon);
     setModelIconType(type);
+    if (color !== undefined) setModelColor(color);
+    if (shape !== undefined) setModelShape(shape);
 
-    // Save to profile
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const updateData: any = {
+          model_icon: finalIcon,
+          model_icon_type: type,
+        };
+        if (color !== undefined) updateData.model_color = color;
+        if (shape !== undefined) updateData.model_shape = shape;
+
         await supabase
           .from('profiles')
-          .update({
-            model_icon: finalIcon,
-            model_icon_type: type
-          })
+          .update(updateData)
           .eq('id', user.id);
       }
     } catch (err) {
-      console.error("Failed to save model icon:", err);
+      console.error("Failed to save model icon settings:", err);
     }
   }
 
@@ -611,7 +622,17 @@ function AgentChatContent({ agentId }: { agentId: string }) {
               {messages.map((msg, idx) => (
                 <div key={msg.id} className="group">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    {msg.role === "assistant" && <AIAvatar size={28} className="mt-0.5" modelIcon={modelIcon} modelIconType={modelIconType} onModelIconChange={handleModelIconChange} />}
+                    {msg.role === "assistant" && (
+                      <AIAvatar
+                        size={28}
+                        className="mt-0.5"
+                        modelIcon={modelIcon}
+                        modelIconType={modelIconType}
+                        modelColor={modelColor}
+                        modelShape={modelShape}
+                        onModelIconChange={handleModelIconChange}
+                      />
+                    )}
 
                     <div className="flex flex-col gap-1.5 max-w-[80%]">
                       <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user"
@@ -692,7 +713,15 @@ function AgentChatContent({ agentId }: { agentId: string }) {
               {/* Streaming */}
               {streaming && streamedContent && (
                 <div className="flex gap-3 justify-start">
-                  <AIAvatar size={28} className="mt-0.5" modelIcon={modelIcon} modelIconType={modelIconType} onModelIconChange={handleModelIconChange} />
+                  <AIAvatar
+                    size={28}
+                    className="mt-0.5"
+                    modelIcon={modelIcon}
+                    modelIconType={modelIconType}
+                    modelColor={modelColor}
+                    modelShape={modelShape}
+                    onModelIconChange={handleModelIconChange}
+                  />
                   <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-card border border-border text-foreground text-sm leading-relaxed">
                     <MarkdownRenderer key={streamedContent} content={stripFileEdits(streamedContent)} />
                     {generatedImages.length > 0 && (
@@ -729,7 +758,14 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
               {streaming && !streamedContent && (
                 <div className="flex gap-3 justify-start">
-                  <AIAvatar size={28} modelIcon={modelIcon} modelIconType={modelIconType} onModelIconChange={handleModelIconChange} />
+                  <AIAvatar
+                    size={28}
+                    modelIcon={modelIcon}
+                    modelIconType={modelIconType}
+                    modelColor={modelColor}
+                    modelShape={modelShape}
+                    onModelIconChange={handleModelIconChange}
+                  />
                   <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3.5">
                     <ThinkingDots />
                   </div>
@@ -805,7 +841,6 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
                 <div className="flex items-center gap-2">
                   {input.trim() ? (
-                    // Show Send button when there's text
                     <button
                       onClick={() => (streaming ? abort() : handleSend())}
                       disabled={!streaming && !input.trim()}
@@ -817,7 +852,6 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                       {streaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                     </button>
                   ) : (
-                    // Show Voice Chat button when no text
                     <button
                       onClick={() => setIsVoiceChatOpen(true)}
                       disabled={streaming}
