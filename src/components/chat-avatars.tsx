@@ -66,7 +66,7 @@ export function AIAvatar({
   const PresetIcon = modelIcon && modelIconType === "preset" ? getPresetIcon(modelIcon) : null;
 
   // فرض الشكل الافتراضي Soft Square (rounded-[14px]) بدقة
-  const finalShape = modelShape === "circle" ? "rounded-full" : modelShape === "square" ? "rounded-none" : "rounded-[14px]";
+  const finalShape = modelShape === "circle" ? "rounded-full" : modelShape === "square" ? "rounded-none" : "rounded-[25%]";
 
   const colorStyle = modelColor ? { background: undefined } : { background: "linear-gradient(135deg, var(--color-primary), rgba(80,80,80,.8))" };
   const colorClass = modelColor ? `bg-gradient-to-br ${modelColor}` : "";
