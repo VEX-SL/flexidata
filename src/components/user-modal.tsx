@@ -20,9 +20,13 @@ export function UserModal({
 
   return (
     <div
-      className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"} transition-opacity duration-200`}
+      className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center ${
+        isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+      } transition-opacity duration-200`}
     >
-      <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 w-full max-w-sm transform transition-all ${isOpen ? "scale-100" : "scale-95"}">
+      <div className={`bg-card border border-border rounded-2xl shadow-2xl p-6 w-full max-w-sm transform transition-all ${
+        isOpen ? "scale-100" : "scale-95"
+      }`}>
         <div className="flex items-center gap-4 mb-6">
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
             <MessageSquare size={28} className="text-primary" />

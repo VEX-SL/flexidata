@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Upload, Sparkles, Zap, Crown, Heart, Star, Bot, Brain } from "lucide-react";
+import { X, Upload, Sparkles, Zap, Crown, Heart, Star, Bot, Brain, Pen } from "lucide-react";
 import { WingsIcon } from "@/components/icons/WingsIcon";
 
 interface ModelIconPickerProps {
@@ -26,12 +26,13 @@ const PRESET_ICONS = [
 ];
 
 const COLORS = [
-  { label: "Default", value: "" },
-  { label: "Blue", value: "from-blue-600 to-indigo-600" },
-  { label: "Purple", value: "from-purple-600 to-pink-600" },
-  { label: "Emerald", value: "from-emerald-600 to-teal-600" },
-  { label: "Amber", value: "from-amber-600 to-orange-600" },
-  { label: "Rose", value: "from-rose-600 to-red-600" },
+  { label: "White", value: "bg-white text-zinc-900 border border-border" },
+  { label: "Gray", value: "bg-zinc-500 text-white" },
+  { label: "Blue", value: "bg-blue-600 text-white" },
+  { label: "Pink", value: "bg-pink-500 text-white" },
+  { label: "Emerald", value: "bg-emerald-600 text-white" },
+  { label: "Orange", value: "bg-orange-500 text-white" },
+  { label: "Red", value: "bg-rose-600 text-white" },
 ];
 
 const SHAPES = [
@@ -49,7 +50,8 @@ export function ModelIconPicker({
   currentColor,
   currentShape,
 }: ModelIconPickerProps) {
-  const [selectedColor, setSelectedColor] = useState(currentColor || "");
+  const defaultColor = "bg-white text-zinc-900 border border-border";
+  const [selectedColor, setSelectedColor] = useState(currentColor || defaultColor);
   const [selectedShape, setSelectedShape] = useState(currentShape || "rounded");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +70,8 @@ export function ModelIconPicker({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+
+  const isCustomHex = selectedColor.startsWith("#") || (selectedColor && !COLORS.some(c => c.value === selectedColor));
 
   return (
     <div
@@ -113,10 +117,10 @@ export function ModelIconPicker({
           </div>
         </div>
 
-        {/* Color Selection (قسم واحد فقط بدون تكرار) */}
+        {/* Solid Color Selection & Pen Custom Picker */}
         <div className="space-y-3 mb-5">
-          <p className="text-sm font-medium text-muted-foreground">Gradient Color</p>
-          <div className="flex gap-2 flex-wrap">
+          <p className="text-sm font-medium text-muted-foreground">Solid Color</p>
+          <div className="flex gap-2 flex-wrap items-center">
             {COLORS.map((col, idx) => (
               <button
                 key={idx}
@@ -125,12 +129,60 @@ export function ModelIconPicker({
                   setSelectedColor(col.value);
                   onSelect(currentIcon || "bot", currentIconType || "preset", col.value, selectedShape);
                 }}
-                className={`w-8 h-8 rounded-full border-2 transition-all bg-gradient-to-br ${
-                  col.value || "from-primary to-primary/80"
-                } ${selectedColor === col.value ? "ring-2 ring-primary ring-offset-2 border-white" : "border-transparent"}`}
+                className={`w-8 h-8 rounded-full border-2 transition-all ${col.value} ${
+                  selectedColor === col.value 
+                    ? "ring-2 ring-primary ring-offset-2 border-primary scale-110" 
+                    : "border-transparent hover:scale-105"
+                }`}
                 title={col.label}
               />
             ))}
+
+            {/* Custom Pen Button with Tooltip */}
+            <div className="relative group">
+              <button
+                type="button"
+                className={`w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all ${
+                  isCustomHex
+                    ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20 scale-110"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-primary/50"
+                }`}
+              >
+                <Pen size={15} />
+              </button>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block px-2 py-0.5 bg-popover text-popover-foreground text-[10px] font-medium rounded shadow-md whitespace-nowrap z-10">
+                Custom
+              </div>
+              <input
+                type="color"
+                value={isCustomHex ? selectedColor : "#3b82f6"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedColor(val);
+                  onSelect(currentIcon || "bot", currentIconType || "preset", val, selectedShape);
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full rounded-full"
+                title="Custom Color"
+              />
+            </div>
+          </div>
+
+          {/* Manual Hex Code Input */}
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs text-muted-foreground">Hex Code:</span>
+            <input
+              type="text"
+              placeholder="#3b82f6"
+              value={isCustomHex ? selectedColor : ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedColor(val);
+                if (val.startsWith("#") && (val.length === 4 || val.length === 7)) {
+                  onSelect(currentIcon || "bot", currentIconType || "preset", val, selectedShape);
+                }
+              }}
+              className="px-2.5 py-1 text-xs rounded-lg border border-border bg-background text-foreground w-32"
+            />
           </div>
         </div>
 
@@ -139,7 +191,7 @@ export function ModelIconPicker({
           <p className="text-sm font-medium text-muted-foreground">Preset Icons</p>
           <div className="grid grid-cols-4 gap-2">
             {PRESET_ICONS.map(({ id, icon: Icon, label }) => {
-              const isSelected = currentIcon === id && currentIconType === "preset";
+              const isSelected = (currentIcon === id || (!currentIcon && id === "bot")) && currentIconType === "preset";
               return (
                 <button
                   key={id}

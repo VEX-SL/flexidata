@@ -1,75 +1,90 @@
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth";
-import { isValidUUID } from "@/lib/validators";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
-export async function DELETE(
-  _request: Request,
-  { params }: { params: Promise<{ chatId: string }> }
+async function handleUpdate(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth();
-  if (authResult instanceof NextResponse) return authResult;
-  const { user } = authResult;
+  try {
+    const params = await context.params;
+    const chatId = params.id;
 
-  const { chatId } = await params;
+    if (!chatId) {
+      return NextResponse.json({ error: "Missing Chat ID" }, { status: 400 });
+    }
 
-  if (!isValidUUID(chatId)) {
-    return NextResponse.json({ error: "Invalid chat ID" }, { status: 400 });
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { title, pinned, pinned_at } = body;
+
+    const updateData: Record<string, any> = {};
+    if (title !== undefined) updateData.title = title;
+    if (pinned !== undefined) updateData.pinned = pinned;
+    if (pinned_at !== undefined) updateData.pinned_at = pinned_at;
+
+    const { data, error } = await supabase
+      .from("chats")
+      .update(updateData)
+      .eq("id", chatId)
+      .select();
+
+    if (error) {
+      console.error("Supabase Update Error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data?.[0] || {});
+  } catch (err: any) {
+    console.error("Server Route Error:", err);
+    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
   }
-
-  const supabase = createAdminClient();
-
-  const { error } = await supabase
-    .from("chats")
-    .delete()
-    .eq("id", chatId)
-    .eq("user_id", user.id);
-
-  if (error) {
-    return NextResponse.json({ error: "Failed to delete chat" }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true });
 }
 
-export async function PATCH(
+// دعم PATCH و POST لتفادي أي خطأ 405 Method Not Allowed
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  return handleUpdate(request, context);
+}
+
+export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  return handleUpdate(request, context);
+}
+
+export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ chatId: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth();
-  if (authResult instanceof NextResponse) return authResult;
-  const { user } = authResult;
-
-  const { chatId } = await params;
-
-  if (!isValidUUID(chatId)) {
-    return NextResponse.json({ error: "Invalid chat ID" }, { status: 400 });
-  }
-
-  let body: { title?: string };
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    const params = await context.params;
+    const chatId = params.id;
+
+    if (!chatId) {
+      return NextResponse.json({ error: "Missing Chat ID" }, { status: 400 });
+    }
+
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { error } = await supabase
+      .from("chats")
+      .delete()
+      .eq("id", chatId);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
   }
-
-  const title =
-    typeof body.title === "string" ? body.title.trim().slice(0, 200) : null;
-  if (!title) {
-    return NextResponse.json({ error: "Title is required" }, { status: 400 });
-  }
-
-  const supabase = createAdminClient();
-
-  const { error } = await supabase
-    .from("chats")
-    .update({ title })
-    .eq("id", chatId)
-    .eq("user_id", user.id);
-
-  if (error) {
-    return NextResponse.json({ error: "Failed to update chat" }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true, title });
 }

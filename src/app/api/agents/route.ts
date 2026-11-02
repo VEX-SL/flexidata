@@ -2,94 +2,65 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
+  const startedAt = performance.now();
+
   try {
+    const authStart = performance.now();
+
     const supabase = await createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    const authTime = performance.now() - authStart;
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    // جلب الوكلاء الخاصين بالمستخدم
-    const { data: agents, error } = await supabase
-      .from("agents")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    const queryStart = performance.now();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    // حساب عدد الملفات والمحادثات لكل وكيل بشكل دقيق
-    const agentsWithCounts = await Promise.all(
-      (agents || []).map(async (agent) => {
-        // عد الملفات المرتبطة بالوكيل
-        const { count: filesCount } = await supabase
-          .from("agent_files")
-          .select("*", { count: "exact", head: true })
-          .eq("agent_id", agent.id);
-
-        // عد المحادثات المرتبطة بالوكيل
-        const { count: chatsCount } = await supabase
-          .from("chats")
-          .select("*", { count: "exact", head: true })
-          .eq("agent_id", agent.id);
-
-        return {
-          ...agent,
-          files_count: filesCount || 0,
-          chats_count: chatsCount || 0,
-        };
-      })
+    const { data: agents, error } = await supabase.rpc(
+      "get_agents_with_counts"
     );
 
-    return NextResponse.json(agentsWithCounts);
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const supabase = await createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { name, description } = body;
-
-    if (!name || !name.trim()) {
-      return NextResponse.json({ error: "Agent name is required" }, { status: 400 });
-    }
-
-    const shareToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
-
-    // إدخال وكيل جديد
-    const { data: newAgent, error } = await supabase
-      .from("agents")
-      .insert({
-        user_id: user.id,
-        name: name.trim(),
-        description: description?.trim() || null,
-        share_token: shareToken,
-      })
-      .select()
-      .single();
+    const queryTime = performance.now() - queryStart;
+    const totalTime = performance.now() - startedAt;
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[AGENTS RPC ERROR]", error);
+
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({
-      ...newAgent,
-      files_count: 0,
-      chats_count: 0,
+    console.log("[AGENTS PERFORMANCE]", {
+      agents_count: agents?.length || 0,
+      auth: Math.round(authTime * 100) / 100,
+      database: Math.round(queryTime * 100) / 100,
+      total: Math.round(totalTime * 100) / 100,
+    });
+
+    return NextResponse.json(agents || [], {
+      headers: {
+        "Server-Timing": [
+          `auth;dur=${authTime}`,
+          `database;dur=${queryTime}`,
+        ].join(", "),
+      },
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
+    console.error("[AGENTS ERROR]", err);
+
+    return NextResponse.json(
+      { error: err.message || "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

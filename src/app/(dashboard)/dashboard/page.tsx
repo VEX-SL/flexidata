@@ -201,7 +201,7 @@ export default function DashboardPage() {
           // This ensures name/avatar NEVER change when switching OAuth providers
           if (profile.name) setUserName(profile.name);
           // If avatar_url is explicitly null, user deleted it - don't show anything
-          setAvatarUrl(profile.avatar_url ?? null);
+          setAvatarUrl(profile?.avatar_url ? "/api/profile" : null);
         }
         setProfileLoaded(true);
       } catch { 

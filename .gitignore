@@ -5,6 +5,9 @@ node_modules/
 .next/
 out/
 
+# Python
+__pycache__
+
 # Build
 build/
 dist/
@@ -44,7 +47,6 @@ supabase/.env
 # Misc
 *.tsbuildinfo
 
-.html
-
-puter-proxy.js
+gpt.py
+proxy.py
 test-tool.json
