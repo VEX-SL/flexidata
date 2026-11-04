@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Upload, Sparkles, Zap, Crown, Heart, Star, Bot, Brain, Pen } from "lucide-react";
 import { WingsIcon } from "@/components/icons/WingsIcon";
+import { useTranslation } from "@/lib/i18n";
 
 interface ModelIconPickerProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ export function ModelIconPicker({
   currentColor,
   currentShape,
 }: ModelIconPickerProps) {
+  const { t } = useTranslation();
   const defaultColor = "bg-white text-zinc-900 border border-border";
   const [selectedColor, setSelectedColor] = useState(currentColor || defaultColor);
   const [selectedShape, setSelectedShape] = useState(currentShape || "rounded");
@@ -93,7 +95,6 @@ export function ModelIconPicker({
           </button>
         </div>
 
-        {/* Shape Selection */}
         <div className="space-y-3 mb-5">
           <p className="text-sm font-medium text-muted-foreground">Avatar Shape</p>
           <div className="grid grid-cols-3 gap-2">
@@ -117,7 +118,6 @@ export function ModelIconPicker({
           </div>
         </div>
 
-        {/* Solid Color Selection & Pen Custom Picker */}
         <div className="space-y-3 mb-5">
           <p className="text-sm font-medium text-muted-foreground">Solid Color</p>
           <div className="flex gap-2 flex-wrap items-center">
@@ -138,7 +138,6 @@ export function ModelIconPicker({
               />
             ))}
 
-            {/* Custom Pen Button with Tooltip */}
             <div className="relative group">
               <button
                 type="button"
@@ -150,9 +149,6 @@ export function ModelIconPicker({
               >
                 <Pen size={15} />
               </button>
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block px-2 py-0.5 bg-popover text-popover-foreground text-[10px] font-medium rounded shadow-md whitespace-nowrap z-10">
-                Custom
-              </div>
               <input
                 type="color"
                 value={isCustomHex ? selectedColor : "#3b82f6"}
@@ -166,27 +162,8 @@ export function ModelIconPicker({
               />
             </div>
           </div>
-
-          {/* Manual Hex Code Input */}
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs text-muted-foreground">Hex Code:</span>
-            <input
-              type="text"
-              placeholder="#3b82f6"
-              value={isCustomHex ? selectedColor : ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                setSelectedColor(val);
-                if (val.startsWith("#") && (val.length === 4 || val.length === 7)) {
-                  onSelect(currentIcon || "bot", currentIconType || "preset", val, selectedShape);
-                }
-              }}
-              className="px-2.5 py-1 text-xs rounded-lg border border-border bg-background text-foreground w-32"
-            />
-          </div>
         </div>
 
-        {/* Preset Icons */}
         <div className="space-y-3 mb-5">
           <p className="text-sm font-medium text-muted-foreground">Preset Icons</p>
           <div className="grid grid-cols-4 gap-2">
@@ -213,7 +190,6 @@ export function ModelIconPicker({
           </div>
         </div>
 
-        {/* Custom Upload */}
         <div className="space-y-3">
           <p className="text-sm font-medium text-muted-foreground">Custom Icon</p>
           <input

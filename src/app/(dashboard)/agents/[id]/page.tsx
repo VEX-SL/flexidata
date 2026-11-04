@@ -332,7 +332,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       }
       .fd-detail-save-btn:hover { box-shadow: 0 4px 12px rgba(34,197,94,.3); }
     `}</style>
-    <div className="fd-detail-root h-full overflow-auto p-6">
+    <div className="fd-detail-root h-full overflow-auto p-6 fd-scroll">
       <div className="max-w-4xl mx-auto space-y-7">
         {/* Hero */}
         <div className="fd-detail-hero" style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(12px)', transition: 'all .5s cubic-bezier(.16,1,.3,1)' }}>

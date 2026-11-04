@@ -6,12 +6,13 @@ import { AppSidebar } from "@/components/app-sidebar";
 
 export default function DashboardGroupLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  // إذا كنا داخل صفحة الـ agents، نتخلى عن الشريط القديم ليعمل الشريط المخصص بسلاسة
-  const isAgentPage = pathname.startsWith("/agents");
+  
+  // نتحقق مما إذا كنا داخل صفحة الشات الخاصة بالـ agent لتجنب إظهار الـ AppSidebar القديم هناك
+  const isAgentChatPage = pathname.includes("/chat");
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {!isAgentPage && <AppSidebar />}
+      {!isAgentChatPage && <AppSidebar />}
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
         {children}
       </main>

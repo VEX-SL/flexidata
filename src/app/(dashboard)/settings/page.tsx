@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { User, Save, Loader2, Palette, Globe, Camera, Image as ImageIcon, Lock, Eye, EyeOff, Trash2, AlertTriangle } from "lucide-react";
+import { User, Save, Loader2, Palette, Globe, Camera, Image as ImageIcon, Lock, Eye, EyeOff, Trash2, AlertTriangle, Check } from "lucide-react";
 import { useTheme } from "@/lib/theme-provider";
 import { useTranslation, LANGUAGES } from "@/lib/i18n";
 import { DeleteAccountDialog } from "@/components/delete-account-dialog";
@@ -31,6 +31,30 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { lang, setLang, t } = useTranslation();
   const [user, setUser] = useState<any>(null);
+
+  // Auto-scroll setting
+  const [isAutoScroll, setIsAutoScroll] = useState(true);
+
+  // Load auto-scroll from localStorage after component mounts
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("settings-auto-scroll");
+      if (saved !== null) {
+        setIsAutoScroll(saved === "true");
+      }
+    } catch (err) {
+      console.error("Failed to load auto-scroll setting:", err);
+    }
+  }, []);
+
+  // Save auto-scroll setting
+  useEffect(() => {
+    try {
+      localStorage.setItem("settings-auto-scroll", String(isAutoScroll));
+    } catch (err) {
+      console.error("Failed to update auto-scroll setting:", err);
+    }
+  }, [isAutoScroll]);
 
   // Delete account state
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
@@ -498,6 +522,29 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+          <div className="flex items-center gap-2">
+            <Check
+              size={16}
+              className="text-primary"
+            />
+            <span className="text-sm font-medium text-foreground">{t("settings.autoScroll") || "Auto-scroll to bottom on message"}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsAutoScroll(!isAutoScroll)}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${
+              isAutoScroll ? "bg-primary" : "bg-muted"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isAutoScroll ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
         </div>
       </div>
 

@@ -15,19 +15,17 @@ export default function RootLayout({
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                const theme = localStorage.getItem('theme') || 'dark';
-                document.documentElement.setAttribute('data-theme', theme);
-                const lang = localStorage.getItem('lang') || 'en';
-                document.documentElement.setAttribute('lang', lang);
-                if (lang === 'ar') document.documentElement.setAttribute('dir', 'rtl');
-              } catch {}
-            `,
-          }}
-        />
+        <template id="__next-jss-storage-init" dangerouslySetInnerHTML={{
+          __html: `
+            try {
+              const theme = localStorage.getItem('theme') || 'dark';
+              document.documentElement.setAttribute('data-theme', theme);
+              const lang = localStorage.getItem('lang') || 'en';
+              document.documentElement.setAttribute('lang', lang);
+              if (lang === 'ar') document.documentElement.setAttribute('dir', 'rtl');
+            } catch {}
+          `,
+        }} />
       </head>
       <body className="min-h-screen bg-background font-sans antialiased">
         <Providers>{children}</Providers>

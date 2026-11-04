@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { useTranslation } from "@/lib/i18n";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -18,12 +19,13 @@ export function ConfirmDialog({
   isOpen,
   title,
   message,
-  confirmText = "Confirm",
-  cancelText = "Cancel",
+  confirmText,
+  cancelText,
   onConfirm,
   onCancel,
   type = "danger",
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -59,13 +61,8 @@ export function ConfirmDialog({
         isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
       } transition-opacity duration-200`}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-        onClick={onCancel}
-      />
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onCancel} />
 
-      {/* Dialog */}
       <div
         className={`relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 transform transition-all duration-200 ${
           isVisible ? "scale-100 translate-y-0" : "scale-95 translate-y-4"
@@ -73,18 +70,11 @@ export function ConfirmDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-4">
-          {/* Icon */}
           <div className="shrink-0 mt-1">{icon}</div>
-
-          {/* Content */}
           <div className="flex-1 space-y-2">
             <h3 className="text-lg font-semibold text-foreground">{title}</h3>
-            <div className="text-sm text-muted-foreground leading-relaxed">
-              {message}
-            </div>
+            <div className="text-sm text-muted-foreground leading-relaxed">{message}</div>
           </div>
-
-          {/* Close button */}
           <button
             onClick={onCancel}
             className="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
@@ -93,19 +83,18 @@ export function ConfirmDialog({
           </button>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-border/60">
           <button
             onClick={onCancel}
             className="px-4 py-2 rounded-xl text-sm font-medium text-foreground hover:bg-accent transition-colors border border-border/60"
           >
-            {cancelText}
+            {cancelText || t("common.cancel")}
           </button>
           <button
             onClick={onConfirm}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all shadow-sm ${confirmButtonClass}`}
           >
-            {confirmText}
+            {confirmText || t("common.confirm")}
           </button>
         </div>
       </div>

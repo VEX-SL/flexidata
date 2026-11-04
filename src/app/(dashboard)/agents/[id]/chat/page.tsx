@@ -44,7 +44,6 @@ interface Agent {
   description: string | null;
 }
 
-// ─── نافذة إدخال مخصصة بتصميم أنيميشن ناعم وعادي ───
 function InputDialog({
   isOpen,
   title,
@@ -111,13 +110,6 @@ function InputDialog({
   );
 }
 
-function getGreeting(name: string) {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return `Good Morning, ${name}`;
-  if (hour >= 12 && hour < 17) return `Good Afternoon, ${name}`;
-  return `Good Evening, ${name}`;
-}
-
 function EmptyState({
   agentName,
   onSuggestion,
@@ -131,13 +123,22 @@ function EmptyState({
 }) {
   const { t } = useTranslation();
   const name = userName && userName.trim() ? userName.trim() : "Hamza";
+
+  const getGreeting = (name: string) => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return t("chat.goodMorning", { name });
+    if (hour >= 12 && hour < 17) return t("chat.goodAfternoon", { name });
+    if (hour >= 17 && hour < 21) return t("chat.goodEvening", { name });
+    return t("chat.goodNight", { name });
+  };
+
   const greeting = getGreeting(name);
 
   const suggestions = [
-    t("chat.suggestions.summarize") || "Summarize the documents",
-    t("chat.suggestions.keyPoints") || "What are the key points?",
-    "List all important data",
-    "Explain this simply",
+    t("chat.suggestions.summarize"),
+    t("chat.suggestions.keyPoints"),
+    t("chat.suggestions.listData"),
+    t("chat.suggestions.simpleTerms"),
   ];
 
   return (
@@ -164,7 +165,7 @@ function EmptyState({
           <button
             key={i}
             onClick={() => onSuggestion(s)}
-            className="text-left px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors leading-relaxed"
+            className="text-right px-3 py-2.5 rounded-xl border border-border bg-card hover:bg-accent text-xs text-muted-foreground hover:text-foreground transition-colors leading-relaxed"
           >
             {s}
           </button>
@@ -189,7 +190,6 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const [chatHistory, setChatHistory] = useState<ChatItem[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [messageEdits, setMessageEdits] = useState<Record<string, FileEdit[]>>({});
 
   const [toastMessage, setToastMessage] = useState<{ text: string; chatTitle: string } | null>(null);
@@ -200,14 +200,6 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     chatId: string | null;
     currentTitle: string;
   }>({ isOpen: false, chatId: null, currentTitle: "" });
-
-  const [appliedEdits, setAppliedEdits] = useState<Set<string>>(() => {
-    try {
-      const stored = localStorage.getItem(`applied-edits-${agentId}`);
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch { return new Set(); }
-  });
-  const [applyingEdit, setApplyingEdit] = useState<string | null>(null);
 
   const [userName, setUserName] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -241,9 +233,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
   const showToast = (text: string, chatTitle: string) => {
     setToastMessage({ text, chatTitle });
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   useEffect(() => {
@@ -268,11 +258,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
             setModelIconType(profile.model_icon_type as "preset" | "custom" | null);
           }
           if (profile?.model_color) setModelColor(profile.model_color);
-          if (profile?.model_shape) {
-            setModelShape(profile.model_shape);
-          } else {
-            setModelShape("rounded");
-          }
+          setModelShape(profile?.model_shape || "rounded");
         }
       } catch {}
       if (active) setProfileLoaded(true);
@@ -284,7 +270,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     fetch(`/api/agents/${agentId}`).then((r) => r.json()).then(setAgent);
   }, [agentId]);
 
-const fetchChatHistory = useCallback(async () => {
+  const fetchChatHistory = useCallback(async () => {
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
@@ -300,14 +286,15 @@ const fetchChatHistory = useCallback(async () => {
           id: c.id,
           title: c.title,
           updated_at: c.updated_at,
-          pinned: c.pinned || false,
-          pinned_at: c.pinned_at ? new Date(c.pinned_at).getTime() : undefined
+          pinned: Boolean(c.pinned),
+          pinned_at: c.pinned_at ? new Date(c.pinned_at).getTime() : 0
         })));
       }
     } catch (err) {
       console.error("Failed to fetch chat history directly", err);
     }
   }, [agentId]);
+
   const fetchMessages = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/chat-history/${id}?agentId=${agentId}`);
@@ -328,7 +315,7 @@ const fetchChatHistory = useCallback(async () => {
       }
       if (Object.keys(editsMap).length > 0)
         setMessageEdits((prev) => ({ ...prev, ...editsMap }));
-    } catch { }
+    } catch {}
   }, [agentId, router]);
 
   useEffect(() => {
@@ -343,7 +330,7 @@ const fetchChatHistory = useCallback(async () => {
     setEditDialog({ isOpen: true, chatId: id, currentTitle });
   };
 
-const handleConfirmEditTitle = async (newTitle: string) => {
+  const handleConfirmEditTitle = async (newTitle: string) => {
     const { chatId: id, currentTitle } = editDialog;
     setEditDialog({ isOpen: false, chatId: null, currentTitle: "" });
 
@@ -375,9 +362,8 @@ const handleConfirmEditTitle = async (newTitle: string) => {
     const nextPinnedState = !chat.pinned;
     const pinnedAtVal = nextPinnedState ? new Date().toISOString() : null;
 
-    // تحديث محلي فوري
     setChatHistory((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, pinned: nextPinnedState, pinned_at: nextPinnedState ? Date.now() : undefined } : c))
+      prev.map((c) => (c.id === id ? { ...c, pinned: nextPinnedState, pinned_at: nextPinnedState ? Date.now() : 0 } : c))
     );
 
     const title = chat.title || "New Chat";
@@ -387,16 +373,12 @@ const handleConfirmEditTitle = async (newTitle: string) => {
       showToast(isArabic ? "تم إلغاء تثبيت" : "Unpinned", title);
     }
 
-    // حفظ في قاعدة بيانات Supabase مباشرة من المتصفح بدون API
     try {
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       await supabase
         .from("chats")
-        .update({ 
-          pinned: nextPinnedState, 
-          pinned_at: pinnedAtVal 
-        })
+        .update({ pinned: nextPinnedState, pinned_at: pinnedAtVal })
         .eq("id", id);
     } catch (err) {
       console.error("Failed to save pin state to database", err);
@@ -409,10 +391,8 @@ const handleConfirmEditTitle = async (newTitle: string) => {
     showToast(isArabic ? "تم نسخ لينك الشات لـ" : "Chat link copied for", title);
   };
 
-  
   async function handleModelIconChange(icon: string | File | null, type: "preset" | "custom", color?: string, shape?: string) {
     if (!icon) return;
-
     let finalIcon: string = typeof icon === "string" ? icon : "";
 
     if (type === "custom" && icon instanceof File) {
@@ -450,21 +430,12 @@ const handleConfirmEditTitle = async (newTitle: string) => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const updatePayload: any = {
-          model_icon: finalIcon,
-          model_icon_type: type,
-        };
+        const updatePayload: any = { model_icon: finalIcon, model_icon_type: type };
         if (color !== undefined) updatePayload.model_color = color;
         if (shape !== undefined) updatePayload.model_shape = shape;
-
-        await supabase
-          .from('profiles')
-          .update(updatePayload)
-          .eq('id', user.id);
+        await supabase.from('profiles').update(updatePayload).eq('id', user.id);
       }
-    } catch (err) {
-      console.error("Failed to save model settings:", err);
-    }
+    } catch {}
   }
 
   function processStreamResult(
@@ -485,7 +456,6 @@ const handleConfirmEditTitle = async (newTitle: string) => {
       ];
     });
 
-    // بمجرد إرسال رسالة ووصول رد، نحدث updated_at للشات الحالي ليصعد لأول القائمة (تحت المثبتين)
     const activeId = result.chatId || chatId;
     if (activeId) {
       const nowIso = new Date().toISOString();
@@ -525,7 +495,7 @@ const handleConfirmEditTitle = async (newTitle: string) => {
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
-    try { await fetch(`/api/agents/${agentId}/files`, { method: "POST", body: formData }); } catch { }
+    try { await fetch(`/api/agents/${agentId}/files`, { method: "POST", body: formData }); } catch {}
     setUploading(false);
     e.target.value = "";
   }
@@ -627,7 +597,7 @@ const handleConfirmEditTitle = async (newTitle: string) => {
                       />
                     )}
                     <div className="flex flex-col gap-1.5 max-w-[80%]">
-                      <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-card border border-border text-foreground rounded-tl-sm"}`}>
+                      <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-primary text-primary-foreground rounded-tl-sm rounded-tr-none" : "bg-card border border-border text-foreground rounded-tr-sm rounded-tl-none"}`}>
                         {msg.role === "user" ? <span dir="auto" className="whitespace-pre-wrap">{msg.content}</span> : <MarkdownRenderer key={msg.content} content={stripFileEdits(msg.content)} />}
                       </div>
                     </div>
@@ -636,7 +606,6 @@ const handleConfirmEditTitle = async (newTitle: string) => {
                 </div>
               ))}
 
-              {/* Streaming Content */}
               {streaming && streamedContent && (
                 <div className="flex gap-3 justify-start">
                   <AIAvatar
@@ -648,7 +617,7 @@ const handleConfirmEditTitle = async (newTitle: string) => {
                     modelShape={modelShape}
                     onModelIconChange={handleModelIconChange}
                   />
-                  <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-3 bg-card border border-border text-foreground text-sm leading-relaxed">
+                  <div className="max-w-[80%] rounded-2xl rounded-tr-sm rounded-tl-none px-4 py-3 bg-card border border-border text-foreground text-sm leading-relaxed">
                     <MarkdownRenderer key={streamedContent} content={stripFileEdits(streamedContent)} />
                     {generatedImages.length > 0 && (
                       <div className="mt-3 space-y-3">
@@ -680,7 +649,6 @@ const handleConfirmEditTitle = async (newTitle: string) => {
                 </div>
               )}
 
-              {/* Thinking Dots */}
               {streaming && !streamedContent && (
                 <div className="flex gap-3 justify-start">
                   <AIAvatar
@@ -691,7 +659,7 @@ const handleConfirmEditTitle = async (newTitle: string) => {
                     modelShape={modelShape}
                     onModelIconChange={handleModelIconChange}
                   />
-                  <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3.5">
+                  <div className="bg-card border border-border rounded-2xl rounded-tr-sm rounded-tl-none px-4 py-3.5">
                     <ThinkingDots />
                   </div>
                 </div>
@@ -744,14 +712,14 @@ const handleConfirmEditTitle = async (newTitle: string) => {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder=""
+                    placeholder={t("chat.placeholder")}
                     rows={1}
                     className="w-full resize-none bg-transparent text-sm leading-6 text-foreground focus:outline-none block relative z-10"
                     style={{ height: "24px", maxHeight: "200px", lineHeight: "24px", padding: 0 }}
                   />
                   {input === "" && (
                     <div className="absolute start-0 top-1/2 -translate-y-1/2 pointer-events-none text-sm text-muted-foreground flex items-center">
-                      <span>{t("chat.placeholderAnimated") || "Type your message"}</span>
+                      <span>{t("chat.placeholderAnimated")}</span>
                       <span className="inline-block animate-pulse">.</span>
                       <span className="inline-block animate-pulse [animation-delay:200ms]">.</span>
                       <span className="inline-block animate-pulse [animation-delay:400ms]">.</span>
@@ -772,7 +740,8 @@ const handleConfirmEditTitle = async (newTitle: string) => {
                     <button
                       onClick={() => setIsVoiceChatOpen(true)}
                       disabled={streaming}
-                      className="p-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-sm shrink-0 self-end mb-1 disabled:opacity-50"
+                      className="p-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-sm shrink-0 self-end mb-1 disabled:opacity-50 flex items-center justify-center"
+                      title={t("voiceChat.startConversation")}
                     >
                       <AudioLines size={18} className="text-white" />
                     </button>
@@ -803,7 +772,7 @@ const handleConfirmEditTitle = async (newTitle: string) => {
       <ConfirmDialog
         isOpen={deleteDialog.isOpen}
         title={t("chat.deleteTitle") || "Delete Chat"}
-        message={t("chat.deleteDescription") || "Are you sure you want to delete this chat? This action cannot be undone."}
+        message={t("chat.deleteDescription") || "Are you sure you want to delete this conversation? This action cannot be undone."}
         confirmText={t("common.delete") || "Delete"}
         cancelText={t("common.cancel") || "Cancel"}
         onConfirm={confirmDelete}

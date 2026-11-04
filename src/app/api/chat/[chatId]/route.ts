@@ -3,11 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 
 async function handleUpdate(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ chatId: string }> }
 ) {
   try {
     const params = await context.params;
-    const chatId = params.id;
+    const chatId = params.chatId;
 
     if (!chatId) {
       return NextResponse.json({ error: "Missing Chat ID" }, { status: 400 });
@@ -47,21 +47,21 @@ async function handleUpdate(
 }
 
 // دعم PATCH و POST لتفادي أي خطأ 405 Method Not Allowed
-export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+export async function PATCH(request: Request, context: { params: Promise<{ chatId: string }> }) {
   return handleUpdate(request, context);
 }
 
-export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, context: { params: Promise<{ chatId: string }> }) {
   return handleUpdate(request, context);
 }
 
 export async function DELETE(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ chatId: string }> }
 ) {
   try {
     const params = await context.params;
-    const chatId = params.id;
+    const chatId = params.chatId;
 
     if (!chatId) {
       return NextResponse.json({ error: "Missing Chat ID" }, { status: 400 });
