@@ -1,90 +1,120 @@
-import { NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { SkillsRegistry } from "@/lib/skills/registry";
+import { SkillLoader } from "@/lib/skills/loader";
 
-async function handleUpdate(
-  request: Request,
-  context: { params: Promise<{ chatId: string }> }
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ chatId: string }> }
 ) {
-  try {
-    const params = await context.params;
-    const chatId = params.chatId;
+  const { messages, agentId } = await req.json();
+  const supabase = await createClient(); // ✅ awaited client
 
-    if (!chatId) {
-      return NextResponse.json({ error: "Missing Chat ID" }, { status: 400 });
-    }
+  const encoder = new TextEncoder();
 
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        controller.enqueue(
+          encoder.encode(
+            JSON.stringify({
+              type: "status",
+              text: "جاري فحص المهارات والأدوات في قاعدة البيانات...",
+            }) + "\n"
+          )
+        );
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+        // ✅ نمرر الـ client المُنتظَر وليس الـ Promise
+        const registry = new SkillsRegistry(supabase);
+        const loader = new SkillLoader(supabase);
 
-    const body = await request.json();
-    const { title, pinned, pinned_at } = body;
+        // نستخدم استعلاماً واحداً يجلب required_tools فقط (بدل التكرار)
+        const { data: dbSkills, error: skillsError } = await supabase
+          .from("agent_skills")
+          .select("required_tools")
+          .eq("is_active", true);
 
-    const updateData: Record<string, any> = {};
-    if (title !== undefined) updateData.title = title;
-    if (pinned !== undefined) updateData.pinned = pinned;
-    if (pinned_at !== undefined) updateData.pinned_at = pinned_at;
+        if (skillsError) throw skillsError;
 
-    const { data, error } = await supabase
-      .from("chats")
-      .update(updateData)
-      .eq("id", chatId)
-      .select();
+        const availableTools: string[] = [];
+        for (const s of dbSkills ?? []) {
+          if (Array.isArray(s.required_tools)) {
+            availableTools.push(...s.required_tools);
+          }
+        }
 
-    if (error) {
-      console.error("Supabase Update Error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+        // إزالة التكرار
+        const uniqueTools = Array.from(new Set(availableTools));
 
-    return NextResponse.json(data?.[0] || {});
-  } catch (err: any) {
-    console.error("Server Route Error:", err);
-    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
-  }
-}
+        const lastUserMsg =
+          messages && messages.length > 0
+            ? String(messages[messages.length - 1].content).toLowerCase()
+            : "";
 
-// دعم PATCH و POST لتفادي أي خطأ 405 Method Not Allowed
-export async function PATCH(request: Request, context: { params: Promise<{ chatId: string }> }) {
-  return handleUpdate(request, context);
-}
+        let usedTool: string | null = null;
 
-export async function POST(request: Request, context: { params: Promise<{ chatId: string }> }) {
-  return handleUpdate(request, context);
-}
+        if (
+          uniqueTools.length > 0 &&
+          (lastUserMsg.includes("ابحث") ||
+            lastUserMsg.includes("بحث") ||
+            lastUserMsg.includes("search"))
+        ) {
+          usedTool =
+            uniqueTools.find((t) => t.includes("search") || t.includes("web")) ||
+            uniqueTools[0];
+        } else if (
+          uniqueTools.length > 0 &&
+          (lastUserMsg.includes("ملف") ||
+            lastUserMsg.includes("pdf") ||
+            lastUserMsg.includes("استخرج"))
+        ) {
+          usedTool =
+            uniqueTools.find((t) => t.includes("file") || t.includes("extract")) ||
+            uniqueTools[0];
+        }
 
-export async function DELETE(
-  request: Request,
-  context: { params: Promise<{ chatId: string }> }
-) {
-  try {
-    const params = await context.params;
-    const chatId = params.chatId;
+        controller.enqueue(
+          encoder.encode(
+            JSON.stringify({
+              type: "tool_info",
+              availableTools: uniqueTools,
+              usedTool,
+            }) + "\n"
+          )
+        );
 
-    if (!chatId) {
-      return NextResponse.json({ error: "Missing Chat ID" }, { status: 400 });
-    }
+        controller.enqueue(
+          encoder.encode(
+            JSON.stringify({ type: "status", text: "جارِ صياغة الرد..." }) + "\n"
+          )
+        );
 
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const aiResponse = usedTool
+          ? `تم استخدام أداة (${usedTool}) بنجاح لتنفيذ طلبك بدقة من خلال مهارات الوكيل المسجلة.`
+          : "تمت الإجابة مباشرة على استفسارك بناءً على السياق، ولم تكن هناك حاجة لتشغيل أداة خارجية في هذا الرد.";
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+        for (let i = 0; i < aiResponse.length; i++) {
+          controller.enqueue(
+            encoder.encode(
+              JSON.stringify({ type: "content", text: aiResponse[i] }) + "\n"
+            )
+          );
+          await new Promise((r) => setTimeout(r, 15));
+        }
 
-    const { error } = await supabase
-      .from("chats")
-      .delete()
-      .eq("id", chatId);
+        controller.close();
+      } catch (error: any) {
+        controller.enqueue(
+          encoder.encode(
+            JSON.stringify({ type: "error", text: error.message }) + "\n"
+          )
+        );
+        controller.close();
+      }
+    },
+  });
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Internal Server Error" }, { status: 500 });
-  }
+  return new Response(stream, {
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+  });
 }

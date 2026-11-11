@@ -186,6 +186,9 @@
     "removeAttachment": "إزالة الملف المرفق",
     "pin": "تثبيت",
     "unpin": "إلغاء التثبيت",
+    "pinned": "تم تثبيت",
+    "unpinned": "تم إلغاء تثبيت",
+    "linkCopied": "تم نسخ لينك الشات لـ",
     "freePlan": "خطة مجانية",
     "standardFeatures": "المميزات الأساسية",
     "upgrade": "ترقية",
@@ -193,6 +196,8 @@
     "editChatName": "تعديل اسم المحادثة",
     "shareChat": "مشاركة المحادثة",
     "chats": "المحادثات",
+    "stop": "إيقاف",
+    "stopGeneration": "إيقاف التوليد",
     "suggestions": {
       "summarize": "لخص المستند المرفوع",
       "keyPoints": "ما هي النقاط الرئيسية؟",
@@ -344,6 +349,7 @@
     "cancel": "إلغاء",
     "confirm": "تأكيد",
     "delete": "حذف",
-    "back": "رجوع"
+    "back": "رجوع",
+    "save": "حفظ"
   }
 }

@@ -186,6 +186,9 @@
     "removeAttachment": "Remove attached file",
     "pin": "Pin",
     "unpin": "Unpin",
+    "pinned": "Pinned",
+    "unpinned": "Unpinned",
+    "linkCopied": "Chat link copied for",
     "freePlan": "Free Plan",
     "standardFeatures": "Standard Features",
     "upgrade": "Upgrade",
@@ -193,6 +196,8 @@
     "editChatName": "Edit Chat Name",
     "shareChat": "Share Chat",
     "chats": "Chats",
+    "stop": "Stop",
+    "stopGeneration": "Stop generation",
     "suggestions": {
       "summarize": "Summarize the uploaded document",
       "keyPoints": "What are the key data points?",
@@ -344,6 +349,7 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "delete": "Delete",
-    "back": "Back"
+    "back": "Back",
+    "save": "Save"
   }
 }

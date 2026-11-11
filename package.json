@@ -44,10 +44,12 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^18.0.9",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "postcss": "^8.5.19",
     "tailwindcss": "^4.3.2",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }

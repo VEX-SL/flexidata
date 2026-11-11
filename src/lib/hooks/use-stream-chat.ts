@@ -7,14 +7,30 @@ export interface GeneratedImage {
   prompt: string;
 }
 
+interface SkillInfo {
+  name: string;
+  display_name: string;
+}
+
+export interface ToolStep {
+  type: "thinking" | "skill" | "file_edit" | "new_file" | "file_delete" | "image" | "search" | "cmd";
+  title: string;
+  content?: string;
+  duration_ms?: number;
+  timestamp?: number;
+}
+
 interface StreamChatOptions {
   agentId?: string;
+  onToolsAvailable?: (tools: string[], skills: SkillInfo[]) => void;
+  onToolStep?: (step: ToolStep) => void;
 }
 
 export function useStreamChat(options: StreamChatOptions = {}) {
   const [streaming, setStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState("");
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [liveToolSteps, setLiveToolSteps] = useState<ToolStep[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
   // Debug state
@@ -30,12 +46,24 @@ export function useStreamChat(options: StreamChatOptions = {}) {
   const sendStream = useCallback(
     async (
       chatId: string | null,
-      content: string
+      content: string,
+      opts?: { replaceMessageId?: string }
     ): Promise<{
       chatId: string;
       title: string | null;
       fullContent: string;
       images: GeneratedImage[];
+      availableTools: string[];
+      toolSteps: ToolStep[];
+      // ✅ Real DB ids from the meta/done events (null in regenerate mode or
+      // if the route is an older version). The page uses them to replace its
+      // temporary message ids so later regenerations send a valid UUID.
+      userMessageId: string | null;
+      assistantMessageId: string | null;
+      // ✅ True when the user pressed Stop. The hook then returns everything
+      // generated SO FAR (fullContent/toolSteps are partial) instead of
+      // null, so the page can keep the partial reply visible.
+      aborted?: boolean;
     } | null> => {
       // Reset debug state
       debugRef.current = {
@@ -63,6 +91,7 @@ export function useStreamChat(options: StreamChatOptions = {}) {
       setStreaming(true);
       setStreamedContent("");
       setGeneratedImages([]);
+      setLiveToolSteps([]);
 
       try {
         const fetchStart = Date.now();
@@ -73,6 +102,7 @@ export function useStreamChat(options: StreamChatOptions = {}) {
             chatId,
             content,
             agentId: options.agentId,
+            replaceMessageId: opts?.replaceMessageId,
           }),
           signal: abortRef.current.signal,
         });
@@ -100,6 +130,34 @@ export function useStreamChat(options: StreamChatOptions = {}) {
         let resultChatId = chatId || "";
         let resultTitle: string | null = null;
         const images: GeneratedImage[] = [];
+        // Track tools/usedTool inside the hook so we can return them in the
+        // result (avoids React state batching issues where the page reads
+        // currentAvailableTools before the state update propagates).
+        let resultAvailableTools: string[] = [];
+        const resultToolSteps: ToolStep[] = [];
+        // ✅ Real DB ids returned by the done event
+        let resultUserMessageId: string | null = null;
+        let resultAssistantMessageId: string | null = null;
+
+        // Helper: when we receive a tool_step event, either update the
+        // existing step (if same timestamp) or append a new one. Then push
+        // to the live state for the streaming UI.
+        const handleToolStep = (step: ToolStep) => {
+          // If a step with the same timestamp exists, update it (route
+          // emits the step twice: once on creation, once with content).
+          const existingIdx = resultToolSteps.findIndex(
+            (s) => s.timestamp === step.timestamp && s.type === step.type
+          );
+          if (existingIdx >= 0) {
+            resultToolSteps[existingIdx] = { ...resultToolSteps[existingIdx], ...step };
+          } else {
+            resultToolSteps.push(step);
+          }
+          setLiveToolSteps([...resultToolSteps]);
+          if (options.onToolStep) {
+            options.onToolStep(step);
+          }
+        };
 
         console.log("[useStreamChat DEBUG] Starting to read stream...");
 
@@ -116,7 +174,7 @@ export function useStreamChat(options: StreamChatOptions = {}) {
 
           for (const event of events) {
             if (!event.trim()) continue;
-            
+
             const lines = event.split("\n");
             let eventType = "";
             let eventData = "";
@@ -128,7 +186,20 @@ export function useStreamChat(options: StreamChatOptions = {}) {
 
             logEvent(eventType || "unknown", eventData);
 
-            if (eventType === "token") {
+            if (eventType === "meta") {
+              // ── NEW: sent by the route BEFORE streaming starts, right after
+              // the chat/user message are created. Capturing the ids here
+              // means an aborted stream still knows which chat + user
+              // message it belongs to (needed to keep the partial reply).
+              try {
+                const meta = JSON.parse(eventData);
+                if (meta.chatId) resultChatId = meta.chatId;
+                if (meta.userMessageId) resultUserMessageId = meta.userMessageId;
+                console.log("[useStreamChat DEBUG] 🪪 Meta received:", { chatId: resultChatId, userMessageId: resultUserMessageId });
+              } catch (e) {
+                console.warn("[useStreamChat] Failed to parse meta event:", e);
+              }
+            } else if (eventType === "token") {
               if (debugRef.current.firstTokenTime === 0) {
                 debugRef.current.firstTokenTime = Date.now();
                 console.log(`[useStreamChat DEBUG] 🎉 FIRST TOKEN received at +${debugRef.current.firstTokenTime - debugRef.current.requestStartTime}ms`);
@@ -144,10 +215,66 @@ export function useStreamChat(options: StreamChatOptions = {}) {
               images.push(img);
               setGeneratedImages([...images]);
               console.log("[useStreamChat DEBUG] 🖼️ Image generated:", img);
+            } else if (eventType === "tools_available") {
+              // ── NEW: handle tools_available event from the route ──
+              // Fallback: if `tools` is empty but `skills` exists, use skill
+              // display_names as the visible "tools" list. This handles
+              // skills that don't declare required_tools.
+              try {
+                const data = JSON.parse(eventData);
+                const rawTools: string[] = Array.isArray(data.tools) ? data.tools : [];
+                const skills: SkillInfo[] = Array.isArray(data.skills) ? data.skills : [];
+
+                // Build the final tools list: prefer required_tools, fall
+                // back to skill display_names so the badge isn't empty.
+                const finalTools: string[] = rawTools.length > 0
+                  ? rawTools
+                  : skills.map(s => s.display_name || s.name).filter(Boolean);
+
+                // Save in the result so the page can read it directly
+                resultAvailableTools = finalTools;
+
+                console.log(`[useStreamChat DEBUG] 🛠️ Tools available (${finalTools.length}):`, finalTools);
+                console.log(`[useStreamChat DEBUG] 📋 Skills (${skills.length}):`, skills.map(s => s.name).join(", "));
+                if (options.onToolsAvailable) {
+                  options.onToolsAvailable(finalTools, skills);
+                }
+              } catch (e) {
+                console.warn("[useStreamChat] Failed to parse tools_available event:", e);
+              }
+            } else if (eventType === "tool_used") {
+              // LEGACY: kept for backwards-compat (route.ts no longer emits
+              // this; tool_step is the new event)
+              console.log("[useStreamChat DEBUG] ✨ Tool used (legacy event):", eventData);
+            } else if (eventType === "tool_step") {
+              // ── NEW: handle tool_step event (skill invocation, file edit,
+              // image generation, etc.) ──
+              try {
+                const step = JSON.parse(eventData) as ToolStep;
+                console.log(`[useStreamChat DEBUG] 📌 Tool step: ${step.type} - ${step.title}`);
+                handleToolStep(step);
+              } catch (e) {
+                console.warn("[useStreamChat] Failed to parse tool_step event:", e);
+              }
+            } else if (eventType === "clear") {
+              // ── NEW: clear streamed content (used before re-prompting with skill content) ──
+              console.log("[useStreamChat DEBUG] 🧹 Clearing stream for re-prompt");
+              fullContent = "";
+              setStreamedContent("");
+            } else if (eventType === "replace_content") {
+              // ── NEW: replace the streamed content with the fixed version ──
+              // (used by the route when it normalizes file blocks after the
+              // stream finishes — fixes raw HTML/JS that got eaten by the
+              // markdown renderer)
+              console.log(`[useStreamChat DEBUG] 🔄 Replacing streamed content (${eventData.length} chars)`);
+              fullContent = eventData;
+              setStreamedContent(fullContent);
             } else if (eventType === "done") {
               const parsed = JSON.parse(eventData);
               resultChatId = parsed.chatId;
               resultTitle = parsed.title;
+              resultUserMessageId = parsed.userMessageId ?? null;
+              resultAssistantMessageId = parsed.assistantMessageId ?? null;
               debugRef.current.providerUsed = parsed.provider || null;
               console.log("[useStreamChat DEBUG] ✅ Stream completed:", { chatId: resultChatId, title: resultTitle, provider: debugRef.current.providerUsed, totalTokens: debugRef.current.totalTokens, totalTime: Date.now() - debugRef.current.requestStartTime });
             } else if (eventType === "error") {
@@ -160,7 +287,7 @@ export function useStreamChat(options: StreamChatOptions = {}) {
         // Final summary
         const totalTime = Date.now() - debugRef.current.requestStartTime;
         const firstTokenLatency = debugRef.current.firstTokenTime ? debugRef.current.firstTokenTime - debugRef.current.requestStartTime : null;
-        
+
         console.group(`📊 [useStreamChat] Stream Summary`);
         console.log("Total time:", `${totalTime}ms`);
         console.log("First token latency:", firstTokenLatency ? `${firstTokenLatency}ms` : "N/A (no tokens)");
@@ -177,24 +304,45 @@ export function useStreamChat(options: StreamChatOptions = {}) {
           title: resultTitle,
           fullContent,
           images,
+          availableTools: resultAvailableTools,
+          toolSteps: resultToolSteps,
+          userMessageId: resultUserMessageId,
+          assistantMessageId: resultAssistantMessageId,
         };
       } catch (err: any) {
+        // ✅ User pressed Stop → the fetch/reader rejects with AbortError
+        // ("signal is aborted without reason"). That is normal control
+        // flow, NOT an error: it must never hit console.error — the
+        // Next.js dev overlay surfaces console.error as a runtime error
+        // and spams the run panel with a fake stack trace.
+        const isAbort =
+          err?.name === "AbortError" ||
+          (typeof err?.message === "string" &&
+            /abort/i.test(err.message) &&
+            abortRef.current?.signal.aborted === true);
+
+        if (isAbort) {
+          console.info(
+            `[useStreamChat] ⏹️ Stream aborted by user after ${Date.now() - debugRef.current.requestStartTime}ms (${debugRef.current.totalTokens} tokens received)`
+          );
+          return null;
+        }
+
         const totalTime = Date.now() - debugRef.current.requestStartTime;
         debugRef.current.error = err.message;
-        
+
         console.group(`❌ [useStreamChat] Error after ${totalTime}ms`);
         console.error("Error:", err.message);
         console.error("Stack:", err.stack);
         console.log("Debug state:", debugRef.current);
         console.groupEnd();
 
-        if (err.name === "AbortError") return null;
         throw err;
       } finally {
         setStreaming(false);
       }
     },
-    [options.agentId]
+    [options.agentId, options.onToolsAvailable, options.onToolStep]
   );
 
   const abort = useCallback(() => {
@@ -205,7 +353,8 @@ export function useStreamChat(options: StreamChatOptions = {}) {
 
   const reset = useCallback(() => {
     setStreamedContent("");
+    setLiveToolSteps([]);
   }, []);
 
-  return { streaming, streamedContent, generatedImages, sendStream, abort, reset };
+  return { streaming, streamedContent, generatedImages, liveToolSteps, sendStream, abort, reset };
 }

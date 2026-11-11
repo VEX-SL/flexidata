@@ -1,12 +1,117 @@
 "use client";
 
+import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/code-block";
 
 interface MarkdownRendererProps {
   content: string;
+  /**
+   * When true, the renderer is in "streaming mode": content is appended
+   * token-by-token. Instead of waiting for the response to finish, every
+   * frame renders the largest SAFE prefix of the markdown:
+   *
+   *  - Plain text (e.g. "hey") renders instantly, character by character.
+   *  - When a markdown-relevant character appears (`*`, `` ` ``, `[`, `<`,
+   *    `&`, `~`) the ambiguous tail is HELD BACK for a frame until the
+   *    stream resolves it (e.g. `**` → bold opener, `[` → command/link).
+   *  - Constructs that are clearly OPEN render immediately in their final
+   *    style by auto-closing them: `**bold` shows as bold while streaming,
+   *    an unclosed ``` fence shows as a live code block, etc. The literal
+   *    `**` / ` ``` ` characters are never flashed to the user.
+   *
+   * When false (saved messages), the exact content is rendered as-is.
+   */
+  streaming?: boolean;
 }
+
+// ─── Incremental markdown safety ─────────────────────────────────────────────
+
+const FENCE_LINE_RE = /^[ \t]*(?:```|~~~)/;
+
+/**
+ * Walk the text line by line and report:
+ *  - inFence:     the text ends INSIDE an unclosed ``` / ~~~ code fence
+ *  - backtickOdd: an odd number of backticks outside fences (unclosed `code`)
+ */
+function scanStructure(text: string): { inFence: boolean; backtickOdd: boolean } {
+  let inFence = false;
+  let backticks = 0;
+  for (const line of text.split("\n")) {
+    if (FENCE_LINE_RE.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (!inFence) backticks += (line.match(/`/g) || []).length;
+  }
+  return { inFence, backtickOdd: backticks % 2 === 1 };
+}
+
+/**
+ * Given a PARTIAL markdown document (mid-stream), return the text that is
+ * safe to render RIGHT NOW plus auto-closers for clearly-open constructs.
+ *
+ * HOLD rules (the tail is not displayed until resolved):
+ *  - "[" with no "]" and no newline yet  → could be a command ([NEW_FILE: …],
+ *    [QUICK_RESPONSE]) or a link — hold from the "["
+ *  - "<tag" with no ">" yet              → could be an HTML tag — hold
+ *  - "&ent" (<10 chars, no ";" / space)  → could be an entity — hold
+ *  - trailing run of *_~`                → could be an opener or closer — hold
+ *
+ * AUTO-CLOSE rules (render in final style immediately):
+ *  - open code fence      → append closing fence (live code block)
+ *  - odd inline backtick  → append closing backtick (live inline code)
+ *  - odd "**" occurrences → append "**" (bold shows instantly, exactly like
+ *    the user asked: text after a streamed "**" renders bold right away)
+ *  - odd "~~" occurrences → append "~~" (strikethrough)
+ */
+export function makeStreamSafe(md: string): string {
+  if (!md) return md;
+  let end = md.length;
+  const { inFence } = scanStructure(md);
+
+  if (!inFence) {
+    // 1) unmatched "[…" (also covers "![…") — hold until it resolves.
+    const lb = md.lastIndexOf("[");
+    if (lb !== -1) {
+      const rest = md.slice(lb);
+      if (!rest.includes("]") && !rest.includes("\n")) end = Math.min(end, lb);
+    }
+    // 2) "<tag"-like tail with no ">" yet (plain "a < b" is NOT held).
+    const lt = md.lastIndexOf("<");
+    if (lt !== -1) {
+      const rest = md.slice(lt);
+      if (!rest.includes(">") && /^<[a-zA-Z!/?]/.test(rest)) end = Math.min(end, lt);
+    }
+    // 3) "&entity" that hasn't closed yet.
+    const amp = md.lastIndexOf("&");
+    if (amp !== -1 && md.length - amp <= 10) {
+      const rest = md.slice(amp);
+      if (!rest.includes(";") && !/\s/.test(rest)) end = Math.min(end, amp);
+    }
+  }
+
+  // 4) trailing delimiter run (always held, even inside fences — this is
+  //    what hides the closing ``` / ** characters while they stream in).
+  const tailRun = md.match(/[*_~`]{1,3}$/);
+  if (tailRun) end = Math.min(end, md.length - tailRun[0].length);
+
+  let safe = end > 0 ? md.slice(0, end) : "";
+
+  // 5) auto-close clearly-open constructs so they render FINAL-style now.
+  const st = scanStructure(safe);
+  if (st.inFence) {
+    safe += "\n```";
+  } else {
+    if (st.backtickOdd) safe += " `";
+    if ((safe.match(/\*\*/g) || []).length % 2 === 1) safe += "**";
+    if ((safe.match(/~~/g) || []).length % 2 === 1) safe += "~~";
+  }
+  return safe;
+}
+
+// ─── Component overrides ─────────────────────────────────────────────────────
 
 function extractText(node: unknown): string {
   if (typeof node === "string") return node;
@@ -221,17 +326,26 @@ const components = {
   },
 };
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
-  // Strip [GENERATE_IMAGE: ...] markers — images are handled via SSE image events
-  const cleaned = content.replace(/\[GENERATE_IMAGE:\s*.+?\]/g, "").trim();
+export function MarkdownRenderer({ content, streaming = false }: MarkdownRendererProps) {
+  // Memoize the cleaned content so React doesn't recompute on every parent
+  // re-render (the regex replace runs only when content actually changes).
+  const cleaned = useMemo(
+    () => content.replace(/\[GENERATE_IMAGE:\s*.+?\]/g, "").trim(),
+    [content]
+  );
+
+  // Streaming: render the safe prefix (holds ambiguous tails, auto-closes
+  // open constructs). Plain text still streams instantly — only genuinely
+  // ambiguous characters are held back for a frame or two.
+  const visible = useMemo(
+    () => (streaming ? makeStreamSafe(cleaned) : cleaned),
+    [cleaned, streaming]
+  );
 
   return (
     <div dir="auto" className="max-w-none text-foreground">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={components as any}
-      >
-        {cleaned}
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components as any}>
+        {visible}
       </ReactMarkdown>
     </div>
   );
