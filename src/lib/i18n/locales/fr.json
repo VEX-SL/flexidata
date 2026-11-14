@@ -139,6 +139,8 @@
     "copied": "Copié !",
     "regenerate": "Régénérer",
     "disclaimer": "FlexiData est un modèle d'IA et peut produire des erreurs.",
+    "viewImage": "Voir l'image",
+    "imageUploadFailed": "Échec de l'envoi de l'image",
     "deleteTitle": "Supprimer le chat",
     "deleteDescription": "Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action ne peut pas être annulée.",
     "suggestions": {
@@ -285,6 +287,7 @@
     "cancel": "Annuler",
     "confirm": "Confirmer",
     "delete": "Supprimer",
-    "back": "Retour"
+    "back": "Retour",
+    "close": "Fermer"
   }
 }

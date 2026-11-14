@@ -98,6 +98,29 @@ function isEditRequest(msg: string, fileContext: string): boolean {
   return EDIT_PHRASES_EN.some((p) => lower.includes(p));
 }
 
+// ─── Image attachments ([IMAGE_ATTACHMENT: url] markers) ────────────────────
+// The chat composer prepends this marker to a user message that carries an
+// attached image (see the agent chat page). The marker is STORED with the
+// message — the UI renders the thumbnail from it and it survives reloads —
+// but it must be stripped everywhere the TEXT reaches the model (prompt
+// history, RAG query, title fallback, Arabic detection) so the storage URL
+// never pollutes the LLM context.
+const IMAGE_ATTACHMENT_LINE_RE = /^[ \t]*\[IMAGE_ATTACHMENT:[ \t]*[^\]\n]+\][ \t]*\r?\n?/gm;
+
+function stripImageAttachments(content: string): string {
+  if (!content) return content;
+  return content.replace(IMAGE_ATTACHMENT_LINE_RE, "").trim();
+}
+
+// Pulls the stored public URL out of the marker (which may also carry the
+// file name after a "|"): [IMAGE_ATTACHMENT: <url> | <name>]
+const IMAGE_ATTACHMENT_URL_RE = /\[IMAGE_ATTACHMENT:[ \t]*([^\]\n|]+)[^\]\n]*\]/;
+
+function extractAttachedImageUrl(content: string): string | null {
+  const m = content.match(IMAGE_ATTACHMENT_URL_RE);
+  return m ? m[1].trim() : null;
+}
+
 /**
  * Normalize [NEW_FILE: xxx] and [FILE_EDIT: xxx] blocks in the model output:
  * if a block's content is NOT already wrapped in a fenced code block (```...```),
@@ -554,22 +577,27 @@ export async function POST(request: Request) {
       }
 
       try {
-        const searchResults = await searchRelevantChunks(
-          effectiveAgentId,
-          msgValidation.value!,
-          8
-        );
+        // ✅ Image-only messages leave an empty query after stripping the
+        // marker — skip RAG entirely (embedding an empty string is useless).
+        const ragQuery = stripImageAttachments(msgValidation.value!);
+        if (ragQuery.trim()) {
+          const searchResults = await searchRelevantChunks(
+            effectiveAgentId,
+            ragQuery,
+            8
+          );
 
-        if (searchResults.length > 0) {
-          const ragContext = buildRAGContext(searchResults);
-          if (ragContext) {
-            fileContext +=
-              (fileContext ? "\n\n---\n\n" : "") +
-              "## Relevant passages (supporting raw text)\n\n" +
-              ragContext;
-            console.log(
-              `[Chat] RAG: found ${searchResults.length} relevant chunks for agent ${effectiveAgentId}`
-            );
+          if (searchResults.length > 0) {
+            const ragContext = buildRAGContext(searchResults);
+            if (ragContext) {
+              fileContext +=
+                (fileContext ? "\n\n---\n\n" : "") +
+                "## Relevant passages (supporting raw text)\n\n" +
+                ragContext;
+              console.log(
+                `[Chat] RAG: found ${searchResults.length} relevant chunks for agent ${effectiveAgentId}`
+              );
+            }
           }
         }
       } catch (e: any) {
@@ -684,7 +712,12 @@ If NO skill clearly matches, answer the user normally without any marker.`;
   const chatIdFinal = chat.id;
   const titleFinal = chat.title;
   const isNewChatFinal = isNewChat;
-  const msgContent = msgValidation.value!;
+  // ✅ Model-facing text: image attachment markers stripped (the saved user
+  // message keeps the marker so the UI can render the thumbnail). An
+  // image-only message strips to nothing — a short note is used for the
+  // title/edit detection paths, while the vision request gets the actual
+  // image (see historyMessages below).
+  const msgContent = stripImageAttachments(msgValidation.value!) || "[The user sent an image]";
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -749,10 +782,41 @@ If NO skill clearly matches, answer the user normally without any marker.`;
         console.log("[Chat Stream V2] ✅ tools_available event sent");
 
         const manager = getProviderManager();
-        const historyMessages = (history || []).slice().reverse().map((m: any) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        }));
+        const reversedHistory = (history || []).slice().reverse();
+
+        // ✅ Only the CURRENT (last) user message's image goes to the vision
+        // model as an actual image part. Older image turns degrade to a text
+        // note — otherwise every turn would re-send every past image and the
+        // model would describe them all merged together (the "describes 3
+        // images as one" bug).
+        let lastUserIdx = -1;
+        for (let i = reversedHistory.length - 1; i >= 0; i--) {
+          if (reversedHistory[i].role === "user") { lastUserIdx = i; break; }
+        }
+
+        const historyMessages = reversedHistory.map((m: any, i: number) => {
+          const text = stripImageAttachments(m.content);
+
+          if (m.role === "user") {
+            const imageUrl = i === lastUserIdx ? extractAttachedImageUrl(m.content) : null;
+            if (imageUrl) {
+              const parts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [];
+              parts.push({ type: "text", text: text || "[The user sent an image]" });
+              parts.push({ type: "image_url", image_url: { url: imageUrl } });
+              return { role: "user" as const, content: parts };
+            }
+            // An OLDER image turn: keep a text note so the model knows an
+            // image existed, without re-sending the image itself.
+            if (extractAttachedImageUrl(m.content)) {
+              return {
+                role: "user" as const,
+                content: text || "[An image was shared earlier in this conversation]",
+              };
+            }
+          }
+
+          return { role: m.role as "user" | "assistant", content: text };
+        });
 
         // ── 2. Stream the first response with [USE_SKILL: xxx] detection ──
         const streamGen = manager.streamChatCompletion({

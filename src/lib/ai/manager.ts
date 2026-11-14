@@ -91,13 +91,83 @@ export class ProviderManager {
   }
 
   /**
-   * معالجة الصور باستخدام موديلات الرؤية المجانية مع نظام Fallback كامل بين:
-   * 1. Google Gemini (gemini-1.5-flash)
-   * 2. OpenRouter (nvidia/nemotron-3.5-super-vl:free أو meta-llama/llama-3.2-11b-vision-instruct:free)
-   * 3. Groq (llama-3.2-11b-vision-preview)
+   * ✅ Downloads any remote image URLs in the request and replaces them with
+   * base64 data URLs — done ONCE before the provider loop so every step
+   * reuses the same bytes. Required because Moondream rejects remote http(s)
+   * URLs with 400, and Gemini needs raw bytes for inline_data.
+   */
+  private async inlineImageUrls(request: AIRequest): Promise<AIRequest> {
+    const messages = await Promise.all(
+      request.messages.map(async (msg) => {
+        if (!Array.isArray(msg.content)) return msg;
+        const parts = await Promise.all(
+          msg.content.map(async (part: any) => {
+            const url = part?.image_url?.url;
+            if (part?.type === "image_url" && url && /^https?:\/\//.test(url)) {
+              const imgRes = await fetch(url);
+              if (!imgRes.ok) throw new Error(`Failed to download image: ${imgRes.status}`);
+              const mime = imgRes.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+              const buf = Buffer.from(await imgRes.arrayBuffer());
+              return {
+                type: "image_url",
+                image_url: { url: `data:${mime};base64,${buf.toString("base64")}` },
+              };
+            }
+            return part;
+          })
+        );
+        return { ...msg, content: parts };
+      })
+    );
+    return { ...request, messages };
+  }
+
+  /**
+   * معالجة الصور باستخدام موديلات الرؤية مع نظام Fallback كامل بين:
+   * 1. Moondream (moondream3.1-9B-A2B) — موديل رؤية مخصص، MOON_DREAM_API
+   * 2. Google Gemini (gemini-3.8-flash)
+   * 3. OpenRouter مجاني (nvidia/nemotron-3.5-super-vl:free ثم nemotron-nano-12b-v2-vl:free)
+   * 4. WandB inference (google/gemma-4-26B-A4B-it) — اختياري: يتفعل فقط عند وجود WANDB_API_KEY
+   *
+   * ⚠️ Groq REMOVED: llama-3.2-11b-vision-preview was shut down (04/2025)
+   * and its replacement llama-4-scout too (07/2026) — Groq has no vision
+   * model anymore, the step only wasted a round-trip and returned empty.
    */
   async processVisionWithFallback(request: AIRequest): Promise<AIResponse> {
+    // ✅ Inline the image(s) once — every step below reuses the same bytes.
+    const inlined = await this.inlineImageUrls(request);
+
     const visionSteps = [
+      {
+        provider: "moondream",
+        handler: async () => {
+          const apiKey = process.env.MOON_DREAM_API;
+          if (!apiKey) throw new Error("Moondream API key not found");
+
+          const res = await fetch("https://api.moondream.ai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            // ✅ Moondream accepts base64 data URLs ONLY (remote http(s)
+            // URLs are rejected with 400) — that is why the image is inlined.
+            body: JSON.stringify({
+              model: "moondream3.1-9B-A2B",
+              messages: inlined.messages,
+              max_completion_tokens: 2048,
+            }),
+          });
+
+          const data = await res.json().catch(() => null);
+          if (!res.ok) {
+            throw new Error(`Moondream ${res.status}: ${data?.error?.message || data?.error || "request failed"}`);
+          }
+          const text = data.choices?.[0]?.message?.content;
+          if (!text) throw new Error("Moondream Vision returned empty response");
+          return { content: text, provider: "moondream-vl" };
+        }
+      },
       {
         provider: "gemini",
         handler: async () => {
@@ -105,17 +175,21 @@ export class ProviderManager {
           if (!apiKey) throw new Error("Gemini API key not found");
 
           // استخراج النص والصورة من الطلب لتكييفه مع Gemini API
-          let prompt = "صف هذه الصورة بالتفصيل";
+          // (الصورة وصلت base64 data URL من inlineImageUrls)
+          let prompt = "The user sent an image. Look at it carefully and respond helpfully.";
           let imageInlineData: any = null;
 
-          for (const msg of request.messages) {
+          for (const msg of inlined.messages) {
             if (Array.isArray(msg.content)) {
               for (const part of msg.content) {
-                if (part.type === "text") prompt = part.text;
+                if (part.type === "text" && part.text) prompt = part.text;
                 if (part.inline_data) imageInlineData = part.inline_data;
-                if (part.image_url) {
-                  // تحويل رابط الصورة أو الـ base64 إذا لزم الأمر
-                  imageInlineData = { mime_type: "image/jpeg", data: part.image_url.url };
+                if (part.image_url?.url?.startsWith("data:")) {
+                  const [meta, b64] = part.image_url.url.split(",");
+                  imageInlineData = {
+                    mime_type: meta.slice(5).split(";")[0] || "image/jpeg",
+                    data: b64,
+                  };
                 }
               }
             } else if (typeof msg.content === "string") {
@@ -123,7 +197,7 @@ export class ProviderManager {
             }
           }
 
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -136,7 +210,10 @@ export class ProviderManager {
             })
           });
 
-          const data = await res.json();
+          const data = await res.json().catch(() => null);
+          if (!res.ok) {
+            throw new Error(`Gemini ${res.status}: ${data?.error?.message || "request failed"}`);
+          }
           const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (!text) throw new Error("Gemini Vision returned empty response");
           return { content: text, provider: "gemini-vision" };
@@ -148,48 +225,66 @@ export class ProviderManager {
           const apiKey = process.env.OPENROUTER_API_KEY;
           if (!apiKey) throw new Error("OpenRouter API key not found");
 
-          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          // ✅ قائمتان مجانيتان: الأكثر استخداماً أولاً ثم البديل
+          const vlModels = [
+            "nvidia/nemotron-3.5-super-vl:free",
+            "nvidia/nemotron-nano-12b-v2-vl:free",
+          ];
+
+          let lastErr: any = null;
+          for (const model of vlModels) {
+            try {
+              const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                  "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+                  "X-Title": "FlexiData AI"
+                },
+                body: JSON.stringify({ model, messages: inlined.messages })
+              });
+
+              const data = await res.json().catch(() => null);
+              if (!res.ok) {
+                throw new Error(`OpenRouter ${res.status}: ${data?.error?.message || "request failed"}`);
+              }
+              const text = data.choices?.[0]?.message?.content;
+              if (!text) throw new Error("OpenRouter Vision returned empty response");
+              return { content: text, provider: `openrouter:${model}` };
+            } catch (err: any) {
+              lastErr = err;
+              console.warn(`[VisionManager] OpenRouter model ${model} failed:`, err?.message);
+            }
+          }
+          throw lastErr;
+        }
+      },
+      {
+        provider: "wandb",
+        handler: async () => {
+          const apiKey = process.env.WANDB_API_KEY;
+          if (!apiKey) throw new Error("WandB API key not found (add WANDB_API_KEY to .env to enable this fallback)");
+
+          const res = await fetch("https://api.inference.wandb.ai/v1/chat/completions", {
             method: "POST",
             headers: {
               "Authorization": `Bearer ${apiKey}`,
               "Content-Type": "application/json",
-              "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-              "X-Title": "AI Agent App"
             },
             body: JSON.stringify({
-              model: "nvidia/nemotron-3.5-super-vl:free", // موديل مجاني ممتاز للرؤية من قائمة OpenRouter
-              messages: request.messages
-            })
+              model: "google/gemma-4-26B-A4B-it",
+              messages: inlined.messages,
+            }),
           });
 
-          const data = await res.json();
+          const data = await res.json().catch(() => null);
+          if (!res.ok) {
+            throw new Error(`WandB ${res.status}: ${data?.error?.message || "request failed"}`);
+          }
           const text = data.choices?.[0]?.message?.content;
-          if (!text) throw new Error("OpenRouter Vision returned empty response");
-          return { content: text, provider: "openrouter-nemotron-vl" };
-        }
-      },
-      {
-        provider: "groq",
-        handler: async () => {
-          const apiKey = process.env.GROQ_API_KEY;
-          if (!apiKey) throw new Error("Groq API key not found");
-
-          const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              model: "llama-3.2-11b-vision-preview", // موديل الرؤية السريع على Groq
-              messages: request.messages
-            })
-          });
-
-          const data = await res.json();
-          const text = data.choices?.[0]?.message?.content;
-          if (!text) throw new Error("Groq Vision returned empty response");
-          return { content: text, provider: "groq-vision" };
+          if (!text) throw new Error("WandB Vision returned empty response");
+          return { content: text, provider: "wandb-gemma-vl" };
         }
       }
     ];

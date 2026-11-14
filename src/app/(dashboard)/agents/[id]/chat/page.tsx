@@ -33,6 +33,53 @@ import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { AIAvatar, UserAvatar, ThinkingDots, StreamingCursor } from "@/components/chat-avatars";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FileTypeIcon, SUPPORTED_FILE_ACCEPT } from "@/components/file-icon";
+import { ImageLightbox } from "@/components/image-lightbox";
+
+// ─── Image attachments ([IMAGE_ATTACHMENT] markers) ─────────────────────────
+// When the user attaches an IMAGE (images only!) the composer uploads it to
+// storage and prepends this marker to the message text before sending:
+//   [IMAGE_ATTACHMENT: <public-url> | <file-name>]
+// The marker is STORED with the message (the thumbnail + file name survive
+// reloads — storage sanitizes non-ASCII names, so the original name travels
+// inside the marker) and the stream route strips it before the text reaches
+// the model. Rendering: the user bubble parses the marker → image thumb
+// (hover shows the file name, click → lightbox) + text, like Gemini.
+const IMAGE_ATTACHMENT_RE = /\[IMAGE_ATTACHMENT:[ \t]*([^\]\n]+)\][ \t]*\r?\n?/;
+
+function extractImageAttachment(content: string): {
+  imageUrl: string | null;
+  fileName: string | null;
+  text: string;
+} {
+  const m = content.match(IMAGE_ATTACHMENT_RE);
+  if (!m) return { imageUrl: null, fileName: null, text: content };
+  const raw = m[1].trim();
+  const pipeIdx = raw.indexOf("|");
+  const imageUrl = (pipeIdx >= 0 ? raw.slice(0, pipeIdx) : raw).trim();
+  const fileName = pipeIdx >= 0
+    ? raw.slice(pipeIdx + 1).trim() || null
+    : deriveImageNameFromUrl(imageUrl);
+  return { imageUrl, fileName, text: content.replace(IMAGE_ATTACHMENT_RE, "").trim() };
+}
+
+// Older messages (before the name was added to the marker) still get a
+// readable name straight from the stored URL:
+//   .../chat-images/<userId>/<timestamp>_<name>.<ext> → "<name>.<ext>"
+function deriveImageNameFromUrl(url: string): string | null {
+  try {
+    const last = decodeURIComponent(url.split("/").pop() || "");
+    const name = last.replace(/^\d+_/, "");
+    return name || null;
+  } catch {
+    return null;
+  }
+}
+
+// A filename containing "]" or a newline would truncate the marker, so the
+// composer sanitizes it before embedding.
+function sanitizeImageName(name: string): string {
+  return name.replace(/[[\]\r\n]+/g, " ").trim();
+}
 
 // ─── Quick Responses ([QUICK_RESPONSE] markers) ──────────────────────────────
 // The model may append up to 3 suggested follow-up messages as
@@ -492,7 +539,32 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
-  const [attachedFile, setAttachedFile] = useState<{ name: string } | null>(null);
+  // ✅ Attachment in the composer: documents keep the old chip; IMAGES
+  // (images only) carry a preview — `localUrl` shows the picture instantly
+  // via an object URL while `url` (the stored public URL) arrives, and the
+  // thumbnail opens the lightbox on click.
+  const [attachedFile, setAttachedFile] = useState<{
+    name: string;
+    isImage?: boolean;
+    url?: string;
+    localUrl?: string;
+  } | null>(null);
+  // ✅ Full-screen image viewer (منبثقة) for image attachments — shows the
+  // file name as a caption.
+  const [lightboxImage, setLightboxImage] = useState<{
+    url: string;
+    name?: string;
+    alt?: string;
+  } | null>(null);
+
+  // Single clear path for the composer attachment — revokes the local object
+  // URL (if any) so previews never leak memory.
+  const clearAttachedFile = useCallback(() => {
+    setAttachedFile((prev) => {
+      if (prev?.localUrl) URL.revokeObjectURL(prev.localUrl);
+      return null;
+    });
+  }, []);
 
   const [modelIcon, setModelIcon] = useState<string | null>(null);
   const [modelIconType, setModelIconType] = useState<"preset" | "custom" | null>(null);
@@ -508,25 +580,6 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialLoadDone = useRef(false);
-
-  // ✅ Collapsed-sidebar floating picture: publish the input bar's height as
-  // a CSS custom property (--fd-input-h) on the page root, so the sidebar's
-  // floating logo/account picture and hover rail sit ABOVE the message
-  // input instead of covering it — including when the textarea grows with
-  // a long message or an attached-file chip appears.
-  const rootContainerRef = useRef<HTMLDivElement>(null);
-  const inputBarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const bar = inputBarRef.current;
-    const root = rootContainerRef.current;
-    if (!bar || !root) return;
-    const apply = () => root.style.setProperty("--fd-input-h", `${bar.offsetHeight}px`);
-    apply();
-    const observer = new ResizeObserver(apply);
-    observer.observe(bar);
-    return () => observer.disconnect();
-  }, []);
 
   // ✅ Restore the shared sidebar choice once, after mount. Falls back to
   // this page's old per-page key (one-time migration), always converges the
@@ -1042,14 +1095,24 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
   async function handleSend(contentOverride?: string) {
     const text = (contentOverride ?? input).trim();
-    if (!text || streaming) return;
-    const userContent = text;
+    if ((!text && !attachedFile?.isImage) || streaming) return;
+    // An image that is still uploading has no stored URL yet — the thumbnail
+    // shows a spinner; sending now would drop the picture, so wait.
+    if (attachedFile?.isImage && !attachedFile.url) return;
+    // ✅ Image attachment: prepend the [IMAGE_ATTACHMENT] marker (URL + file
+    // name) so the message carries the picture (stored in the DB → survives
+    // reloads; the stream route strips it before the text reaches the model).
+    // An image with NO text sends just the marker — image-only messages.
+    const userContent =
+      attachedFile?.isImage && attachedFile.url
+        ? `[IMAGE_ATTACHMENT: ${attachedFile.url} | ${sanitizeImageName(attachedFile.name)}]${text ? `\n${text}` : ""}`
+        : text;
 
     // Sending a message means we want to see the reply — force auto-follow.
     isNearBottomRef.current = true;
     setMessages((prev) => [...prev, { id: `temp-${Date.now()}`, role: "user", content: userContent, created_at: new Date().toISOString() }]);
     setInput("");
-    setAttachedFile(null);
+    clearAttachedFile();
     // ✅ Removed: "جاري تفعيل المهارات والأدوات المناسبة..." status message
     // The tool steps now appear live as the route streams them, so a
     // placeholder status is no longer needed.
@@ -1135,13 +1198,48 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = "";
+
+    // ✅ Images are CHAT attachments (Gemini-style): show the picture in the
+    // composer immediately (object URL) while it uploads to storage, then
+    // keep the local preview alive (no flash) and carry the stored public
+    // URL into the sent message. NOT ingested as an agent document — the old
+    // endpoint parses text/OCR and rejects photos it can't read.
+    if (file.type.toLowerCase().startsWith("image/")) {
+      const localUrl = URL.createObjectURL(file);
+      setAttachedFile({ name: file.name, isImage: true, localUrl });
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(`/api/agents/${agentId}/chat-image`, {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.url) {
+          throw new Error(data?.error || t("chat.imageUploadFailed"));
+        }
+        // Keep localUrl in state — the thumbnail keeps rendering the instant
+        // local preview; the public URL is what the message will carry.
+        setAttachedFile({ name: file.name, isImage: true, url: data.url, localUrl });
+      } catch (err: any) {
+        setAttachedFile(null);
+        URL.revokeObjectURL(localUrl);
+        alert(err?.message || t("chat.imageUploadFailed"));
+      } finally {
+        setUploading(false);
+      }
+      return;
+    }
+
+    // Non-image: the existing agent-document pipeline (OCR + RAG indexing).
     setAttachedFile({ name: file.name });
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
     try { await fetch(`/api/agents/${agentId}/files`, { method: "POST", body: formData }); } catch {}
     setUploading(false);
-    e.target.value = "";
   }
 
   function handleDeleteChat(id: string) {
@@ -1172,7 +1270,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     isNearBottomRef.current = true;
     setRegenIndex(null);
     setChatId(null); setMessages([]); setMessageEdits({});
-    setAttachedFile(null);
+    clearAttachedFile();
     router.replace(`/agents/${agentId}/chat`, { scroll: false });
   }
 
@@ -1200,7 +1298,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   ];
 
   return (
-    <div ref={rootContainerRef} className="flex h-full w-full bg-background overflow-hidden relative">
+    <div className="flex h-full w-full bg-background overflow-hidden relative">
       {toastMessage && (
         <div className={`fixed top-5 z-50 flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-2xl shadow-xl transition-all duration-200 right-5`}>
           <CheckCircle2 size={18} className="shrink-0" />
@@ -1255,8 +1353,15 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           {messages.length === 0 && !streaming ? (
             <EmptyState agentName={agent?.name} onSuggestion={(s: string) => handleSend(s)} userName={userName} ready={profileLoaded} />
           ) : (
-            <div className="w-full px-4 sm:px-6 py-5 space-y-6">
-              {messages.map((msg, idx) => (
+            // ✅ Start padding (80px) clears the floating logo strip AND the
+            // hover rail so chat text never touches them (the strip sits on
+            // the start edge in both LTR and RTL).
+            <div className="w-full ps-20 pe-4 sm:pe-6 py-5 space-y-6">
+              {messages.map((msg, idx) => {
+                // ✅ Parse the image attachment ONCE per message (image URL +
+                // file name + stripped text) for the Gemini-style layout.
+                const attachment = msg.role === "user" ? extractImageAttachment(msg.content) : null;
+                return (
                 <div key={msg.id} className="group relative">
                   <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     {msg.role === "assistant" && (
@@ -1276,10 +1381,33 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                           ? <ToolSteps steps={streamDisplaySteps} />
                           : <ToolSteps steps={msg.tool_steps} />
                       )}
-                      <div className={`relative rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === "user" ? "bg-primary text-primary-foreground rounded-tl-sm rounded-tr-none" : "bg-card border border-border text-foreground rounded-tr-sm rounded-tl-none"}`}>
-                        {msg.role === "user" ? (
-                          <span dir="auto" className="whitespace-pre-wrap">{msg.content}</span>
-                        ) : idx === regenIndex && streaming ? (
+                      {/* ✅ Image attachment (Gemini-style): the image floats
+                          ALONE above the text bubble — not inside it — and a
+                          bit smaller. Hover shows the file name, click opens
+                          the lightbox. Image-only messages render NO bubble. */}
+                      {attachment?.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={attachment.imageUrl}
+                          alt={attachment.fileName || attachment.text || "Image"}
+                          title={attachment.fileName || t("chat.viewImage")}
+                          onClick={() => setLightboxImage({ url: attachment.imageUrl!, name: attachment.fileName || undefined, alt: attachment.text || undefined })}
+                          className="self-end max-h-44 w-auto max-w-full rounded-xl border border-border shadow-sm select-none"
+                          loading="lazy"
+                          draggable={false}
+                        />
+                      )}
+                      {msg.role === "user" ? (
+                        // ✅ Image-only message: no bubble at all — just the
+                        // floating image above.
+                        attachment?.text ? (
+                          <div className="relative rounded-2xl px-4 py-3 text-sm leading-relaxed bg-primary text-primary-foreground rounded-tl-sm rounded-tr-none">
+                            <span dir="auto" className="whitespace-pre-wrap">{attachment.text}</span>
+                          </div>
+                        ) : null
+                      ) : (
+                        <div className="relative rounded-2xl px-4 py-3 text-sm leading-relaxed bg-card border border-border text-foreground rounded-tr-sm rounded-tl-none">
+                          {idx === regenIndex && streaming ? (
                           // ✅ In-place regeneration: live content renders HERE,
                           // in the message being regenerated (not at the bottom).
                           <>
@@ -1369,7 +1497,8 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                             </div>
                           </>
                         )}
-                      </div>
+                        </div>
+                      )}
 
                       {/* ✅ Quick Responses: model-suggested follow-up messages.
                           Only under the LAST assistant message, only when the
@@ -1407,7 +1536,8 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                   {/* ✅ Regen anchor: keeps the growing message in view during in-place regeneration */}
                   {idx === regenIndex && streaming && <div ref={regenAnchorRef} className="h-px" />}
                 </div>
-              ))}
+                );
+              })}
 
               {streaming && regenIndex === null && (
                 <div className="flex gap-3 justify-start">
@@ -1460,7 +1590,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         {/* ✅ Floating Input Bar — chat.z.ai style: a centered card floating
             over the conversation (no border-t wall, not stretched across the
             sidebar), with a soft gradient fading the messages behind it. */}
-        <div ref={inputBarRef} className="shrink-0 relative px-4 sm:px-6 pb-4 pt-1">
+        <div className="shrink-0 relative px-4 sm:px-6 pb-4 pt-1">
           {/* Gradient fade over the bottom of the message list */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-14 bottom-0 bg-gradient-to-t from-background via-background/90 to-transparent" />
           <div className="relative w-full max-w-3xl mx-auto">
@@ -1471,19 +1601,59 @@ function AgentChatContent({ agentId }: { agentId: string }) {
               />
 
               {attachedFile && (
-                <div className="flex items-center gap-2 mb-2 w-fit max-w-full rounded-lg border border-border bg-muted/50 px-2.5 py-1.5 text-[11px] text-foreground">
-                  <FileTypeIcon fileName={attachedFile.name} size={15} />
-                  <span className="truncate max-w-[220px]" title={attachedFile.name}>
-                    {attachedFile.name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setAttachedFile(null)}
-                    className="ml-0.5 p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
+                attachedFile.isImage ? (
+                  // ✅ Image attachment: the picture itself shown in the
+                  // composer — click it to view full-size in the lightbox,
+                  // ✕ removes it. Spinner overlay while it uploads.
+                  <div className="mb-2 w-fit relative group/img-attach">
+                    <button
+                      type="button"
+                      onClick={() => attachedFile.url && setLightboxImage({ url: attachedFile.url, name: attachedFile.name, alt: attachedFile.name })}
+                      disabled={!attachedFile.url || uploading}
+                      // ✅ Hover shows the image's file name (normal cursor —
+                      // click opens the lightbox)
+                      title={attachedFile.name}
+                      aria-label={attachedFile.name}
+                      className="block rounded-xl overflow-hidden border border-border disabled:cursor-default transition-opacity hover:opacity-90"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={attachedFile.url || attachedFile.localUrl}
+                        alt={attachedFile.name}
+                        className="w-20 h-20 object-cover"
+                        draggable={false}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearAttachedFile}
+                      title={t("common.delete")}
+                      aria-label={t("common.delete")}
+                      className="absolute -top-1.5 -end-1.5 p-1 rounded-full bg-foreground text-background shadow-md hover:bg-destructive hover:text-white transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                    {uploading && (
+                      <div className="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
+                        <Loader2 size={16} className="animate-spin text-white" />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 mb-2 w-fit max-w-full rounded-lg border border-border bg-muted/50 px-2.5 py-1.5 text-[11px] text-foreground">
+                    <FileTypeIcon fileName={attachedFile.name} size={15} />
+                    <span className="truncate max-w-[220px]" title={attachedFile.name}>
+                      {attachedFile.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearAttachedFile}
+                      className="ms-0.5 p-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )
               )}
 
               <div className="flex items-end gap-2">
@@ -1528,7 +1698,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                       <Square size={14} fill="currentColor" />
                       <span>{t("chat.stop")}</span>
                     </button>
-                  ) : input.trim() ? (
+                  ) : (input.trim() || (attachedFile?.isImage && attachedFile.url)) ? (
                     <button
                       onClick={() => handleSend()}
                       className="p-2 rounded-xl shrink-0 self-end mb-1 bg-primary text-primary-foreground hover:opacity-90 shadow-sm transition-all"
@@ -1576,6 +1746,15 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
         type="danger"
+      />
+
+      {/* ✅ Full-screen viewer for image attachments (composer + messages) —
+          shows the image's file name. */}
+      <ImageLightbox
+        url={lightboxImage?.url ?? null}
+        name={lightboxImage?.name}
+        alt={lightboxImage?.alt}
+        onClose={() => setLightboxImage(null)}
       />
     </div>
   );

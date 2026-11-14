@@ -139,6 +139,8 @@
     "copied": "已复制！",
     "regenerate": "重新生成",
     "disclaimer": "FlexiData 是一个AI模型，可能会产生错误。",
+    "viewImage": "查看图片",
+    "imageUploadFailed": "图片上传失败",
     "deleteTitle": "删除聊天",
     "deleteDescription": "确定要删除此对话吗？此操作无法撤销。",
     "suggestions": {
@@ -285,6 +287,7 @@
     "cancel": "取消",
     "confirm": "确认",
     "delete": "删除",
-    "back": "返回"
+    "back": "返回",
+    "close": "关闭"
   }
 }

@@ -169,40 +169,37 @@ export function AgentSidebar({
   return (
     <>
       {/* ✅ Collapsed state — the sidebar disappears completely (no rail, no
-          border lines, content takes the full width). Only the logo (top)
-          and the account picture (bottom) float in its place, unframed.
-          Clicking either one re-opens the full sidebar. Hovering the MIDDLE
-          strip (between logo and picture) reveals the mini navigation icons
-          as a floating rail that slides in from the edge. `start-*` keeps
+          border lines, content takes the full width). Only the FlexiData
+          logo floats at the top, unframed, inset a few px from the screen
+          edge; clicking it re-opens the full sidebar. Hovering the strip
+          below it reveals the mini navigation icons as a floating rail that
+          slides in from the edge — ending with a Settings gear (the account
+          picture only exists inside the OPEN sidebar). `start-*` keeps
           everything on the correct side in Arabic (RTL) vs English (LTR). */}
       {!isOpen && (
         <div
           dir={isArabic ? "rtl" : "ltr"}
-          className="fixed inset-y-0 start-0 z-40 w-12 flex flex-col items-center pt-4 pointer-events-none select-none animate-fade-in"
-          // The page publishes its input-bar height as --fd-input-h (see the
-          // chat page), so the floating picture and the hover rail sit just
-          // ABOVE the message input instead of covering it — even when the
-          // textarea grows with a long message. Defaults to 0 on pages
-          // without an input bar.
-          style={{ paddingBottom: "calc(var(--fd-input-h, 0px) + 1rem)" }}
+          className="fixed inset-y-0 start-0 z-40 w-16 flex flex-col items-center pt-4 pb-4 pointer-events-none select-none animate-fade-in"
         >
-          {/* Floating logo — nothing around it, click opens the full sidebar */}
+          {/* Floating logo — nothing around it, click opens the full sidebar.
+              Rendered larger than before so it reads as a proper app icon;
+              the wider 64px strip gives it breathing room from the edge. */}
           <button
             onClick={() => onToggle?.()}
             title="FlexiData"
             aria-label="FlexiData"
-            className="pointer-events-auto relative w-9 h-9 rounded-xl flex items-center justify-center hover:bg-accent/40 transition-colors"
+            className="pointer-events-auto relative w-12 h-12 rounded-xl flex items-center justify-center hover:bg-accent/40 transition-colors"
           >
-            <div className="relative w-7 h-7">
+            <div className="relative w-10 h-10">
               <Image src={logoSrc} alt="FlexiData" fill className="object-contain rounded-lg" priority />
             </div>
           </button>
 
-          {/* Middle hover zone → floating mini-icons rail (peek) */}
+          {/* Hover zone → floating mini-icons rail (peek) */}
           <div className="relative flex-1 w-full group/peek pointer-events-auto">
             <nav
               aria-label="Quick navigation"
-              className={`absolute top-1/2 -translate-y-1/2 start-0.5 flex flex-col items-center gap-1 p-1.5 rounded-2xl border border-border/70 bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/25 opacity-0 scale-95 pointer-events-none transition-all duration-200 group-hover/peek:opacity-100 group-hover/peek:scale-100 group-hover/peek:pointer-events-auto ${isArabic
+              className={`absolute top-1/2 -translate-y-1/2 start-2 flex flex-col items-center gap-1 p-1.5 rounded-2xl border border-border/70 bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/25 opacity-0 scale-95 pointer-events-none transition-all duration-200 group-hover/peek:opacity-100 group-hover/peek:scale-100 group-hover/peek:pointer-events-auto ${isArabic
                 ? "translate-x-2 group-hover/peek:translate-x-0"
                 : "-translate-x-2 group-hover/peek:translate-x-0"
                 }`}
@@ -230,25 +227,16 @@ export function AgentSidebar({
               <RailIconButton title={t("nav.chat")} onClick={() => onNavigate("chat")}>
                 <MessageSquare size={18} />
               </RailIconButton>
+
+              <div className="my-0.5 h-px w-6 bg-border/50" />
+
+              {/* ✅ Takes the account picture's place when the sidebar is
+                  closed: a Settings gear, grouped with the other icons. */}
+              <RailIconButton title={t("settings.title")} onClick={() => onNavigate("settings")}>
+                <Settings size={18} />
+              </RailIconButton>
             </nav>
           </div>
-
-          {/* Floating account picture — nothing around it, click opens the full sidebar */}
-          <button
-            onClick={() => onToggle?.()}
-            title={userName}
-            aria-label={userName}
-            className="pointer-events-auto w-8 h-8 rounded-full overflow-hidden flex items-center justify-center transition-transform duration-150 hover:scale-105"
-          >
-            {userAvatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src="/api/profile" alt={userName} className="w-full h-full object-cover" />
-            ) : (
-              <span className="w-full h-full rounded-full bg-gradient-to-br from-accent to-accent/50 flex items-center justify-center text-xs font-bold text-foreground">
-                {userName?.charAt(0)?.toUpperCase() || "V"}
-              </span>
-            )}
-          </button>
         </div>
       )}
 
