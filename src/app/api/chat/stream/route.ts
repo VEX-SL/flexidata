@@ -695,7 +695,12 @@ If NO skill clearly matches, answer the user normally without any marker.`;
       const sendEvent = (event: string, data: string) => {
         if (request.signal.aborted) return;
         try {
-          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${data}\n\n`));
+          // SSE requires every physical line of a multi-line payload to have
+          // its own `data:` field. Raw newlines here split/drop Markdown lines
+          // (code fences, lists, headings) in the browser's EventSource parser.
+          const dataLines = data.replace(/\r\n?/g, "\n").split("\n");
+          const framedData = dataLines.map((line) => `data: ${line}`).join("\n");
+          controller.enqueue(encoder.encode(`event: ${event}\n${framedData}\n\n`));
         } catch {
           // Client disconnected — keep executing so partial content is persisted.
         }
@@ -917,8 +922,27 @@ ${skillContent || "(No additional content for this skill — use the description
           sendEvent("provider", streamResult.provider);
         }
 
-        // ── 4. FILE_EDIT follow-up (unchanged from original) ──
-        if (effectiveAgentId && !request.signal.aborted && !fullContent.includes("[FILE_EDIT:") && !fullContent.includes("[GENERATE_IMAGE:") && isEditRequest(msgContent, fileContext)) {
+        // ── 4. FILE_EDIT recovery ──
+        // A marker alone is not proof of a usable edit. Models often emit a
+        // partial/malformed block; recover those just like a missing block.
+        let fileEditRecoveryFailed = false;
+        const hasFileEditMarker = /\[FILE_EDIT:/i.test(fullContent);
+        // The user's wording classifier can miss an edit request. A generated
+        // FILE_EDIT marker is stronger evidence that the model attempted an
+        // edit, so malformed blocks must still enter the repair path.
+        const isEditIntent = Boolean(
+          effectiveAgentId &&
+          (isEditRequest(msgContent, fileContext) || hasFileEditMarker)
+        );
+        const hasValidFileEdit = () =>
+          extractFileEditBlocks(normalizeFileBlocks(fullContent)).length > 0;
+        if (
+          isEditIntent &&
+          !request.signal.aborted &&
+          !fullContent.includes("[GENERATE_IMAGE:") &&
+          !hasValidFileEdit()
+        ) {
+          console.warn("[Chat Stream] FILE_EDIT_RECOVERY_V2: malformed or missing edit block; starting up to 2 repair attempts");
           recordStep({
             type: "file_edit",
             title: "Editing file...",
@@ -946,7 +970,8 @@ ${skillContent || "(No additional content for this skill — use the description
                 maxTokens: 4096,
               });
 
-              if (followUpResult.content.includes("[FILE_EDIT:") && followUpResult.content.includes("<<<<<<< ORIGINAL")) {
+              const repairedContent = normalizeFileBlocks(followUpResult.content);
+              if (extractFileEditBlocks(repairedContent).length > 0) {
                 fullContent += "\n\n" + followUpResult.content;
                 sendEvent("token", "\n\n" + followUpResult.content);
 
@@ -958,8 +983,18 @@ ${skillContent || "(No additional content for this skill — use the description
                 }
                 break;
               }
+              console.warn(`[Chat Stream] Follow-up attempt ${attempt + 1} returned an invalid FILE_EDIT block`);
             } catch (e) {
               console.error(`[Chat Stream] Follow-up attempt ${attempt + 1} failed:`, e);
+            }
+          }
+          if (!hasValidFileEdit()) {
+            fileEditRecoveryFailed = true;
+            const lastEditStep = [...toolSteps].reverse().find(s => s.type === "file_edit");
+            if (lastEditStep) {
+              lastEditStep.title = "Could not safely edit file";
+              lastEditStep.content = "The model returned an invalid FILE_EDIT block after two repair attempts. No edit was applied.";
+              sendEvent("tool_step", JSON.stringify(lastEditStep));
             }
           }
         }
@@ -1218,6 +1253,13 @@ ${skillContent || "(No additional content for this skill — use the description
           console.log("[Chat Stream V2] 🧹 Stripped file blocks + USE_SKILL markers from content");
         }
 
+        if (fileEditRecoveryFailed) {
+          fullContent = /[\u0600-\u06FF]/.test(msgContent)
+            ? "لم أستطع تعديل الملف بأمان لأن تنسيق التعديل الذي أرسله النموذج كان غير مكتمل. لم يتم تطبيق أي تغيير؛ اضغط «إعادة التوليد» للمحاولة مرة أخرى."
+            : "I couldn't safely apply this edit because the model returned an incomplete edit block. No changes were applied. Use Regenerate to try again.";
+          sendEvent("replace_content", fullContent);
+        }
+
         // ── 6.7.1. If content is empty after stripping (model only emitted
         // FILE_EDIT/NEW_FILE block + USE_SKILL marker with no summary),
         // inject a generic confirmation so the user doesn't see a blank reply.
@@ -1258,26 +1300,34 @@ ${skillContent || "(No additional content for this skill — use the description
 
         if (replaceMessageId && saveAssistantMessage) {
           // Regenerate: update the existing assistant message
-          const { error: updateError } = await supabase.from("messages")
+          const { data: updatedMessage, error: updateError } = await supabase.from("messages")
             .update(messageData)
             .eq("id", replaceMessageId)
-            .eq("role", "assistant");  // safety: only update assistant rows
+            .eq("role", "assistant") // safety: only update assistant rows
+            .select("id")
+            .maybeSingle();
 
-          if (updateError) {
-            console.error("[Chat Stream] Failed to UPDATE assistant message (regenerate):", updateError.message);
+          if (updateError || !updatedMessage) {
+            if (!updateError) {
+              console.warn(`[Chat Stream] Regenerate target ${replaceMessageId} no longer exists; inserting a replacement message`);
+            } else {
+              console.error("[Chat Stream] Failed to UPDATE assistant message (regenerate):", updateError.message);
+            }
             // Fallback: try inserting a new message instead of failing
-            const { error: insertError } = await supabase.from("messages").insert({
+            const { data: insertedMsg, error: insertError } = await supabase.from("messages").insert({
               chat_id: chatIdFinal,
               role: "assistant",
               ...messageData,
-            });
+            }).select("id").single();
             if (insertError) {
               console.error("[Chat Stream] ❌ Fallback insert ALSO failed:", insertError.message);
               sendEvent("error", "Failed to save message: " + insertError.message);
             } else {
+              insertedAssistantMessageId = insertedMsg?.id ?? null;
               console.warn("[Chat Stream] ⚠️  Fallback: inserted new message (update failed)");
             }
           } else {
+            insertedAssistantMessageId = updatedMessage.id;
             console.log(`[Chat Stream] ✅ Updated existing assistant message (regenerate): ${replaceMessageId}`);
           }
         } else if (saveAssistantMessage) {

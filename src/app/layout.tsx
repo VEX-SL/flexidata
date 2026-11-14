@@ -20,14 +20,18 @@ export default function RootLayout({
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <head>
-        <template id="__next-jss-storage-init" dangerouslySetInnerHTML={{
+        {/* ✅ Real <script> (NOT <template> — template content is inert and
+            never executes): applies the stored theme + language BEFORE first
+            paint, so an Arabic session reloads as RTL from the very first
+            frame instead of flashing LTR. */}
+        <script id="__next-jss-storage-init" dangerouslySetInnerHTML={{
           __html: `
             try {
               const theme = localStorage.getItem('theme') || 'dark';
               document.documentElement.setAttribute('data-theme', theme);
               const lang = localStorage.getItem('lang') || 'en';
               document.documentElement.setAttribute('lang', lang);
-              if (lang === 'ar') document.documentElement.setAttribute('dir', 'rtl');
+              document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
             } catch {}
           `,
         }} />

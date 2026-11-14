@@ -54,7 +54,13 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>("en");
 
   useEffect(() => {
-    setLangState(detectLanguage());
+    const detected = detectLanguage();
+    setLangState(detected);
+    // ✅ Sync the <html> attributes on first load too — previously dir/lang
+    // were only updated when the user changed the language from settings,
+    // so a stored Arabic session reloaded with dir="ltr" (broken RTL).
+    document.documentElement.setAttribute("lang", detected);
+    document.documentElement.setAttribute("dir", detected === "ar" ? "rtl" : "ltr");
   }, []);
 
   const setLang = useCallback((l: Lang) => {

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslation } from "@/lib/i18n";
+import { isSidebarCollapsed, setSidebarCollapsed } from "@/lib/sidebar-state";
 import {
   LayoutDashboard,
   Bot,
@@ -33,17 +34,18 @@ export function AppSidebar() {
   const { t } = useTranslation();
   const supabase = createClient();
 
-  // استعادة حالة الـ sidebar من localStorage عند التحميل لأول مرة (في المتصفح فقط)
+  // ✅ استعادة حالة الـ sidebar من localStorage عند التحميل لأول مرة (في المتصفح فقط)
+  // المفتاح مشترك مع الـ AgentSidebar في صفحة الشات (src/lib/sidebar-state.ts)
   useEffect(() => {
-    const savedState = localStorage.getItem('sidebar-collapsed');
+    const savedState = isSidebarCollapsed();
     if (savedState !== null) {
-      setCollapsed(JSON.parse(savedState));
+      setCollapsed(savedState);
     }
   }, []);
 
-  // حفظ حالة الـ sidebar في localStorage عندما تتغير
+  // حفظ حالة الـ sidebar في localStorage عندما تتغير (المفتاح مشترك مع الـ agent chat)
   useEffect(() => {
-    localStorage.setItem('sidebar-collapsed', JSON.stringify(collapsed));
+    setSidebarCollapsed(collapsed);
   }, [collapsed]);
 
   useEffect(() => {

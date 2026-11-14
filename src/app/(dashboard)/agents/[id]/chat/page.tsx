@@ -20,6 +20,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import { isSidebarCollapsed, setSidebarCollapsed } from "@/lib/sidebar-state";
 import AudioChat from "@/components/chat/audio-chat";
 import { AgentSidebar, ChatItem } from "@/components/agent-sidebar";
 import { useStreamChat } from "@/lib/hooks/use-stream-chat";
@@ -68,20 +69,20 @@ function parseQuickResponses(content: string): string[] {
 }
 
 function stripQuickResponses(content: string): string {
-  // 1) Drop whole lines that START with the marker (the normal case).
-  const filtered = content.split("\n").filter(
-    (l) => !/^[ \t]*(?:[-*>]\s+|\d+[.)]\s+)?\[quick/i.test(l)
-  );
-  // 2) Remove mangled / mid-line markers anywhere so they never surface
-  //    as literal text (fixes "QUICK_RESPONSE]" / "ESPONSE]" leaks —
-  //    markdown link parsing can eat "[QUICK_R" and leave "ESPONSE]").
-  return filtered
-    .map((l) =>
-      l
-        .replace(QR_ANYWHERE_RE, "")
-        .replace(/\b[A-Z]{0,7}SPONSE\]\s*:?/g, "")
-    )
-    .join("\n")
+  let inFence = false;
+  const filtered: string[] = [];
+  for (const line of content.split("\n")) {
+    if (/^[ \t]*(?:```+|~~~+)/.test(line)) {
+      inFence = !inFence;
+      filtered.push(line);
+      continue;
+    }
+    if (!inFence && /^[ \t]*(?:[-*>]\s+|\d+[.)]\s+)?\[quick/i.test(line)) continue;
+    filtered.push(inFence ? line : line
+      .replace(QR_ANYWHERE_RE, "")
+      .replace(/\b[A-Z]{0,7}SPONSE\]\s*:?/g, ""));
+  }
+  return filtered.join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trimEnd();
 }
@@ -90,14 +91,27 @@ function stripQuickResponses(content: string): string {
 // [QUICK_RESPONSE] marker to the end of the stream — the suggestions render
 // as chips when the stream finishes, never as message text.
 function cutQuickResponseTail(content: string): string {
-  const lower = content.toLowerCase();
-  const first = lower.indexOf(QR_MARKER_LOWER);
-  if (first !== -1) return content.slice(0, first);
-  // Partial tail ("[QUICK_RESPO" mid-token) → hold from the last "[".
-  const lb = content.lastIndexOf("[");
-  if (lb !== -1) {
-    const rest = lower.slice(lb, lb + QR_MARKER_LOWER.length);
-    if (QR_MARKER_LOWER.startsWith(rest)) return content.slice(0, lb);
+  let inFence = false;
+  let offset = 0;
+  const lines = content.split("\n");
+  for (const line of lines) {
+    if (/^[ \t]*(?:```+|~~~+)/.test(line)) {
+      inFence = !inFence;
+    } else if (!inFence && QR_LINE_EXACT_RE.test(line)) {
+      return content.slice(0, offset);
+    }
+    offset += line.length + 1;
+  }
+  // Hold a partial marker only at the end of the current line, never one
+  // inside a code sample or ordinary prose elsewhere in the response.
+  const tailStart = content.lastIndexOf("\n") + 1;
+  const tail = content.slice(tailStart);
+  const prefixLength = tail.match(/^[ \t]*(?:(?:[-*>]\s+|\d+[.)]\s+))?/)?.[0].length ?? 0;
+  if (!inFence && tail[prefixLength] === "[") {
+    const candidate = tail.slice(prefixLength).toLowerCase();
+    if (candidate.length < QR_MARKER_LOWER.length && QR_MARKER_LOWER.startsWith(candidate)) {
+      return content.slice(0, tailStart + prefixLength);
+    }
   }
   return content;
 }
@@ -255,6 +269,11 @@ function stripFileBlocksLocal(raw: string): string {
     MARKER_RE.lastIndex = pos;
   }
   out += raw.slice(pos);
+  // Complete bracket commands are control data, never user-facing prose.
+  // Partial forms are held by analyzeFileBlocks / makeStreamSafe until closed.
+  out = out
+    .replace(/\[USE_SKILL:\s*[a-zA-Z0-9_-]+\s*\]/gi, "")
+    .replace(/\[GENERATE_IMAGE:\s*[^\]\n]*\]/gi, "");
   return out;
 }
 
@@ -446,7 +465,18 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const [input, setInput] = useState("");
   const [chatId, setChatId] = useState<string | null>(initialChatId);
   const [chatHistory, setChatHistory] = useState<ChatItem[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // ✅ Persist the sidebar state in the SHARED localStorage entry used by the
+  // dashboard AppSidebar ("sidebar-collapsed" — collapsed there ≡ closed
+  // here, see src/lib/sidebar-state.ts), so both sidebars follow one user
+  // preference. `null` = not restored yet: the sidebar renders only AFTER
+  // the stored choice is read (post-mount, hydration-safe) — a closed
+  // sidebar never flashes open on reload.
+  const [sidebarOpen, setSidebarOpen] = useState<boolean | null>(null);
+
+  const setSidebar = useCallback((open: boolean) => {
+    setSidebarOpen(open);
+    setSidebarCollapsed(!open);
+  }, []);
   const [uploading, setUploading] = useState(false);
   const [messageEdits, setMessageEdits] = useState<Record<string, FileEdit[]>>({});
 
@@ -478,6 +508,44 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialLoadDone = useRef(false);
+
+  // ✅ Collapsed-sidebar floating picture: publish the input bar's height as
+  // a CSS custom property (--fd-input-h) on the page root, so the sidebar's
+  // floating logo/account picture and hover rail sit ABOVE the message
+  // input instead of covering it — including when the textarea grows with
+  // a long message or an attached-file chip appears.
+  const rootContainerRef = useRef<HTMLDivElement>(null);
+  const inputBarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const bar = inputBarRef.current;
+    const root = rootContainerRef.current;
+    if (!bar || !root) return;
+    const apply = () => root.style.setProperty("--fd-input-h", `${bar.offsetHeight}px`);
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
+
+  // ✅ Restore the shared sidebar choice once, after mount. Falls back to
+  // this page's old per-page key (one-time migration), always converges the
+  // shared key, then drops the obsolete key.
+  useEffect(() => {
+    let collapsed = isSidebarCollapsed();
+    if (collapsed === null) {
+      try {
+        const legacy = localStorage.getItem("agentSidebarOpen");
+        if (legacy !== null) collapsed = legacy !== "1";
+      } catch {}
+    }
+    const open = collapsed === null ? true : !collapsed;
+    setSidebarOpen(open);
+    setSidebarCollapsed(!open);
+    try {
+      localStorage.removeItem("agentSidebarOpen");
+    } catch {}
+  }, []);
 
   // ✅ Auto-scroll: container ref + "is the user near the bottom?" flag.
   // If the user scrolled up to read older messages we stop following the
@@ -797,6 +865,17 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         // Stream aborted with nothing generated — nothing to restore
         // (content was never cleared), just exit in-place mode.
         setRegenIndex(null);
+        return;
+      }
+
+      if (
+        !getRenderableContent(result.fullContent).trim() &&
+        !(result.toolSteps && result.toolSteps.length > 0)
+      ) {
+        // Never replace a good answer with an empty generation. Keep the
+        // previous answer intact so the user can press Regenerate again.
+        setRegenIndex(null);
+        alert(t("common.error"));
         return;
       }
 
@@ -1121,7 +1200,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   ];
 
   return (
-    <div className="flex h-full w-full bg-background overflow-hidden relative">
+    <div ref={rootContainerRef} className="flex h-full w-full bg-background overflow-hidden relative">
       {toastMessage && (
         <div className={`fixed top-5 z-50 flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-2xl shadow-xl transition-all duration-200 right-5`}>
           <CheckCircle2 size={18} className="shrink-0" />
@@ -1131,34 +1210,39 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         </div>
       )}
 
-      <AgentSidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onToggle={() => setSidebarOpen(true)}
-        onNavigate={(page: string) => router.push(`/${page}`)}
-        chats={chatHistory}
-        selectedChatId={chatId}
-        onSelectChat={(id: string | null) => {
-          setChatId(id);
-          if (id) fetchMessages(id);
-        }}
-        onNewChat={handleNewChat}
-        onDeleteChat={(id: string) => handleDeleteChat(id)}
-        onEditChatTitle={(id: string, currentTitle: string) => handleOpenEditTitle(id, currentTitle)}
-        onTogglePin={(id: string) => handleTogglePin(id)}
-        onShareChat={(id: string, title: string) => handleShareChat(id, title)}
-        agentId={agentId}
-        onBackToFiles={(id: string) => router.push(`/agents/${id}`)}
-        userName={userName || "VEX"}
-        userEmail={userEmail || ""}
-        userAvatar={userAvatar}
-        onLogout={async () => {
-          const { createClient } = await import("@/lib/supabase/client");
-          const supabase = createClient();
-          await supabase.auth.signOut();
-          router.push("/login");
-        }}
-      />
+      {/* ✅ Don't render the sidebar until the stored open/closed state is
+          restored (localStorage) — avoids hydration mismatch and the
+          "closed sidebar flashes open on reload" flicker. */}
+      {sidebarOpen !== null && (
+        <AgentSidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebar(false)}
+          onToggle={() => setSidebar(true)}
+          onNavigate={(page: string) => router.push(`/${page}`)}
+          chats={chatHistory}
+          selectedChatId={chatId}
+          onSelectChat={(id: string | null) => {
+            setChatId(id);
+            if (id) fetchMessages(id);
+          }}
+          onNewChat={handleNewChat}
+          onDeleteChat={(id: string) => handleDeleteChat(id)}
+          onEditChatTitle={(id: string, currentTitle: string) => handleOpenEditTitle(id, currentTitle)}
+          onTogglePin={(id: string) => handleTogglePin(id)}
+          onShareChat={(id: string, title: string) => handleShareChat(id, title)}
+          agentId={agentId}
+          onBackToFiles={(id: string) => router.push(`/agents/${id}`)}
+          userName={userName || "VEX"}
+          userEmail={userEmail || ""}
+          userAvatar={userAvatar}
+          onLogout={async () => {
+            const { createClient } = await import("@/lib/supabase/client");
+            const supabase = createClient();
+            await supabase.auth.signOut();
+            router.push("/login");
+          }}
+        />
+      )}
 
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-background">
         <div
@@ -1376,7 +1460,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         {/* ✅ Floating Input Bar — chat.z.ai style: a centered card floating
             over the conversation (no border-t wall, not stretched across the
             sidebar), with a soft gradient fading the messages behind it. */}
-        <div className="shrink-0 relative px-4 sm:px-6 pb-4 pt-1">
+        <div ref={inputBarRef} className="shrink-0 relative px-4 sm:px-6 pb-4 pt-1">
           {/* Gradient fade over the bottom of the message list */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-14 bottom-0 bg-gradient-to-t from-background via-background/90 to-transparent" />
           <div className="relative w-full max-w-3xl mx-auto">

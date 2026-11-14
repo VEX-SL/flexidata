@@ -48,6 +48,19 @@ function scanStructure(text: string): { inFence: boolean; backtickOdd: boolean }
   return { inFence, backtickOdd: backticks % 2 === 1 };
 }
 
+/** Mask code so delimiter counting never mistakes code samples for formatting. */
+function maskCodeForEmphasis(text: string): string {
+  let inFence = false;
+  return text.split("\n").map((line) => {
+    if (FENCE_LINE_RE.test(line)) {
+      inFence = !inFence;
+      return line.replace(/[^\n]/g, " ");
+    }
+    if (inFence) return line.replace(/[^\n]/g, " ");
+    return line.replace(/(`+)[^\n]*?\1/g, (code) => code.replace(/[^\n]/g, " "));
+  }).join("\n");
+}
+
 /**
  * Given a PARTIAL markdown document (mid-stream), return the text that is
  * safe to render RIGHT NOW plus auto-closers for clearly-open constructs.
@@ -72,11 +85,25 @@ export function makeStreamSafe(md: string): string {
   const { inFence } = scanStructure(md);
 
   if (!inFence) {
-    // 1) unmatched "[…" (also covers "![…") — hold until it resolves.
+    // 1) Unmatched `[` may become a command, link, or image: hold it.
     const lb = md.lastIndexOf("[");
     if (lb !== -1) {
       const rest = md.slice(lb);
-      if (!rest.includes("]") && !rest.includes("\n")) end = Math.min(end, lb);
+      const bracketStart = md[lb - 1] === "!" ? lb - 1 : lb;
+      const closeBracket = rest.indexOf("]");
+      if (closeBracket === -1 && !rest.includes("\n")) {
+        end = Math.min(end, bracketStart);
+      } else if (closeBracket !== -1) {
+        // After `[label]`, wait one more token to learn whether this is a
+        // literal bracket or the start of `[label](destination)`.
+        const afterLabel = rest.slice(closeBracket + 1);
+        if (
+          afterLabel === "" ||
+          (afterLabel.startsWith("(") && !afterLabel.includes(")"))
+        ) {
+          end = Math.min(end, bracketStart);
+        }
+      }
     }
     // 2) "<tag"-like tail with no ">" yet (plain "a < b" is NOT held).
     const lt = md.lastIndexOf("<");
@@ -89,6 +116,14 @@ export function makeStreamSafe(md: string): string {
     if (amp !== -1 && md.length - amp <= 10) {
       const rest = md.slice(amp);
       if (!rest.includes(";") && !/\s/.test(rest)) end = Math.min(end, amp);
+    }
+
+    // Hold a line that currently consists only of a possible block marker.
+    // Once its required space/content arrives, Markdown can render it live.
+    const lineStart = md.lastIndexOf("\n") + 1;
+    const tailLine = md.slice(lineStart);
+    if (/^[ \t]{0,3}(?:#{1,6}|>|[-+*]|\d+[.)])$/.test(tailLine)) {
+      end = Math.min(end, lineStart);
     }
   }
 
@@ -105,8 +140,12 @@ export function makeStreamSafe(md: string): string {
     safe += "\n```";
   } else {
     if (st.backtickOdd) safe += " `";
-    if ((safe.match(/\*\*/g) || []).length % 2 === 1) safe += "**";
-    if ((safe.match(/~~/g) || []).length % 2 === 1) safe += "~~";
+    const markdownText = maskCodeForEmphasis(safe);
+    if ((markdownText.match(/(?<!\\)\*\*/g) || []).length % 2 === 1) safe += "**";
+    if ((markdownText.match(/(?<!\\)__/g) || []).length % 2 === 1) safe += "__";
+    if ((markdownText.match(/(?<!\\)(?<!\*)\*(?!\*)/g) || []).length % 2 === 1) safe += "*";
+    if ((markdownText.match(/(?<!\\)(?<![A-Za-z0-9_])_(?!_)|(?<!_)_(?![A-Za-z0-9])/g) || []).length % 2 === 1) safe += "_";
+    if ((markdownText.match(/(?<!\\)~~/g) || []).length % 2 === 1) safe += "~~";
   }
   return safe;
 }

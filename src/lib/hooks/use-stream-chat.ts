@@ -175,14 +175,20 @@ export function useStreamChat(options: StreamChatOptions = {}) {
           for (const event of events) {
             if (!event.trim()) continue;
 
-            const lines = event.split("\n");
+            const lines = event.split(/\r?\n/);
             let eventType = "";
-            let eventData = "";
+            const dataLines: string[] = [];
 
             for (const line of lines) {
               if (line.startsWith("event: ")) eventType = line.slice(7);
-              if (line.startsWith("data: ")) eventData = line.slice(6);
+              // SSE allows a single event to carry multiple data fields; the
+              // browser concatenates them with `\n`. Preserve that behavior
+              // so streamed Markdown/code keeps its original line breaks.
+              if (line.startsWith("data:")) {
+                dataLines.push(line.startsWith("data: ") ? line.slice(6) : line.slice(5));
+              }
             }
+            const eventData = dataLines.join("\n");
 
             logEvent(eventType || "unknown", eventData);
 

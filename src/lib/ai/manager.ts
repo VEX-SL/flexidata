@@ -50,13 +50,6 @@ export class ProviderManager {
     if (process.env.PROAPI_BASE_URL && process.env.PROAPI_API_KEY) {
       this.providers.push(new ProApiProvider());
     }
-    // Disabled providers (commented out):
-    // if (process.env.CEREBRAS_API_KEY) {
-    //   this.providers.push(new CerebrasProvider(process.env.CEREBRAS_API_KEY));
-    // }
-    // if (process.env.HF_API_KEY) {
-    //   this.providers.push(new HuggingFaceProvider(process.env.HF_API_KEY));
-    // }
 
     if (this.providers.length === 0) {
       throw new Error("No AI providers configured. Check your .env file.");
@@ -68,10 +61,6 @@ export class ProviderManager {
     );
   }
 
-  /**
-   * Is the provider currently skipped due to soft-disable?
-   * Soft-disable lasts 5 minutes, then we give it another chance.
-   */
   private isSoftDisabled(name: string): boolean {
     const until = this.softDisabledUntil.get(name);
     if (!until) return false;
@@ -89,39 +78,163 @@ export class ProviderManager {
     );
   }
 
+  /**
+   * فحص ما إذا كان الطلب يحتوي على صور (Vision Request)
+   */
+  private hasImages(request: AIRequest): boolean {
+    return request.messages.some((msg) => {
+      if (Array.isArray(msg.content)) {
+        return msg.content.some((part: any) => part.type === "image_url" || part.type === "image" || part.inline_data);
+      }
+      return false;
+    });
+  }
+
+  /**
+   * معالجة الصور باستخدام موديلات الرؤية المجانية مع نظام Fallback كامل بين:
+   * 1. Google Gemini (gemini-1.5-flash)
+   * 2. OpenRouter (nvidia/nemotron-3.5-super-vl:free أو meta-llama/llama-3.2-11b-vision-instruct:free)
+   * 3. Groq (llama-3.2-11b-vision-preview)
+   */
+  async processVisionWithFallback(request: AIRequest): Promise<AIResponse> {
+    const visionSteps = [
+      {
+        provider: "gemini",
+        handler: async () => {
+          const apiKey = process.env.GEMINI_API_KEY;
+          if (!apiKey) throw new Error("Gemini API key not found");
+
+          // استخراج النص والصورة من الطلب لتكييفه مع Gemini API
+          let prompt = "صف هذه الصورة بالتفصيل";
+          let imageInlineData: any = null;
+
+          for (const msg of request.messages) {
+            if (Array.isArray(msg.content)) {
+              for (const part of msg.content) {
+                if (part.type === "text") prompt = part.text;
+                if (part.inline_data) imageInlineData = part.inline_data;
+                if (part.image_url) {
+                  // تحويل رابط الصورة أو الـ base64 إذا لزم الأمر
+                  imageInlineData = { mime_type: "image/jpeg", data: part.image_url.url };
+                }
+              }
+            } else if (typeof msg.content === "string") {
+              prompt = msg.content;
+            }
+          }
+
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: prompt },
+                  ...(imageInlineData ? [{ inline_data: imageInlineData }] : [])
+                ]
+              }]
+            })
+          });
+
+          const data = await res.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!text) throw new Error("Gemini Vision returned empty response");
+          return { content: text, provider: "gemini-vision" };
+        }
+      },
+      {
+        provider: "openrouter",
+        handler: async () => {
+          const apiKey = process.env.OPENROUTER_API_KEY;
+          if (!apiKey) throw new Error("OpenRouter API key not found");
+
+          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+              "X-Title": "AI Agent App"
+            },
+            body: JSON.stringify({
+              model: "nvidia/nemotron-3.5-super-vl:free", // موديل مجاني ممتاز للرؤية من قائمة OpenRouter
+              messages: request.messages
+            })
+          });
+
+          const data = await res.json();
+          const text = data.choices?.[0]?.message?.content;
+          if (!text) throw new Error("OpenRouter Vision returned empty response");
+          return { content: text, provider: "openrouter-nemotron-vl" };
+        }
+      },
+      {
+        provider: "groq",
+        handler: async () => {
+          const apiKey = process.env.GROQ_API_KEY;
+          if (!apiKey) throw new Error("Groq API key not found");
+
+          const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model: "llama-3.2-11b-vision-preview", // موديل الرؤية السريع على Groq
+              messages: request.messages
+            })
+          });
+
+          const data = await res.json();
+          const text = data.choices?.[0]?.message?.content;
+          if (!text) throw new Error("Groq Vision returned empty response");
+          return { content: text, provider: "groq-vision" };
+        }
+      }
+    ];
+
+    let lastError: any = null;
+
+    for (const step of visionSteps) {
+      try {
+        console.log(`[VisionManager] Trying free vision provider: ${step.provider}`);
+        const response = await step.handler();
+        console.log(`[VisionManager] Success with provider: ${step.provider}`);
+        return response as AIResponse;
+      } catch (err: any) {
+        console.warn(`[VisionManager] Provider ${step.provider} failed:`, err?.message);
+        lastError = err;
+      }
+    }
+
+    throw new Error(`All free vision providers failed. Last error: ${lastError?.message}`);
+  }
+
   async chatCompletion(
     request: AIRequest,
     retryAttempts = 2,
     opts: { skipProviders?: string[] } = {}
   ): Promise<AIResponse> {
+    // إذا كان الطلب يحتوي على صور، يتم توجيهه تلقائياً لنظام الـ Vision المجاني المتعدد
+    if (this.hasImages(request)) {
+      console.log("[ProviderManager] Image(s) detected in request. Routing to Free Vision Fallback system...");
+      return await this.processVisionWithFallback(request);
+    }
+
     let lastError: Error | null = null;
 
     for (const provider of this.providers) {
-      if (opts.skipProviders?.includes(provider.name)) {
-        console.log(`[ProviderManager] Skipping ${provider.name} (already used)`);
-        continue;
-      }
-      if (this.disabledProviders.has(provider.name)) {
-        console.log(`[ProviderManager] Skipping ${provider.name} (permanent disable)`);
-        continue;
-      }
-      if (this.isSoftDisabled(provider.name)) {
-        console.log(`[ProviderManager] Skipping ${provider.name} (soft-disabled)`);
-        continue;
-      }
+      if (opts.skipProviders?.includes(provider.name)) continue;
+      if (this.disabledProviders.has(provider.name)) continue;
+      if (this.isSoftDisabled(provider.name)) continue;
 
-      // Truncate context if provider has known token limits
       const truncatedRequest = this.truncateForProvider(provider.name, request);
-
-      // ProApi is weak — only retry once, not the full retryAttempts.
-      // Saves ~1.5s per request when it's flaky.
       const effectiveRetry = provider.name === "proapi" ? 0 : retryAttempts;
 
       for (let attempt = 0; attempt <= effectiveRetry; attempt++) {
         try {
-          console.log(
-            `[ProviderManager] Trying ${provider.name} (attempt ${attempt + 1})`
-          );
+          console.log(`[ProviderManager] Trying ${provider.name} (attempt ${attempt + 1})`);
           const response = await provider.chatCompletion(truncatedRequest);
           console.log(`[ProviderManager] ${provider.name} succeeded`);
           return { ...response, provider: provider.name };
@@ -133,61 +246,35 @@ export class ProviderManager {
           );
           lastError = err;
 
-          // Non-retryable HTTP errors
           const isNonRetryable = err?.message?.match(/\b(413|402|401|404)\b/);
           if (isNonRetryable) {
             const permanent = err?.message?.match(/\b(402|404)\b/);
             if (permanent) {
               this.disabledProviders.add(provider.name);
-              console.warn(
-                `[ProviderManager] ${provider.name}: permanent error (${permanent[0]}), hard-disabled for this run`
-              );
-            } else {
-              console.log(`[ProviderManager] ${provider.name}: non-retryable (413/401), skipping`);
             }
             break;
           }
 
-          // Quota exhausted (Gemini-specific format)
           const isQuotaExhausted =
             err?.message?.includes("RESOURCE_EXHAUSTED") &&
             err?.message?.includes("limit: 0");
-          if (isQuotaExhausted) {
-            console.log(`[ProviderManager] ${provider.name}: quota exhausted, skipping`);
-            break;
-          }
+          if (isQuotaExhausted) break;
 
-          // 429 rate limit — try next provider instead of waiting
           const isRateLimit =
             err?.message?.includes("429") ||
             err?.message?.includes("rate limit");
           if (isRateLimit) {
-            console.log(
-              `[ProviderManager] ${provider.name}: rate limited, trying next provider`
-            );
+            this.softDisable(provider.name, 60 * 1000);
             break;
           }
 
-          // ProApi: soft-disable after any failure (it's last anyway, no point
-          // in retrying on next request)
           if (provider.name === "proapi") {
-            this.softDisable(provider.name, 10 * 60 * 1000); // 10 min
+            this.softDisable(provider.name, 10 * 60 * 1000);
             break;
           }
 
-          // Mistral: soft-disable on persistent 429 (we know it's quota)
-          if (
-            provider.name === "mistral" &&
-            err?.message?.includes("429")
-          ) {
-            this.softDisable(provider.name, 30 * 60 * 1000); // 30 min
-            break;
-          }
-
-          // Wait + retry for transient errors
           if (attempt < effectiveRetry) {
-            const delay = 1000;
-            await new Promise((resolve) => setTimeout(resolve, delay));
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
       }
@@ -200,6 +287,13 @@ export class ProviderManager {
     request: AIRequest,
     retryAttempts = 1
   ): AsyncGenerator<string, { provider: string }, unknown> {
+    // إذا كانت محادثة Vision، نقوم بتنفيذ الـ Vision وتدفق محتواها
+    if (this.hasImages(request)) {
+      const visionResult = await this.processVisionWithFallback(request);
+      yield visionResult.content;
+      return { provider: visionResult.provider || "vision-fallback" };
+    }
+
     for (const provider of this.providers) {
       if (!provider.supportsStreaming()) continue;
       if (this.disabledProviders.has(provider.name)) continue;
@@ -210,9 +304,7 @@ export class ProviderManager {
 
       for (let attempt = 0; attempt <= effectiveRetry; attempt++) {
         try {
-          console.log(
-            `[ProviderManager] Streaming ${provider.name} (attempt ${attempt + 1})`
-          );
+          console.log(`[ProviderManager] Streaming ${provider.name} (attempt ${attempt + 1})`);
           yield* provider.streamCompletion(truncatedRequest);
           console.log(`[ProviderManager] ${provider.name} stream completed`);
           return { provider: provider.name };
@@ -227,9 +319,6 @@ export class ProviderManager {
           if (isNonRetryable) {
             if (err?.message?.match(/\b(402|404)\b/)) {
               this.disabledProviders.add(provider.name);
-              console.warn(
-                `[ProviderManager] ${provider.name}: permanent stream error, hard-disabled`
-              );
             }
             break;
           }
@@ -256,7 +345,6 @@ export class ProviderManager {
       }
     }
 
-    // Fallback: non-streaming
     console.log("[ProviderManager] No stream succeeded, falling back to non-streaming");
     const response = await this.chatCompletion(request, 1);
     yield response.content;
@@ -264,7 +352,6 @@ export class ProviderManager {
   }
 
   private truncateForProvider(providerName: string, request: AIRequest): AIRequest {
-    // Providers with strict token limits on free tier
     const limits: Record<string, number> = {
       groq: 20000,
     };
@@ -273,18 +360,17 @@ export class ProviderManager {
     if (!maxChars) return request;
 
     const totalChars = request.messages.reduce(
-      (sum, m) => sum + (m.content?.length || 0),
+      (sum, m) => sum + (typeof m.content === "string" ? m.content.length : 0),
       0
     );
     if (totalChars <= maxChars) return request;
 
-    // Truncate the context/system message (usually the longest)
     const messages = [...request.messages];
     const overBy = totalChars - maxChars;
 
     for (let i = messages.length - 1; i >= 0 && overBy > 0; i--) {
       if (messages[i].role === "system" || messages[i].role === "user") {
-        const content = messages[i].content || "";
+        const content = typeof messages[i].content === "string" ? messages[i].content : "";
         if (content.length > 1000) {
           const trimAmount = Math.min(content.length - 500, overBy);
           messages[i] = { ...messages[i], content: content.slice(trimAmount) };
