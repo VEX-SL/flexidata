@@ -1250,16 +1250,23 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     if (!deleteDialog.chatId) return;
     const id = deleteDialog.chatId;
     try {
-      await fetch(`/api/chat/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/chat/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || t("common.error"));
+      }
+
       setChatHistory((prev) => prev.filter((c) => c.id !== id));
       if (chatId === id) {
         setChatId(null); setMessages([]); setMessageEdits({});
         router.replace(`/agents/${agentId}/chat`, { scroll: false });
       }
-    } catch {
-      alert(t("common.error"));
+    } catch (err: unknown) {
+      console.error("[Agent Chat] Failed to delete chat:", err);
+      alert(err instanceof Error ? err.message : t("common.error"));
+    } finally {
+      setDeleteDialog({ isOpen: false, chatId: null });
     }
-    setDeleteDialog({ isOpen: false, chatId: null });
   }
 
   function cancelDelete() {

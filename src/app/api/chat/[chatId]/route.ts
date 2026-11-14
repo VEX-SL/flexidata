@@ -1,7 +1,43 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/auth";
+import { isValidUUID } from "@/lib/validators";
 import { SkillsRegistry } from "@/lib/skills/registry";
 import { SkillLoader } from "@/lib/skills/loader";
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ chatId: string }> }
+) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const { user } = authResult;
+
+  const { chatId } = await params;
+  if (!isValidUUID(chatId)) {
+    return NextResponse.json({ error: "Invalid chat ID" }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
+  const { data: deletedChat, error } = await supabase
+    .from("chats")
+    .delete()
+    .eq("id", chatId)
+    .eq("user_id", user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: "Failed to delete chat" }, { status: 500 });
+  }
+
+  if (!deletedChat) {
+    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ success: true });
+}
 
 export async function POST(
   req: NextRequest,
