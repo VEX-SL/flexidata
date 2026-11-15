@@ -23,20 +23,33 @@ interface UserAvatarProps {
   onClick?: () => void;
 }
 
-function getPresetIcon(iconId: string) {
-  if (iconId === "feather") {
-    return WingsIcon;
-  }
+function PresetIconRenderer({
+  iconId,
+  size,
+}: {
+  iconId: string;
+  size: number;
+}) {
+  const props = { size: size * 0.55, className: "text-current" };
 
-  const icons: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-    sparkles: Sparkles,
-    zap: Zap,
-    crown: Crown,
-    heart: Heart,
-    star: Star,
-    brain: Brain,
-  };
-  return icons[iconId] || Bot;
+  switch (iconId) {
+    case "feather":
+      return <WingsIcon {...props} />;
+    case "sparkles":
+      return <Sparkles {...props} />;
+    case "zap":
+      return <Zap {...props} />;
+    case "crown":
+      return <Crown {...props} />;
+    case "heart":
+      return <Heart {...props} />;
+    case "star":
+      return <Star {...props} />;
+    case "brain":
+      return <Brain {...props} />;
+    default:
+      return <Bot {...props} />;
+  }
 }
 
 export function AIAvatar({
@@ -63,8 +76,10 @@ export function AIAvatar({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showPicker]);
 
-  const PresetIcon = modelIcon && modelIconType === "preset" ? getPresetIcon(modelIcon) : null;
-
+  const normalizedIconType =
+    modelIconType?.trim().toLowerCase() === "custom" ? "custom" :
+    modelIconType?.trim().toLowerCase() === "preset" ? "preset" :
+    null;
   const finalShape = modelShape === "circle" ? "rounded-full" : modelShape === "square" ? "rounded-none" : "rounded-[25%]";
 
   const isHexColor = modelColor && (modelColor.startsWith("#") || modelColor.startsWith("rgb") || modelColor.startsWith("hsl"));
@@ -93,11 +108,11 @@ export function AIAvatar({
         style={{ width: size, height: size, ...colorStyle }}
         aria-label="Change model icon"
       >
-        {modelIcon && modelIconType === "custom" ? (
+        {modelIcon && normalizedIconType === "custom" ? (
           <img src={modelIcon} alt="Model icon" className="w-full h-full object-cover" />
-        ) : modelIcon && modelIconType === "preset" && PresetIcon ? (
+        ) : modelIcon && normalizedIconType === "preset" ? (
           <div className="w-full h-full flex items-center justify-center text-current">
-            <PresetIcon size={size * 0.55} className="text-current" />
+            <PresetIconRenderer iconId={modelIcon} size={size} />
           </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center text-current">

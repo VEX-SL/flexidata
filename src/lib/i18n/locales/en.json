@@ -20,6 +20,8 @@
     "newAgent": "New Agent",
     "noFiles": "No files uploaded yet",
     "recentChats": "Recent Chats",
+    "deleteChatsTitle": "Delete chats?",
+    "deleteSelectedMessage": "Delete {{count}} selected chat",
     "noChats": "No chats yet",
     "overview": "Overview",
     "recentFiles": "Recent Files",
@@ -88,6 +90,7 @@
     "fullContent": "Full content",
     "pageContent": "Page {{page}}",
     "loadingHistory": "Loading...",
+    "selectAll": "Select all",
     "stage": {
       "queued": "Queued",
       "classifying": "Classifying",

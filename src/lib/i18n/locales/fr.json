@@ -19,6 +19,8 @@
     "newAgent": "Nouvel agent",
     "noFiles": "Aucun fichier téléchargé",
     "recentChats": "Chats récents",
+    "deleteChatsTitle": "Supprimer les discussions ?",
+    "deleteSelectedMessage": "Supprimer {{count}} discussion(s) sélectionnée(s) ?",
     "noChats": "Aucun chat",
     "overview": "Aperçu",
     "recentFiles": "Fichiers récents",
@@ -87,6 +89,7 @@
     "fullContent": "Contenu complet",
     "pageContent": "Page {{page}}",
     "loadingHistory": "Chargement...",
+    "selectAll": "Tout sélectionner",
     "stage": {
       "queued": "En file",
       "classifying": "Classification",

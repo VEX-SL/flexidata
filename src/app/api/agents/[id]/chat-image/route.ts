@@ -7,9 +7,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // ✅ Chat image attachments (Gemini-style): images attached in the chat
 // composer are NOT agent documents (no OCR/RAG ingestion — the agent files
 // endpoint would even reject photos whose OCR reads nothing). They are
-// uploaded to storage and their public URL is embedded in the user message
-// via the [IMAGE_ATTACHMENT: url] marker, so the thumbnail survives reloads.
+// uploaded to storage and an authenticated API URL is embedded in the user
+// message via the [IMAGE_ATTACHMENT: url] marker, so the thumbnail survives
+// reloads without exposing the underlying public Storage URL.
 const MAX_IMAGE_SIZE = 8 * 1024 * 1024; // 8 MB
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+]);
 
 export async function POST(
   request: Request,
@@ -52,10 +60,12 @@ export async function POST(
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
-  // Images ONLY — this endpoint exists for chat image attachments.
-  if (!file.type.toLowerCase().startsWith("image/")) {
+  // Images ONLY — this endpoint exists for chat image attachments. Keep the
+  // accepted types aligned with the private bucket's MIME allowlist.
+  const contentType = file.type.toLowerCase();
+  if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
     return NextResponse.json(
-      { error: "Only image files are supported here" },
+      { error: "Unsupported image type" },
       { status: 415 }
     );
   }
@@ -73,9 +83,9 @@ export async function POST(
   const storagePath = `chat-images/${buildStorageKey(user.id, file.name)}`;
 
   const { error: uploadError } = await supabase.storage
-    .from("files")
+    .from("chat-images")
     .upload(storagePath, fileBuffer, {
-      contentType: file.type,
+      contentType,
       upsert: false,
     });
 
@@ -84,11 +94,11 @@ export async function POST(
     return NextResponse.json({ error: "Image upload failed" }, { status: 502 });
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("files").getPublicUrl(storagePath);
+  // Return an authenticated proxy URL instead of the public Storage URL. The
+  // API verifies that the requested object belongs to the signed-in user.
+  const apiUrl = `/api/chat-image?path=${encodeURIComponent(storagePath)}`;
 
-  return NextResponse.json({ success: true, url: publicUrl });
+  return NextResponse.json({ success: true, url: apiUrl });
 }
 
 export const runtime = "nodejs";

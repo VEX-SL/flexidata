@@ -43,17 +43,23 @@ export default function SettingsPage() {
         setUser(user);
         setEmail(user.email || "");
 
-        // ALWAYS read from profiles table - single source of truth
+        // Read profile text directly, but keep avatar URLs behind the API.
         try {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("name, avatar_url")
+            .select("name")
             .eq("id", user.id)
             .maybeSingle();
 
-          if (profile) {
-            if (profile.name) setName(profile.name);
-            if (profile.avatar_url) setAvatarPreview(profile.avatar_url);
+          if (profile?.name) setName(profile.name);
+
+          const avatarRes = await fetch("/api/profile?metadata=1");
+          const avatarMeta = (await avatarRes.json().catch(() => null)) as {
+            hasAvatar?: boolean;
+            url?: string | null;
+          } | null;
+          if (avatarMeta?.hasAvatar && avatarMeta.url) {
+            setAvatarPreview(avatarMeta.url);
           }
         } catch {}
       }
@@ -84,70 +90,35 @@ export default function SettingsPage() {
       }
     }
 
-    // Handle avatar upload if provided
+    // Upload through the authenticated API. The server updates the profile
+    // first, then removes the previous owned Storage object.
     if (avatar) {
       try {
-        // Delete old avatar from storage first if exists
-        const { data: oldProfile } = await supabase
-          .from('profiles')
-          .select('avatar_url')
-          .eq('id', user.id)
-          .maybeSingle();
+        const formData = new FormData();
+        formData.append("file", avatar);
 
-        if (oldProfile?.avatar_url) {
-          const oldParts = oldProfile.avatar_url.split('/');
-          const oldFileName = oldParts[oldParts.length - 1];
-          if (oldFileName) {
-            await supabase.storage.from('avatars').remove([oldFileName]);
-          }
+        const res = await fetch("/api/profile", {
+          method: "POST",
+          body: formData,
+        });
+        const data = (await res.json().catch(() => null)) as {
+          url?: string | null;
+          error?: string;
+        } | null;
+
+        if (!res.ok) throw new Error(data?.error || "فشل رفع الصورة. يرجى المحاولة مرة أخرى.");
+        if (!data?.url) throw new Error("فشل رفع الصورة. يرجى المحاولة مرة أخرى.");
+
+        if (avatarPreview?.startsWith("blob:")) {
+          URL.revokeObjectURL(avatarPreview);
         }
-
-        const fileName = `${user.id}-${Date.now()}.jpg`;
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, avatar, {
-            cacheControl: '3600',
-            upsert: true
-          });
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(fileName);
-
-        // Update profile with avatar URL
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ avatar_url: publicUrl })
-          .eq('id', user.id);
-
-        if (profileError) throw profileError;
+        setAvatar(null);
+        setAvatarPreview(data.url);
+        if (fileInputRef.current) fileInputRef.current.value = "";
       } catch (uploadError) {
         setError(uploadError instanceof Error ? uploadError.message : "فشل رفع الصورة. يرجى المحاولة مرة أخرى.");
         setLoading(false);
         return;
-      }
-    }
-    // Handle avatar removal (if user deleted avatar but didn't upload new one)
-    else if (avatar === null && avatarPreview === null) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('avatar_url')
-        .eq('id', user.id)
-        .maybeSingle();
-      
-      if (profile?.avatar_url) {
-        const urlParts = profile.avatar_url.split('/');
-        const fileName = urlParts[urlParts.length - 1];
-        if (fileName) {
-          await supabase.storage.from('avatars').remove([fileName]);
-        }
-
-        await supabase
-          .from('profiles')
-          .update({ avatar_url: null })
-          .eq('id', user.id);
       }
     }
 
@@ -158,6 +129,9 @@ export default function SettingsPage() {
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
+      if (avatarPreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(avatarPreview);
+      }
       setAvatar(file);
       setAvatarPreview(URL.createObjectURL(file));
     }
@@ -167,26 +141,18 @@ export default function SettingsPage() {
     if (!user) return;
 
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('avatar_url')
-        .eq('id', user.id)
-        .maybeSingle();
+      const res = await fetch("/api/profile", { method: "DELETE" });
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+      } | null;
 
-      if (profile?.avatar_url) {
-        const urlParts = profile.avatar_url.split('/');
-        const fileName = urlParts[urlParts.length - 1];
-
-        if (fileName) {
-          await supabase.storage.from('avatars').remove([fileName]);
-        }
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to remove avatar");
       }
 
-      await supabase
-        .from('profiles')
-        .update({ avatar_url: null })
-        .eq('id', user.id);
-
+      if (avatarPreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(avatarPreview);
+      }
       setAvatar(null);
       setAvatarPreview(null);
       if (fileInputRef.current) {
@@ -194,6 +160,7 @@ export default function SettingsPage() {
       }
     } catch (err) {
       console.error("Failed to remove avatar:", err);
+      setError(err instanceof Error ? err.message : "Failed to remove avatar");
     }
   }
 

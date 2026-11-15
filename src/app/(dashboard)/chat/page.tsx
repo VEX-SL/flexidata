@@ -206,31 +206,51 @@ function ChatContent() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // جلب الأعمدة المطلوبة بالكامل بما فيها model_color و model_shape
           const { data: profile } = await supabase
             .from("profiles")
-            .select("name, avatar_url, model_icon, model_icon_type, model_color, model_shape")
+            .select("name")
             .eq("id", user.id)
             .maybeSingle();
           if (!active) return;
           if (profile?.name) {
             setUserName(profile.name);
           }
-          if (profile?.avatar_url) {
-            setUserAvatar(profile.avatar_url);
-          }
-          if (profile?.model_icon) {
-            setModelIcon(profile.model_icon);
-            setModelIconType(profile.model_icon_type as "preset" | "custom" | null);
-          }
-          if (profile?.model_color) {
-            setModelColor(profile.model_color);
-          }
-          if (profile?.model_shape) {
-            setModelShape(profile.model_shape);
+
+          // Serve avatars through authenticated APIs instead of exposing
+          // their Supabase Storage URLs to the browser.
+          const [modelAvatarRes, userAvatarRes] = await Promise.all([
+            fetch("/api/model-avatar?metadata=1"),
+            fetch("/api/profile?metadata=1"),
+          ]);
+          const [avatarConfig, userAvatarConfig] = await Promise.all([
+            modelAvatarRes.json().catch(() => null) as Promise<{
+              type?: "preset" | "custom" | null;
+              icon?: string | null;
+              url?: string | null;
+              color?: string | null;
+              shape?: string | null;
+            } | null>,
+            userAvatarRes.json().catch(() => null) as Promise<{
+              hasAvatar?: boolean;
+              url?: string | null;
+            } | null>,
+          ]);
+          if (!active) return;
+
+          if (userAvatarConfig?.hasAvatar && userAvatarConfig.url) {
+            setUserAvatar(userAvatarConfig.url);
           } else {
-            setModelShape("rounded"); // القيمة الافتراضية Soft Square
+            setUserAvatar(null);
           }
+
+          if (avatarConfig?.type === "custom" && avatarConfig.url) {
+            setModelIcon(avatarConfig.url);
+          } else if (avatarConfig?.type === "preset" && avatarConfig.icon) {
+            setModelIcon(avatarConfig.icon);
+          }
+          setModelIconType(avatarConfig?.type ?? null);
+          if (avatarConfig?.color) setModelColor(avatarConfig.color);
+          setModelShape(avatarConfig?.shape || "rounded");
         }
       } catch {
         // Ignore
@@ -371,63 +391,78 @@ function ChatContent() {
     }
   }
 
-  // تحديث الأيقونة واللون والشكل وحفظهم في قاعدة البيانات
+  // Update the avatar through the authenticated API so custom images are
+  // proxied and the previous Storage object is removed when it is replaced.
   async function handleModelIconChange(icon: string | File | null, type: "preset" | "custom", color?: string, shape?: string) {
     if (!icon) return;
 
-    let finalIcon: string = typeof icon === "string" ? icon : "";
+    try {
+      let nextIcon: string;
+      let nextType: "preset" | "custom";
 
-    if (type === "custom" && icon instanceof File) {
-      try {
-        const { createClient } = await import("@/lib/supabase/client");
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+      if (type === "custom" && icon instanceof File) {
+        const formData = new FormData();
+        formData.append("file", icon);
+        if (color !== undefined) formData.append("color", color);
+        if (shape !== undefined) formData.append("shape", shape);
 
-        const fileName = `model-icon-${user.id}-${Date.now()}.jpg`;
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, icon, { cacheControl: '3600', upsert: true });
+        const res = await fetch("/api/model-avatar", {
+          method: "POST",
+          body: formData,
+        });
+        const data = (await res.json().catch(() => null)) as {
+          url?: string;
+          error?: string;
+        } | null;
 
-        if (uploadError) throw uploadError;
+        if (!res.ok) throw new Error(data?.error || t("common.error"));
+        if (!data?.url) throw new Error(t("common.error"));
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(fileName);
+        nextIcon = data.url;
+        nextType = "custom";
+      } else if (type === "custom" && typeof icon === "string") {
+        const res = await fetch("/api/model-avatar", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "custom", color, shape }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          url?: string;
+          error?: string;
+        } | null;
 
-        finalIcon = publicUrl;
-      } catch (err) {
-        console.error("Failed to upload model icon:", err);
+        if (!res.ok) throw new Error(data?.error || t("common.error"));
+        if (!data?.url) throw new Error(t("common.error"));
+
+        nextIcon = data.url;
+        nextType = "custom";
+      } else if (type === "preset" && typeof icon === "string") {
+        const res = await fetch("/api/model-avatar", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "preset", icon, color, shape }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          icon?: string;
+          error?: string;
+        } | null;
+
+        if (!res.ok) throw new Error(data?.error || t("common.error"));
+        if (!data?.icon) throw new Error(t("common.error"));
+
+        nextIcon = data.icon;
+        nextType = "preset";
+      } else {
         return;
       }
-    }
 
-    // تحديث الـ States فوراً لتظهر التعديلات مباشرة في الشات
-    setModelIcon(finalIcon);
-    setModelIconType(type);
-    if (color !== undefined) setModelColor(color);
-    if (shape !== undefined) setModelShape(shape);
-
-    // الحفظ المباشر في Supabase
-    try {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const updatePayload: any = {
-          model_icon: finalIcon,
-          model_icon_type: type,
-        };
-        if (color !== undefined) updatePayload.model_color = color;
-        if (shape !== undefined) updatePayload.model_shape = shape;
-
-        await supabase
-          .from('profiles')
-          .update(updatePayload)
-          .eq('id', user.id);
-      }
-    } catch (err) {
+      setModelIcon(nextIcon);
+      setModelIconType(nextType);
+      if (color !== undefined) setModelColor(color);
+      if (shape !== undefined) setModelShape(shape);
+    } catch (err: unknown) {
       console.error("Failed to save model settings:", err);
+      alert(err instanceof Error ? err.message : t("common.error"));
     }
   }
 

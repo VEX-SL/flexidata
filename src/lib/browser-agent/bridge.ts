@@ -20,7 +20,8 @@ export type BrowserAction =
   | { action: "click" | "hover"; x: number; y: number }
   | { action: "scroll"; x: number; y: number; deltaY: number }
   | { action: "type"; text: string }
-  | { action: "drag"; fromX: number; fromY: number; toX: number; toY: number };
+  | { action: "drag"; fromX: number; fromY: number; toX: number; toY: number }
+  | { action: "press_key"; key: string };
 
 async function requestExtension<T>(
   type: "GET_BROWSER_CONTEXT" | "EXECUTE_BROWSER_ACTION",

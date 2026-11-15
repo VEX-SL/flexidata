@@ -20,6 +20,8 @@
     "newAgent": "وكيل جديد",
     "noFiles": "لم يتم رفع ملفات بعد",
     "recentChats": "المحادثات الأخيرة",
+    "deleteChatsTitle": "حذف المحادثات؟",
+    "deleteSelectedMessage": "حذف {{count}} محادثة محددة؟",
     "noChats": "لا توجد محادثات",
     "overview": "نظرة عامة",
     "recentFiles": "الملفات الأخيرة",
@@ -88,6 +90,7 @@
     "fullContent": "المحتوى الكامل",
     "pageContent": "صفحة {{page}}",
     "loadingHistory": "جاري التحميل...",
+    "selectAll": "حدد الكل",
     "stage": {
       "queued": "في الانتظار",
       "classifying": "التصنيف",

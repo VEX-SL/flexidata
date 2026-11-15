@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import type { BrowserAction, BrowserPageContext } from "@/lib/browser-agent/bridge";
 
 export interface GeneratedImage {
   url: string;
@@ -13,7 +14,7 @@ interface SkillInfo {
 }
 
 export interface ToolStep {
-  type: "thinking" | "skill" | "file_edit" | "new_file" | "file_delete" | "image" | "search" | "cmd";
+  type: "thinking" | "skill" | "file_edit" | "new_file" | "file_delete" | "image" | "search" | "cmd" | "browser";
   title: string;
   content?: string;
   duration_ms?: number;
@@ -47,7 +48,13 @@ export function useStreamChat(options: StreamChatOptions = {}) {
     async (
       chatId: string | null,
       content: string,
-      opts?: { replaceMessageId?: string }
+      opts?: {
+        replaceMessageId?: string;
+        browserContext?: BrowserPageContext;
+        internalBrowserTurn?: boolean;
+        browserActionResult?: string;
+        forceBrowserSkill?: boolean;
+      }
     ): Promise<{
       chatId: string;
       title: string | null;
@@ -60,6 +67,7 @@ export function useStreamChat(options: StreamChatOptions = {}) {
       // temporary message ids so later regenerations send a valid UUID.
       userMessageId: string | null;
       assistantMessageId: string | null;
+      browserAction?: BrowserAction | null;
       // ✅ True when the user pressed Stop. The hook then returns everything
       // generated SO FAR (fullContent/toolSteps are partial) instead of
       // null, so the page can keep the partial reply visible.
@@ -103,6 +111,10 @@ export function useStreamChat(options: StreamChatOptions = {}) {
             content,
             agentId: options.agentId,
             replaceMessageId: opts?.replaceMessageId,
+            browserContext: opts?.browserContext,
+            internalBrowserTurn: opts?.internalBrowserTurn,
+            browserActionResult: opts?.browserActionResult,
+            forceBrowserSkill: opts?.forceBrowserSkill,
           }),
           signal: abortRef.current.signal,
         });
@@ -138,6 +150,7 @@ export function useStreamChat(options: StreamChatOptions = {}) {
         // ✅ Real DB ids returned by the done event
         let resultUserMessageId: string | null = null;
         let resultAssistantMessageId: string | null = null;
+        let resultBrowserAction: BrowserAction | null = null;
 
         // Helper: when we receive a tool_step event, either update the
         // existing step (if same timestamp) or append a new one. Then push
@@ -262,6 +275,12 @@ export function useStreamChat(options: StreamChatOptions = {}) {
               } catch (e) {
                 console.warn("[useStreamChat] Failed to parse tool_step event:", e);
               }
+            } else if (eventType === "browser_action") {
+              try {
+                resultBrowserAction = JSON.parse(eventData) as BrowserAction;
+              } catch (e) {
+                console.warn("[useStreamChat] Failed to parse browser_action event:", e);
+              }
             } else if (eventType === "clear") {
               // ── NEW: clear streamed content (used before re-prompting with skill content) ──
               console.log("[useStreamChat DEBUG] 🧹 Clearing stream for re-prompt");
@@ -314,17 +333,18 @@ export function useStreamChat(options: StreamChatOptions = {}) {
           toolSteps: resultToolSteps,
           userMessageId: resultUserMessageId,
           assistantMessageId: resultAssistantMessageId,
+          browserAction: resultBrowserAction,
         };
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
         // ✅ User pressed Stop → the fetch/reader rejects with AbortError
         // ("signal is aborted without reason"). That is normal control
         // flow, NOT an error: it must never hit console.error — the
         // Next.js dev overlay surfaces console.error as a runtime error
         // and spams the run panel with a fake stack trace.
         const isAbort =
-          err?.name === "AbortError" ||
-          (typeof err?.message === "string" &&
-            /abort/i.test(err.message) &&
+          error.name === "AbortError" ||
+          (/abort/i.test(error.message) &&
             abortRef.current?.signal.aborted === true);
 
         if (isAbort) {
@@ -335,15 +355,15 @@ export function useStreamChat(options: StreamChatOptions = {}) {
         }
 
         const totalTime = Date.now() - debugRef.current.requestStartTime;
-        debugRef.current.error = err.message;
+        debugRef.current.error = error.message;
 
         console.group(`❌ [useStreamChat] Error after ${totalTime}ms`);
-        console.error("Error:", err.message);
-        console.error("Stack:", err.stack);
+        console.error("Error:", error.message);
+        console.error("Stack:", error.stack);
         console.log("Debug state:", debugRef.current);
         console.groupEnd();
 
-        throw err;
+        throw error;
       } finally {
         setStreaming(false);
       }

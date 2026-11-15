@@ -34,11 +34,15 @@ import { AIAvatar, UserAvatar, ThinkingDots, StreamingCursor } from "@/component
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { FileTypeIcon, SUPPORTED_FILE_ACCEPT } from "@/components/file-icon";
 import { ImageLightbox } from "@/components/image-lightbox";
+import {
+  getChatImageStoragePath,
+  toChatImageApiUrl,
+} from "@/lib/chat-image-url";
 
 // ─── Image attachments ([IMAGE_ATTACHMENT] markers) ─────────────────────────
 // When the user attaches an IMAGE (images only!) the composer uploads it to
 // storage and prepends this marker to the message text before sending:
-//   [IMAGE_ATTACHMENT: <public-url> | <file-name>]
+//   [IMAGE_ATTACHMENT: <authenticated-api-url> | <file-name>]
 // The marker is STORED with the message (the thumbnail + file name survive
 // reloads — storage sanitizes non-ASCII names, so the original name travels
 // inside the marker) and the stream route strips it before the text reaches
@@ -55,19 +59,24 @@ function extractImageAttachment(content: string): {
   if (!m) return { imageUrl: null, fileName: null, text: content };
   const raw = m[1].trim();
   const pipeIdx = raw.indexOf("|");
-  const imageUrl = (pipeIdx >= 0 ? raw.slice(0, pipeIdx) : raw).trim();
+  const storedUrl = (pipeIdx >= 0 ? raw.slice(0, pipeIdx) : raw).trim();
   const fileName = pipeIdx >= 0
     ? raw.slice(pipeIdx + 1).trim() || null
-    : deriveImageNameFromUrl(imageUrl);
-  return { imageUrl, fileName, text: content.replace(IMAGE_ATTACHMENT_RE, "").trim() };
+    : deriveImageNameFromUrl(storedUrl);
+  return {
+    imageUrl: toChatImageApiUrl(storedUrl),
+    fileName,
+    text: content.replace(IMAGE_ATTACHMENT_RE, "").trim(),
+  };
 }
 
 // Older messages (before the name was added to the marker) still get a
-// readable name straight from the stored URL:
+// readable name straight from the stored path:
 //   .../chat-images/<userId>/<timestamp>_<name>.<ext> → "<name>.<ext>"
 function deriveImageNameFromUrl(url: string): string | null {
   try {
-    const last = decodeURIComponent(url.split("/").pop() || "");
+    const storagePath = getChatImageStoragePath(url) || url;
+    const last = decodeURIComponent(storagePath.split("/").pop() || "");
     const name = last.replace(/^\d+_/, "");
     return name || null;
   } catch {
@@ -692,18 +701,47 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           setUserEmail(user.email || null);
           const { data: profile } = await supabase
             .from("profiles")
-            .select("name, avatar_url, model_icon, model_icon_type, model_color, model_shape")
+            .select("name")
             .eq("id", user.id)
             .maybeSingle();
           if (!active) return;
           if (profile?.name) setUserName(profile.name);
-          if (profile?.avatar_url) setUserAvatar(profile.avatar_url);
-          if (profile?.model_icon) {
-            setModelIcon(profile.model_icon);
-            setModelIconType(profile.model_icon_type as "preset" | "custom" | null);
+
+          // User and model images are served through authenticated API routes;
+          // their Supabase Storage URLs never reach the chat UI.
+          const [modelAvatarRes, userAvatarRes] = await Promise.all([
+            fetch("/api/model-avatar?metadata=1"),
+            fetch("/api/profile?metadata=1"),
+          ]);
+          const [avatarConfig, userAvatarConfig] = await Promise.all([
+            modelAvatarRes.json().catch(() => null) as Promise<{
+              type?: "preset" | "custom" | null;
+              icon?: string | null;
+              url?: string | null;
+              color?: string | null;
+              shape?: string | null;
+            } | null>,
+            userAvatarRes.json().catch(() => null) as Promise<{
+              hasAvatar?: boolean;
+              url?: string | null;
+            } | null>,
+          ]);
+          if (!active) return;
+
+          if (userAvatarConfig?.hasAvatar && userAvatarConfig.url) {
+            setUserAvatar(userAvatarConfig.url);
+          } else {
+            setUserAvatar(null);
           }
-          if (profile?.model_color) setModelColor(profile.model_color);
-          setModelShape(profile?.model_shape || "rounded");
+
+          if (avatarConfig?.type === "custom" && avatarConfig.url) {
+            setModelIcon(avatarConfig.url);
+          } else if (avatarConfig?.type === "preset" && avatarConfig.icon) {
+            setModelIcon(avatarConfig.icon);
+          }
+          setModelIconType(avatarConfig?.type ?? null);
+          if (avatarConfig?.color) setModelColor(avatarConfig.color);
+          setModelShape(avatarConfig?.shape || "rounded");
         }
       } catch {}
       if (active) setProfileLoaded(true);
@@ -986,49 +1024,79 @@ function AgentChatContent({ agentId }: { agentId: string }) {
 
   async function handleModelIconChange(icon: string | File | null, type: "preset" | "custom", color?: string, shape?: string) {
     if (!icon) return;
-    let finalIcon: string = typeof icon === "string" ? icon : "";
-
-    if (type === "custom" && icon instanceof File) {
-      try {
-        const { createClient } = await import("@/lib/supabase/client");
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const fileName = `model-icon-${user.id}-${Date.now()}.jpg`;
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(fileName, icon, { cacheControl: '3600', upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(fileName);
-
-        finalIcon = publicUrl;
-      } catch (err) {
-        console.error("Failed to upload model icon:", err);
-        return;
-      }
-    }
-
-    setModelIcon(finalIcon);
-    setModelIconType(type);
-    if (color !== undefined) setModelColor(color);
-    if (shape !== undefined) setModelShape(shape);
 
     try {
-      const { createClient } = await import("@/lib/supabase/client");
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const updatePayload: any = { model_icon: finalIcon, model_icon_type: type };
-        if (color !== undefined) updatePayload.model_color = color;
-        if (shape !== undefined) updatePayload.model_shape = shape;
-        await supabase.from('profiles').update(updatePayload).eq('id', user.id);
+      let nextIcon: string;
+      let nextType: "preset" | "custom";
+
+      if (type === "custom" && icon instanceof File) {
+        const formData = new FormData();
+        formData.append("file", icon);
+        if (color !== undefined) formData.append("color", color);
+        if (shape !== undefined) formData.append("shape", shape);
+
+        const res = await fetch("/api/model-avatar", {
+          method: "POST",
+          body: formData,
+        });
+        const data = (await res.json().catch(() => null)) as {
+          url?: string;
+          error?: string;
+        } | null;
+
+        if (!res.ok) throw new Error(data?.error || t("common.error"));
+        if (!data?.url) throw new Error(t("common.error"));
+
+        nextIcon = data.url;
+        nextType = "custom";
+      } else if (type === "custom" && typeof icon === "string") {
+        // Changing only the color/shape of an existing custom image must not
+        // upload another file or overwrite its Storage object name.
+        const res = await fetch("/api/model-avatar", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "custom", color, shape }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          url?: string;
+          error?: string;
+        } | null;
+
+        if (!res.ok) throw new Error(data?.error || t("common.error"));
+        if (!data?.url) throw new Error(t("common.error"));
+
+        nextIcon = data.url;
+        nextType = "custom";
+      } else if (type === "preset" && typeof icon === "string") {
+        // The API removes the previous custom image when switching to a
+        // preset icon.
+        const res = await fetch("/api/model-avatar", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "preset", icon, color, shape }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          icon?: string;
+          error?: string;
+        } | null;
+
+        if (!res.ok) throw new Error(data?.error || t("common.error"));
+        if (!data?.icon) throw new Error(t("common.error"));
+
+        nextIcon = data.icon;
+        nextType = "preset";
+      } else {
+        return;
       }
-    } catch {}
+
+      setModelIcon(nextIcon);
+      setModelIconType(nextType);
+      if (color !== undefined) setModelColor(color);
+      if (shape !== undefined) setModelShape(shape);
+    } catch (err: unknown) {
+      console.error("Failed to update model avatar:", err);
+      alert(err instanceof Error ? err.message : t("common.error"));
+    }
   }
 
   function processStreamResult(
@@ -1281,6 +1349,27 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     router.replace(`/agents/${agentId}/chat`, { scroll: false });
   }
 
+  async function handleDeleteChats(ids: string[]) {
+    if (!ids.length) return;
+
+    try {
+      await Promise.all(
+        ids.map((id) => fetch(`/api/chat/${id}`, { method: "DELETE" }))
+      );
+    } catch (err) {
+      console.error("Failed to delete selected chats", err);
+    }
+
+    setChatHistory((prev) => prev.filter((c) => !ids.includes(c.id)));
+
+    if (chatId && ids.includes(chatId)) {
+      setChatId(null);
+      setMessages([]);
+      setMessageEdits({});
+      router.replace(`/agents/${agentId}/chat`, { scroll: false });
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
@@ -1332,6 +1421,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           }}
           onNewChat={handleNewChat}
           onDeleteChat={(id: string) => handleDeleteChat(id)}
+          onDeleteChats={handleDeleteChats}
           onEditChatTitle={(id: string, currentTitle: string) => handleOpenEditTitle(id, currentTitle)}
           onTogglePin={(id: string) => handleTogglePin(id)}
           onShareChat={(id: string, title: string) => handleShareChat(id, title)}

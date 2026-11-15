@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { isValidUUID } from "@/lib/validators";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeChatImageAttachmentUrls } from "@/lib/chat-image-url";
 
 export async function GET(
   request: Request,
@@ -53,5 +54,12 @@ export async function GET(
     return NextResponse.json({ error: "Failed to fetch messages" }, { status: 500 });
   }
 
-  return NextResponse.json(messages || []);
+  const safeMessages = (messages || []).map((message) => ({
+    ...message,
+    // Legacy messages may contain a public Storage URL. Replace it with the
+    // authenticated proxy URL before sending the history to the browser.
+    content: normalizeChatImageAttachmentUrls(message.content),
+  }));
+
+  return NextResponse.json(safeMessages);
 }

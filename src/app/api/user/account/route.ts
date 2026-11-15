@@ -48,6 +48,41 @@ export async function DELETE(request: Request) {
     console.warn("[Account] Failed to clear files bucket:", error);
   }
 
+  // Remove legacy chat attachments from the public files bucket
+  // (files/chat-images/<userId>/...).
+  try {
+    const { data: objects } = await supabase.storage
+      .from("files")
+      .list(`chat-images/${user.id}`, { limit: 1000 });
+
+    const paths = (objects ?? [])
+      .filter((object) => Boolean(object.id))
+      .map((object) => `chat-images/${user.id}/${object.name}`);
+
+    if (paths.length > 0) {
+      await supabase.storage.from("files").remove(paths);
+    }
+  } catch (error) {
+    console.warn("[Account] Failed to clear legacy chat images:", error);
+  }
+
+  // Remove chat attachments from the private chat-images bucket.
+  try {
+    const { data: objects } = await supabase.storage
+      .from("chat-images")
+      .list(`chat-images/${user.id}`, { limit: 1000 });
+
+    const paths = (objects ?? [])
+      .filter((object) => Boolean(object.id))
+      .map((object) => `chat-images/${user.id}/${object.name}`);
+
+    if (paths.length > 0) {
+      await supabase.storage.from("chat-images").remove(paths);
+    }
+  } catch (error) {
+    console.warn("[Account] Failed to clear chat images:", error);
+  }
+
   // Remove avatars (avatars/<userId>-<timestamp>.jpg)
   try {
     const { data: objects } = await supabase.storage
@@ -56,7 +91,10 @@ export async function DELETE(request: Request) {
 
     const paths = (objects ?? [])
       .filter(
-        (object) => Boolean(object.id) && object.name.startsWith(`${user.id}-`)
+        (object) =>
+          Boolean(object.id) &&
+          (object.name.startsWith(`${user.id}-`) ||
+            object.name.startsWith(`model-icon-${user.id}-`))
       )
       .map((object) => object.name);
 

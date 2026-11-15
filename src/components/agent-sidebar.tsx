@@ -17,12 +17,16 @@ import {
   ChevronRight,
   Search,
   X,
+  Check,
+  Circle,
+  CheckCircle2,
   MoreVertical,
   Share2,
   Pin,
   Edit2
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 export interface ChatItem {
   id: string;
@@ -45,6 +49,7 @@ export interface AgentSidebarProps {
   onTogglePin: (id: string) => void;
   onShareChat: (id: string, title: string) => void;
   onNewChat: () => void;
+  onDeleteChats?: (ids: string[]) => Promise<void> | void;
   agentId?: string;
   onBackToFiles?: (agentId: string) => void;
   userName?: string;
@@ -91,6 +96,7 @@ export function AgentSidebar({
   onTogglePin,
   onShareChat,
   onNewChat,
+  onDeleteChats,
   agentId,
   onBackToFiles,
   userName = "VEX",
@@ -98,13 +104,22 @@ export function AgentSidebar({
   userAvatar,
   onLogout = () => { },
 }: AgentSidebarProps) {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
   const [isArabic, setIsArabic] = useState(true);
   const [isDark, setIsDark] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [activeMenuChatId, setActiveMenuChatId] = useState<string | null>(null);
+
+  // Selection mode for the "Recent Chats" list: each row shows a rounded square
+  // checkbox; clicking one selects it; "Select All" toggles all. When open,
+  // the search toggle button becomes a red Trash2 button with a checkmark.
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedChatIds, setSelectedChatIds] = useState<string[]>([]);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+
+  const isSelected = (id: string) => selectedChatIds.includes(id);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -163,6 +178,57 @@ export function AgentSidebar({
   const filteredChats = sortedChats.filter((chat) =>
     (chat.title || t("dashboard.noChats") || "New Chat").toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const isAllSelected =
+    filteredChats.length > 0 && selectedChatIds.length === filteredChats.length;
+
+  const toggleSelectionMode = () => {
+    setIsSelectionMode((prev) => {
+      if (prev) setSelectedChatIds([]);
+      return !prev;
+    });
+  };
+
+  const toggleSelectAllMode = () => {
+    const allIds = filteredChats.map((c) => c.id);
+    if (!isSelectionMode) {
+      setIsSelectionMode(true);
+      setSelectedChatIds(allIds);
+      return;
+    }
+    setSelectedChatIds((prev) => (prev.length === allIds.length ? [] : allIds));
+  };
+
+  const toggleChat = (id: string) => {
+    setSelectedChatIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  // No selection → the button does nothing (no dialog, no request).
+  const handleDeleteSelected = () => {
+    if (selectedChatIds.length === 0) return;
+    setConfirmDeleteOpen(true);
+  };
+
+  const confirmDeleteSelected = async () => {
+    if (!onDeleteChats || selectedChatIds.length === 0) {
+      setConfirmDeleteOpen(false);
+      return;
+    }
+    await onDeleteChats(selectedChatIds);
+    setSelectedChatIds([]);
+    setIsSelectionMode(false);
+    setConfirmDeleteOpen(false);
+  };
+
+  // ℹ️ The i18n helper only does simple {{key}} interpolation (no ICU plural
+  // support), so the English plural "s" is appended in code.
+  const deleteSelectedMessage = (() => {
+    const count = selectedChatIds.length;
+    const base = t("dashboard.deleteSelectedMessage", { count });
+    return lang === "en" ? `${base}${count > 1 ? "s" : ""}?` : base;
+  })();
 
   const logoSrc = isDark ? "/photos/auth-logo.png" : "/photos/whitebg.png";
 
@@ -325,16 +391,62 @@ export function AgentSidebar({
             {isOpen && (
               <div className="py-1 space-y-1">
                 <div className="flex items-center justify-between px-3 mb-1">
-                  <span className="text-[11px] font-semibold text-muted-foreground">{t("dashboard.recentChats") || "Chats"}</span>
-                  <button
-                    onClick={() => {
-                      setIsSearching(!isSearching);
-                      if (isSearching) setSearchQuery("");
-                    }}
-                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                  >
-                    {isSearching ? <X size={13} /> : <Search size={13} />}
-                  </button>
+                  {isSelectionMode ? (
+                    /* Circle: toggles select-all / deselect-all */
+                    <button
+                      onClick={toggleSelectAllMode}
+                      className="p-1 rounded-full text-muted-foreground hover:text-primary hover:bg-accent/60 transition-colors"
+                      title={t("common.selectAll") || "Select all"}
+                      aria-label={t("common.selectAll") || "Select all"}
+                      aria-pressed={isAllSelected}
+                    >
+                      {isAllSelected ? (
+                        <CheckCircle2 size={17} className="text-primary" />
+                      ) : (
+                        <Circle size={17} />
+                      )}
+                    </button>
+                  ) : (
+                    /* Normal state: plain "Recent Chats" text */
+                    <button
+                      onClick={toggleSelectionMode}
+                      className="text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {t("dashboard.recentChats") || "Chats"}
+                    </button>
+                  )}
+                  {isSelectionMode ? (
+                    <div className="flex items-center gap-3">
+                      {/* Red trash can — deletes the selected chats (nothing selected → no-op) */}
+                      <button
+                        onClick={handleDeleteSelected}
+                        className="p-1.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-700 transition-colors"
+                        title={t("common.delete")}
+                        aria-label={t("common.delete")}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                      {/* Checkmark — confirm/exit without deleting anything */}
+                      <button
+                        onClick={toggleSelectionMode}
+                        className="p-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:text-emerald-700 transition-colors"
+                        title={t("common.confirm") || "Confirm"}
+                        aria-label={t("common.confirm") || "Confirm"}
+                      >
+                        <Check size={15} strokeWidth={3} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setIsSearching(!isSearching);
+                        if (isSearching) setSearchQuery("");
+                      }}
+                      className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                    >
+                      {isSearching ? <X size={13} /> : <Search size={13} />}
+                    </button>
+                  )}
                 </div>
 
                 {isSearching && (
@@ -353,12 +465,23 @@ export function AgentSidebar({
                 {filteredChats.map((chat) => (
                   <div
                     key={chat.id}
-                    onClick={() => onSelectChat(chat.id)}
+                    onClick={isSelectionMode ? () => toggleChat(chat.id) : () => onSelectChat(chat.id)}
                     className={`group relative flex items-center gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer transition-colors ${selectedChatId === chat.id
                       ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20"
                       : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                       }`}
                   >
+                    {isSelectionMode && (
+                      <span
+                        className={`grid place-items-center w-5 h-5 rounded-[6px] border shrink-0 transition-colors ${isSelected(chat.id)
+                          ? "bg-primary border-primary"
+                          : "border-border bg-background"
+                          }`}
+                      >
+                        {isSelected(chat.id) && <Check size={12} className="text-primary-foreground" strokeWidth={3} />}
+                      </span>
+                    )}
+
                     {chat.pinned && (
                       <Pin size={12} className={`shrink-0 ${selectedChatId === chat.id ? "text-primary-foreground" : "text-primary fill-primary"}`} />
                     )}
@@ -513,6 +636,16 @@ export function AgentSidebar({
             </button>
           </div>
         </div>
+        <ConfirmDialog
+          isOpen={confirmDeleteOpen}
+          title={t("dashboard.deleteChatsTitle") || "Delete chats?"}
+          message={deleteSelectedMessage}
+          confirmText={t("common.delete")}
+          cancelText={t("common.cancel")}
+          onConfirm={confirmDeleteSelected}
+          onCancel={() => setConfirmDeleteOpen(false)}
+          type="danger"
+        />
       </aside>
     </>
   );

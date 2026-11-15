@@ -19,6 +19,8 @@
     "newAgent": "新建智能体",
     "noFiles": "暂无上传文件",
     "recentChats": "最近聊天",
+    "deleteChatsTitle": "删除聊天？",
+    "deleteSelectedMessage": "删除选中的 {{count}} 条聊天吗？",
     "noChats": "暂无聊天",
     "overview": "概览",
     "recentFiles": "最近文件",
@@ -87,6 +89,7 @@
     "fullContent": "完整内容",
     "pageContent": "第 {{page}} 页",
     "loadingHistory": "加载中...",
+    "selectAll": "全选",
     "stage": {
       "queued": "排队中",
       "classifying": "分类中",

@@ -167,7 +167,7 @@ export default function DashboardPage() {
         // ALWAYS read from profiles table - single source of truth
         const { data: profile } = await supabase
           .from("profiles")
-          .select("name, avatar_url")
+          .select("name")
           .eq("id", user.id)
           .maybeSingle();
         
@@ -192,16 +192,24 @@ export default function DashboardPage() {
               })
             });
             
-            // Set from the data we just saved
+            // The API owns the stored avatar URL; the browser only receives
+            // the authenticated proxy path.
             if (metaName) setUserName(metaName);
-            if (metaAvatar) setAvatarUrl(metaAvatar);
+            if (metaAvatar) setAvatarUrl("/api/profile");
           }
         } else {
           // Profile exists - ALWAYS use saved data from profiles table
           // This ensures name/avatar NEVER change when switching OAuth providers
           if (profile.name) setUserName(profile.name);
-          // If avatar_url is explicitly null, user deleted it - don't show anything
-          setAvatarUrl(profile?.avatar_url ? "/api/profile" : null);
+
+          const avatarRes = await fetch("/api/profile?metadata=1");
+          const avatarMeta = (await avatarRes.json().catch(() => null)) as {
+            hasAvatar?: boolean;
+            url?: string | null;
+          } | null;
+          setAvatarUrl(
+            avatarMeta?.hasAvatar && avatarMeta.url ? avatarMeta.url : null
+          );
         }
         setProfileLoaded(true);
       } catch { 
