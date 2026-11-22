@@ -98,12 +98,34 @@ async function getTesseractModule(): Promise<any> {
 
 const traineddataCache = new Map<string, Uint8Array>();
 
+const SAFE_LANG_SEGMENT = /^[a-z0-9_-]+$/i;
+
+function sanitizeTraineddataFilename(lang: string): string | null {
+  // إذا كانت سلسلة لغات مثل "ara+eng"، نتحقق من كل جزء على حدة
+  const parts = lang.split("+").filter(Boolean);
+  if (parts.length === 0 || !parts.every((p) => SAFE_LANG_SEGMENT.test(p))) {
+    return null;
+  }
+  const safeFileName = path.basename(`${lang}.traineddata`);
+  return safeFileName.endsWith(".traineddata") ? safeFileName : null;
+}
+
 function traineddataFsPaths(lang: string): string[] {
-  const f = `${lang}.traineddata`;
+  const safeFile = sanitizeTraineddataFilename(lang);
+  if (!safeFile) return [];
+
+  const ocrDataDir = path.resolve(process.cwd(), "public", "ocr-data");
+  const resolvedCandidate = path.resolve(ocrDataDir, safeFile);
+
+  // التأكد أن المسار النهائي يقع فعلاً داخل مجلد ocr-data المسموح
+  if (!resolvedCandidate.startsWith(`${ocrDataDir}${path.sep}`)) {
+    return [];
+  }
+
   return [
-    path.join(/* turbopackIgnore: true */ process.cwd(), "public", "ocr-data", f),
-    path.resolve("public", "ocr-data", f),
-    `/var/task/public/ocr-data/${f}`,
+    path.join(/* turbopackIgnore: true */ process.cwd(), "public", "ocr-data", safeFile),
+    resolvedCandidate,
+    path.posix.join("/var/task/public/ocr-data", safeFile),
   ];
 }
 

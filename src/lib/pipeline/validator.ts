@@ -7,6 +7,31 @@ import type {
 } from "./types";
 import { getProfileManager } from "./profiles/registry";
 
+const MAX_PATTERN_LENGTH = 200;
+const MAX_TEST_INPUT_LENGTH = 10_000;
+const compiledPatternCache = new Map<string, RegExp | null>();
+
+function compileSafeRulePattern(pattern: string): RegExp | null {
+  if (
+    typeof pattern !== "string" ||
+    pattern.length === 0 ||
+    pattern.length > MAX_PATTERN_LENGTH
+  ) {
+    return null;
+  }
+  if (compiledPatternCache.has(pattern)) {
+    return compiledPatternCache.get(pattern) ?? null;
+  }
+  try {
+    const compiled = new RegExp(pattern); // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+    compiledPatternCache.set(pattern, compiled);
+    return compiled;
+  } catch {
+    compiledPatternCache.set(pattern, null);
+    return null;
+  }
+}
+
 /**
  * Validator — evaluates each validation rule against the extracted fields.
  * Rules are declarative (string pattern, kind, required, range, enum).
@@ -97,17 +122,17 @@ function evaluate(
 
   // Regex pattern validation (applied to the string form).
   if (rule.pattern) {
-    try {
-      const re = new RegExp(rule.pattern);
-      const ok = re.test(String(value));
+    const re = compileSafeRulePattern(rule.pattern);
+    if (re) {
+      const sample = String(value ?? "").slice(0, MAX_TEST_INPUT_LENGTH);
+      const ok = re.test(sample);
       return {
         ...base,
         ok,
         message: ok ? "Value matches expected pattern" : `Value '${value}' failed pattern`,
       };
-    } catch {
-      // Malformed rule pattern — treat as pass.
     }
+    // Malformed or overly long rule pattern — treat as pass.
   }
 
   // Date format validation.
