@@ -494,14 +494,8 @@ async function extractDocxText(buffer: Buffer): Promise<string> {
 
 async function extractExcelText(buffer: Buffer): Promise<string> {
   try {
-    const XLSX = await import("xlsx");
-    const workbook = XLSX.read(buffer, { type: "buffer" });
-    let text = "";
-    for (const sheetName of workbook.SheetNames) {
-      text += `\n--- Sheet: ${sheetName} ---\n`;
-      text += XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
-    }
-    return text.trim().slice(0, 500_000);
+    const { excelBufferToText } = await import("@/lib/excel/reader");
+    return await excelBufferToText(buffer);
   } catch (err) {
     console.error("[Parser] Excel extraction failed:", err);
     throw new Error("Failed to parse Excel file");

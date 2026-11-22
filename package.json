@@ -20,6 +20,7 @@
     "bmp-js": "^0.1.0",
     "clsx": "^2.1.1",
     "docx": "^9.7.1",
+    "exceljs": "^4.4.0",
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.24.0",
     "mammoth": "^1.12.0",
@@ -40,8 +41,7 @@
     "tailwind-merge": "^3.7.0",
     "tesseract.js-core": "^7.0.0",
     "unpdf": "^1.6.2",
-    "wasm-feature-detect": "^1.8.0",
-    "xlsx": "^0.18.5"
+    "wasm-feature-detect": "^1.8.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.2",
