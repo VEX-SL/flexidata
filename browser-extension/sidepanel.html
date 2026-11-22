@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FlexiData Browser Agent</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header>
+    <div class="eyebrow">FLEXIDATA · FOUNDATION</div>
+    <h1>Browser Agent</h1>
+    <p>فحص محلي للصفحة والتفاعل بإذنك فقط.</p>
+  </header>
+
+  <div class="notice"><strong>خصوصية:</strong> الفحص والصورة محليان افتراضياً. لا ينتقل ملخص النص والعناصر إلى AI إلا إذا فعّلت سياق المتصفح في دردشة FlexiData. صلاحية الموقع اختيارية وتغطي hostname نفسه.</div>
+
+  <section class="card">
+    <div class="row between"><h2>التبويب الحالي</h2><button id="refreshTab" class="icon-button" title="تحديث التبويب">↻</button></div>
+    <div id="tabInfo" class="muted">اضغط زر FlexiData في شريط Chrome على الصفحة المطلوبة؛ التفويض يتم في نقرة الزر نفسها.</div>
+    <button id="inspect" class="primary" disabled>افهم الصفحة</button>
+    <button id="grantSite" class="secondary hidden" disabled>السماح لهذا الموقع في تبويباته الأخرى</button>
+    <div id="permissionStatus" class="hint"></div>
+  </section>
+
+  <section id="observation" class="card hidden">
+    <h2>ملخص الصفحة</h2>
+    <div id="pageSummary" class="muted"></div>
+    <div class="visual-heading"><h2>المشهد المرئي</h2><span class="hint">اضغط أي نقطة في الصورة، حتى بلا رقم</span></div>
+    <div id="visualStage" class="visual-stage">
+      <img id="pageScreenshot" alt="لقطة محلية للجزء الظاهر من الصفحة">
+      <div id="visualFallback" class="visual-empty hidden">لقطة اللوحة غير متاحة لهذا التبويب؛ أُضيفت حدود وأرقام مباشرة فوق عناصر الصفحة في التبويب نفسه.</div>
+      <div id="visualMarkers" class="visual-markers"></div>
+    </div>
+    <button id="hideMarkers" class="secondary">إخفاء العلامات من الصفحة</button>
+    <details>
+      <summary>النص الظاهر (حتى ٨٠٠٠ حرف)</summary>
+      <pre id="pageText" class="page-text"></pre>
+    </details>
+    <div class="row between list-heading"><h2>العناصر التفاعلية</h2><span id="elementCount" class="badge"></span></div>
+    <p class="hint">اضغط على رقم فوق لقطة الصفحة أو على عنصر لإدخال مركزه في حقول الإحداثيات.</p>
+    <div id="elements" class="elements"></div>
+    <p id="truncated" class="hint hidden">تم عرض أول ١٢٠ عنصراً ظاهراً فقط.</p>
+  </section>
+
+  <section class="card">
+    <h2>الوضع الموثوق (Trusted Input)</h2>
+    <p class="hint">
+      بعض المواقع تتجاهل النقرات الاصطناعية (<code>isTrusted=false</code>)، خصوصاً أزرار الدفع أو الترقية. الوضع الموثوق
+      يرسل الأحداث عبر Chrome نفسه (CDP) فتصبح <code>isTrusted=true</code>. تفعيله يُظهر شريط تحذير من Chrome فوق النافذة
+      يقول إن هذا التبويب قيد "debugging"، ويبقى ظاهراً طوال الاتصال — هذا سلوك Chrome ولا يمكن إخفاؤه. يمنح أيضاً وصولاً
+      أعمق من إضافة عادية (بروتوكول DevTools كاملاً)، رغم أن هذه الإضافة تستخدم فقط أوامر النقر/التحويم/الكتابة/السحب.
+      فعّله فقط عند الحاجة، وأوقفه بعدها.
+    </p>
+    <div class="row">
+      <button id="trustedAttach" class="secondary" disabled>تفعيل الوضع الموثوق لهذا التبويب</button>
+      <button id="trustedDetach" class="secondary hidden">إيقاف الوضع الموثوق</button>
+    </div>
+    <div id="trustedStatus" class="hint"></div>
+
+    <div id="trustedActions" class="hidden">
+      <p class="hint">تُستخدم نفس إحداثيات X/Y المختارة أدناه للنقر والتحويم والتمرير. للسحب، اختر نقطة البداية ثم أدخل نقطة النهاية.</p>
+      <div class="row">
+        <button id="trustedHover" class="secondary" disabled>تحويم حقيقي عند X/Y</button>
+        <button id="trustedClick" class="danger" disabled>نقر موثوق عند X/Y</button>
+      </div>
+      <label>نص للكتابة الحقيقية <input id="typeText" type="text" placeholder="اكتب هنا نصاً ليُرسل كضغطات مفاتيح فعلية"></label>
+      <button id="trustedType" class="secondary" disabled>إرسال الكتابة الموثوقة</button>
+      <div class="coordinates">
+        <label>X النهاية <input id="dragToX" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+        <label>Y النهاية <input id="dragToY" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+      </div>
+      <button id="trustedDrag" class="secondary" disabled>سحب موثوق من X/Y الحالية إلى X/Y النهاية</button>
+      <label>مقدار التمرير (موجب لأسفل، سالب لأعلى)
+        <input id="scrollDeltaY" type="number" min="-2000" max="2000" step="100" value="600">
+      </label>
+      <button id="trustedScroll" class="secondary" disabled>تمرير موثوق عند X/Y الحالية</button>
+    </div>
+    <div id="trustedResult" class="result hidden"></div>
+  </section>
+
+  <section class="card">
+    <h2>النقر على إحداثيات</h2>
+    <p class="hint">اكتب أي إحداثية في مساحة الصفحة، حتى لو لم تكن عليها علامة. الإحداثيات CSS من أعلى اليسار؛ الصورة تمثل الجزء الظاهر فقط. بعد أول فحص يتحدث المشهد تلقائياً بعد النقر/الكتابة/التمرير وتغيّر الصفحة.</p>
+    <div class="coordinates">
+      <label>X <input id="x" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+      <label>Y <input id="y" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></label>
+    </div>
+    <button id="pickPoint" class="secondary" disabled>اختيار نقطة من الصفحة</button>
+    <button id="clickAt" class="danger" disabled>تحقق من الهدف ثم اطلب تأكيداً</button>
+    <div id="clickResult" class="result hidden"></div>
+  </section>
+
+  <footer>لا يتم قراءة قيم الحقول أو كلمات المرور. لا تدعم هذه المرحلة browser chrome أو نوافذ النظام أو CAPTCHA.</footer>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

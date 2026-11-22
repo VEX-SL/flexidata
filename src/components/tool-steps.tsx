@@ -12,7 +12,9 @@ import {
   Search,
   Terminal,
   Brain,
+  MousePointer2,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export interface ToolStep {
   type:
@@ -23,14 +25,15 @@ export interface ToolStep {
     | "file_delete"
     | "image"
     | "search"
-    | "cmd";
+    | "cmd"
+    | "browser";
   title: string;
   content?: string;
   duration_ms?: number;
   timestamp?: number;
 }
 
-const STEP_STYLES: Record<ToolStep["type"], { icon: any; color: string; bg: string }> = {
+const STEP_STYLES: Record<ToolStep["type"], { icon: LucideIcon; color: string; bg: string }> = {
   thinking:    { icon: Brain,    color: "text-purple-500",    bg: "bg-muted/40 border-border/60 hover:border-border" },
   skill:       { icon: Sparkles, color: "text-blue-500",      bg: "bg-muted/40 border-border/60 hover:border-border" },
   file_edit:   { icon: FileCode, color: "text-amber-500",     bg: "bg-muted/40 border-border/60 hover:border-border" },
@@ -39,6 +42,7 @@ const STEP_STYLES: Record<ToolStep["type"], { icon: any; color: string; bg: stri
   image:       { icon: ImageIcon,color: "text-pink-500",      bg: "bg-muted/40 border-border/60 hover:border-border" },
   search:      { icon: Search,   color: "text-cyan-500",      bg: "bg-muted/40 border-border/60 hover:border-border" },
   cmd:         { icon: Terminal, color: "text-orange-500",    bg: "bg-muted/40 border-border/60 hover:border-border" },
+  browser:     { icon: MousePointer2, color: "text-sky-500",  bg: "bg-muted/40 border-border/60 hover:border-border" },
 };
 
 // Custom slim scrollbars for the expanded step content — the native

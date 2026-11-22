@@ -9,6 +9,44 @@
     "newChat": "محادثة جديدة",
     "browserAgent": "وكيل المتصفح"
   },
+  "browserAgent": {
+    "pageTitle": "إدارة وكلاء المتصفح",
+    "pageDescription": "فعّل التحكم بالمتصفح لوكلاء محددين. عند طلب مهمة متصفح، يقرأ الوكيل لقطة مختصرة من التبويب المصرّح به، ويطلب موافقتك قبل كل نقرة أو كتابة أو ضغط مفتاح.",
+    "errorTitle": "تعذر فتح إعدادات Browser Agent",
+    "errorDescription": "حدث خطأ أثناء تحميل الصفحة. يمكنك إعادة المحاولة دون فقد إعدادات الوكلاء.",
+    "loadingLabel": "جارٍ تحميل إعدادات وكيل المتصفح…",
+    "checkConnection": "فحص اتصال الإضافة",
+    "connection": {
+      "idle": "لم يتم اختبار اتصال الإضافة بعد.",
+      "checking": "جارٍ فحص الإضافة والتبويب النشط…",
+      "connected": "الإضافة متصلة ولديها إذن قراءة التبويب الحالي ({{host}}). لم يُرسل هذا السياق إلى الوكيل.",
+      "unavailable": "الإضافة غير متاحة أو لا تملك إذنًا لهذا التبويب."
+    },
+    "agentsTitle": "وكلاؤك",
+    "agentsDescription": "الإعداد منفصل لكل وكيل، ولا يشارك سياق المتصفح مع الوكلاء الآخرين.",
+    "createAgent": "أنشئ وكيلًا للمتصفح",
+    "agentNamePlaceholder": "اسم الوكيل، مثل: مساعد التسوق",
+    "agentNameAria": "اسم وكيل المتصفح",
+    "createAndEnable": "إنشاء وتفعيل",
+    "retry": "إعادة المحاولة",
+    "emptyTitle": "لا يوجد لديك وكلاء بعد.",
+    "emptyDescription": "أنشئ وكيلًا جديدًا للمتصفح أو فعّل هذه الميزة لوكيل موجود.",
+    "enabledBadge": "Browser Agent مفعّل",
+    "disabledBadge": "غير مفعّل",
+    "noDescription": "لا يوجد وصف.",
+    "enable": "تفعيل",
+    "disable": "إيقاف",
+    "openChat": "افتح الدردشة",
+    "privacyTitle": "تحكمك وخصوصيتك:",
+    "privacyDescription": "تفعيل الميزة يضيف مهارة المتصفح لهذا الوكيل فقط. لا تُرسل لقطات الشاشة إلى الخادم؛ يمرّر المتصفح ملخصًا نصيًا منقحًا عند طلب مهمة متصفح، وتبقى كل عملية فعلية متوقفة حتى توافق عليها.",
+    "agentDescription": "وكيل مخصص لمهام المتصفح عبر إضافة FlexiData Browser Agent.",
+    "errors": {
+      "load": "تعذر تحميل الوكلاء.",
+      "update": "تعذر تحديث الإعداد.",
+      "create": "تعذر إنشاء وكيل المتصفح.",
+      "enableAfterCreate": "تم إنشاء الوكيل، لكن تعذر تفعيل Browser Agent له."
+    }
+  },
   "dashboard": {
     "title": "لوحة التحكم",
     "subtitle": "نظرة عامة على مساحة العمل",
@@ -215,6 +253,63 @@
       "write": "ساعدني في كتابة شيء",
       "brainstorm": "لنتبادل الأفكار معًا",
       "advice": "ساعدني في اتخاذ قرار"
+    },
+    "agent": {
+      "previousVersion": "النسخة السابقة",
+      "nextVersion": "النسخة التالية",
+      "imageAlt": "صورة",
+      "profileAlt": "الملف الشخصي",
+      "creatingFile": "جارٍ إنشاء الملف: {{file}}...",
+      "editingFile": "جارٍ تعديل الملف: {{file}}...",
+      "errors": {
+        "regenerateFailed": "تعذر توليد رد جديد. حاول مرة أخرى.",
+        "avatarUpdateFailed": "تعذر تحديث صورة النموذج. حاول مرة أخرى.",
+        "sendFailed": "تعذر إرسال الرسالة. حاول مرة أخرى.",
+        "deleteChatFailed": "تعذر حذف المحادثة. حاول مرة أخرى."
+      }
+    },
+    "browser": {
+      "status": {
+        "settingsLoadFailed": "تعذر تحميل إعدادات Browser Agent.",
+        "connected": "متصل: {{page}}. يُرفق السياق فقط عند طلب مهمة متصفح.",
+        "connectionFailed": "تعذر الاتصال بإضافة المتصفح.",
+        "commandRequired": "اكتب طلبك بعد /browser، مثال: /browser افتح الموقع المطلوب.",
+        "agentDisabled": "فعّل Browser Agent لهذا الوكيل من /browser أولاً.",
+        "contextDisabled": "أعد تفعيل مشاركة سياق الصفحة من زر الشاشة قبل استخدام /browser.",
+        "contextAttached": "السياق مرفق لهذه الرسالة: {{page}}.",
+        "contextFetchFailed": "تعذر جلب سياق المتصفح."
+      },
+      "actions": {
+        "focusedField": "\nالحقل المركّز: {{role}} “{{name}}”",
+        "visibleTarget": "\nالهدف المرئي: {{role}} “{{name}}”",
+        "pressKey": "ضغط المفتاح: {{key}}",
+        "enterKeyWarning": " — قد يرسل نموذجاً أو يؤكد إجراءً",
+        "navigate": "فتح الموقع: {{url}}",
+        "type": "كتابة النص حرفياً: {{text}}",
+        "drag": "سحب من ({{fromX}}, {{fromY}}) إلى ({{toX}}, {{toY}})",
+        "scroll": "تمرير {{deltaY}} بكسل عند ({{x}}, {{y}})",
+        "click": "نقر عند ({{x}}, {{y}})",
+        "hover": "تحويم عند ({{x}}, {{y}})",
+        "confirmTitle": "طلب Browser Agent — راجع الإجراء قبل التنفيذ",
+        "site": "الموقع: {{url}}",
+        "action": "الإجراء: {{action}}",
+        "question": "هل تسمح بتنفيذه؟"
+      },
+      "results": {
+        "declined": "لم أنفّذ الإجراء لأنك رفضت تأكيده.",
+        "executionFailed": "تعذر إكمال إجراء المتصفح.",
+        "notConfirmed": "لم تؤكد الإضافة نجاح الإجراء.",
+        "failedPrefix": "لم أنفّذ الإجراء بنجاح: {{reason}}",
+        "refreshContextFailed": "تعذر تحديث سياق الصفحة.",
+        "navigationPermissionFailed": "انتقلت إلى {{url}}، لكن الإضافة لا تملك إذن قراءة هذا الموقع بعد. افتح لوحة الإضافة على الموقع وامنح صلاحية الموقع، ثم أعد طلبك.",
+        "contextUpdateFailed": "تم تنفيذ الإجراء، لكن لم أستطع تحديث سياق الصفحة؛ لن أتابع أو أدّعي نتيجة أخرى.",
+        "actionLimit": "توقفت بعد أربعة إجراءات متصفح. راجع الصفحة الحالية وأرسل تعليمات أخرى إذا أردت أن أتابع."
+      },
+      "tooltips": {
+        "enableAgent": "تفعيل Browser Agent من /browser",
+        "disableContext": "إيقاف مشاركة سياق صفحة المتصفح",
+        "attachContext": "إرفاق سياق الصفحة عند طلب مهام المتصفح"
+      }
     }
   },
   "voiceChat": {

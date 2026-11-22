@@ -9,6 +9,44 @@
     "newChat": "New Chat",
     "browserAgent": "Browser Agent"
   },
+  "browserAgent": {
+    "pageTitle": "Manage browser agents",
+    "pageDescription": "Enable browser control for selected agents. When a browser task is requested, the agent reads a short snapshot from the authorized tab and asks for your approval before every click, type, or key press.",
+    "errorTitle": "Could not open Browser Agent settings",
+    "errorDescription": "An error occurred while loading the page. You can try again without losing the agent settings.",
+    "loadingLabel": "Loading browser agent settings…",
+    "checkConnection": "Check extension connection",
+    "connection": {
+      "idle": "The extension connection has not been checked yet.",
+      "checking": "Checking the extension and active tab…",
+      "connected": "The extension is connected and has permission to read the current tab ({{host}}). This context has not been sent to the agent.",
+      "unavailable": "The extension is unavailable or does not have permission for this tab."
+    },
+    "agentsTitle": "Your agents",
+    "agentsDescription": "The setting is separate for each agent, and browser context is not shared with other agents.",
+    "createAgent": "Create a browser agent",
+    "agentNamePlaceholder": "Agent name, e.g.: Shopping assistant",
+    "agentNameAria": "Browser agent name",
+    "createAndEnable": "Create and enable",
+    "retry": "Try again",
+    "emptyTitle": "You do not have any agents yet.",
+    "emptyDescription": "Create a new browser agent or enable this feature for an existing agent.",
+    "enabledBadge": "Browser Agent enabled",
+    "disabledBadge": "Not enabled",
+    "noDescription": "No description.",
+    "enable": "Enable",
+    "disable": "Disable",
+    "openChat": "Open chat",
+    "privacyTitle": "Your control and privacy:",
+    "privacyDescription": "Enabling this feature adds the browser skill to this agent only. Screenshots are not sent to the server; the browser passes a sanitized text summary when a browser task is requested, and every real action remains paused until you approve it.",
+    "agentDescription": "A specialized agent for browser tasks using the FlexiData Browser Agent extension.",
+    "errors": {
+      "load": "Could not load agents.",
+      "update": "Could not update the setting.",
+      "create": "Could not create the browser agent.",
+      "enableAfterCreate": "The agent was created, but Browser Agent could not be enabled for it."
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "subtitle": "Overview of your workspace",
@@ -215,6 +253,63 @@
       "write": "Help me write something",
       "brainstorm": "Brainstorm ideas with me",
       "advice": "Help me think through a decision"
+    },
+    "agent": {
+      "previousVersion": "Previous version",
+      "nextVersion": "Next version",
+      "imageAlt": "Image",
+      "profileAlt": "Profile",
+      "creatingFile": "Creating file: {{file}}...",
+      "editingFile": "Editing file: {{file}}...",
+      "errors": {
+        "regenerateFailed": "Could not regenerate the response. Please try again.",
+        "avatarUpdateFailed": "Could not update the model avatar. Please try again.",
+        "sendFailed": "Could not send the message. Please try again.",
+        "deleteChatFailed": "Could not delete the chat. Please try again."
+      }
+    },
+    "browser": {
+      "status": {
+        "settingsLoadFailed": "Could not load Browser Agent settings.",
+        "connected": "Connected: {{page}}. Context is attached only when a browser task is requested.",
+        "connectionFailed": "Could not connect to the browser extension.",
+        "commandRequired": "Write your request after /browser, for example: /browser open the required website.",
+        "agentDisabled": "Enable Browser Agent for this agent from /browser first.",
+        "contextDisabled": "Enable page-context sharing from the screen button before using /browser.",
+        "contextAttached": "Context attached to this message: {{page}}.",
+        "contextFetchFailed": "Could not fetch the browser context."
+      },
+      "actions": {
+        "focusedField": "\nFocused field: {{role}} “{{name}}”",
+        "visibleTarget": "\nVisible target: {{role}} “{{name}}”",
+        "pressKey": "Press key: {{key}}",
+        "enterKeyWarning": " — may submit a form or confirm an action",
+        "navigate": "Open website: {{url}}",
+        "type": "Type text literally: {{text}}",
+        "drag": "Drag from ({{fromX}}, {{fromY}}) to ({{toX}}, {{toY}})",
+        "scroll": "Scroll {{deltaY}} pixels at ({{x}}, {{y}})",
+        "click": "Click at ({{x}}, {{y}})",
+        "hover": "Hover at ({{x}}, {{y}})",
+        "confirmTitle": "Browser Agent request — review the action before running it",
+        "site": "Website: {{url}}",
+        "action": "Action: {{action}}",
+        "question": "Do you allow it to run?"
+      },
+      "results": {
+        "declined": "I did not run the action because you declined the confirmation.",
+        "executionFailed": "The browser action could not be completed.",
+        "notConfirmed": "The extension did not confirm that the action succeeded.",
+        "failedPrefix": "The action was not completed successfully: {{reason}}",
+        "refreshContextFailed": "Could not refresh the page context.",
+        "navigationPermissionFailed": "I navigated to {{url}}, but the extension does not have permission to read this website yet. Open the extension panel on the website and grant site permission, then send your request again.",
+        "contextUpdateFailed": "The action was completed, but I could not refresh the page context; I will not continue or claim another result.",
+        "actionLimit": "I paused after four browser actions. Review the current page and send another instruction if you want me to continue."
+      },
+      "tooltips": {
+        "enableAgent": "Enable Browser Agent from /browser",
+        "disableContext": "Stop sharing the browser page context",
+        "attachContext": "Attach the page context when browser tasks are requested"
+      }
     }
   },
   "voiceChat": {

@@ -1,3 +1,4 @@
+// /src/app/(dashboard)/agents/[id]/chat/page.tsx
 "use client";
 
 import { Suspense, useState, useEffect, useCallback, useRef } from "react";
@@ -18,12 +19,15 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowRight,
+  Monitor,
 } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { isSidebarCollapsed, setSidebarCollapsed } from "@/lib/sidebar-state";
 import AudioChat from "@/components/chat/audio-chat";
 import { AgentSidebar, ChatItem } from "@/components/agent-sidebar";
 import { useStreamChat } from "@/lib/hooks/use-stream-chat";
+import { executeBrowserAction, requestBrowserPageContext, type BrowserAction, type BrowserPageContext } from "@/lib/browser-agent/bridge";
+import { shouldAttachBrowserContext, stripBrowserSkillCommand } from "@/lib/browser-agent/policy";
 import { ToolSteps, type ToolStep } from "@/components/tool-steps";
 import {
   parseFileEdits,
@@ -375,8 +379,8 @@ function InputDialog({
   isOpen,
   title,
   initialValue,
-  confirmText = "Save",
-  cancelText = "Cancel",
+  confirmText,
+  cancelText,
   onConfirm,
   onCancel,
 }: {
@@ -388,6 +392,7 @@ function InputDialog({
   onConfirm: (val: string) => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState(initialValue);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -423,13 +428,13 @@ function InputDialog({
             onClick={onCancel}
             className="px-4 py-2 text-xs font-medium rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
-            {cancelText}
+            {cancelText ?? t("common.cancel")}
           </button>
           <button
             onClick={() => onConfirm(value)}
             className="px-4 py-2 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all shadow-sm"
           >
-            {confirmText}
+            {confirmText ?? t("common.save")}
           </button>
         </div>
       </div>
@@ -449,7 +454,7 @@ function EmptyState({
   ready: boolean;
 }) {
   const { t } = useTranslation();
-  const name = userName && userName.trim() ? userName.trim() : "Hamza";
+  const name = userName && userName.trim() ? userName.trim() : "User";
 
   const getGreeting = (name: string) => {
     const hour = new Date().getHours();
@@ -548,26 +553,24 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
-  // ✅ Attachment in the composer: documents keep the old chip; IMAGES
-  // (images only) carry a preview — `localUrl` shows the picture instantly
-  // via an object URL while `url` (the stored public URL) arrives, and the
-  // thumbnail opens the lightbox on click.
+  // Keep the user's image/document composer state alongside Browser Agent controls.
   const [attachedFile, setAttachedFile] = useState<{
     name: string;
     isImage?: boolean;
     url?: string;
     localUrl?: string;
   } | null>(null);
-  // ✅ Full-screen image viewer (منبثقة) for image attachments — shows the
-  // file name as a caption.
+  const [browserAgentEnabled, setBrowserAgentEnabled] = useState(false);
+  const [browserSettingsLoading, setBrowserSettingsLoading] = useState(true);
+  const [browserContextEnabled, setBrowserContextEnabled] = useState(false);
+  const [browserContextLoading, setBrowserContextLoading] = useState(false);
+  const [browserContextStatus, setBrowserContextStatus] = useState("");
   const [lightboxImage, setLightboxImage] = useState<{
     url: string;
     name?: string;
     alt?: string;
   } | null>(null);
 
-  // Single clear path for the composer attachment — revokes the local object
-  // URL (if any) so previews never leak memory.
   const clearAttachedFile = useCallback(() => {
     setAttachedFile((prev) => {
       if (prev?.localUrl) URL.revokeObjectURL(prev.localUrl);
@@ -590,6 +593,25 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialLoadDone = useRef(false);
 
+  // Keep the Browser Agent layout measurement used by the floating sidebar.
+  // ✅ Collapsed-sidebar floating picture: publish the input bar's height as
+  // a CSS custom property (--fd-input-h) on the page root, so the sidebar's
+  // floating logo/account picture and hover rail sit ABOVE the message
+  // input instead of covering it — including when the textarea grows with
+  // a long message or an attached-file chip appears.
+  const rootContainerRef = useRef<HTMLDivElement>(null);
+  const inputBarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const bar = inputBarRef.current;
+    const root = rootContainerRef.current;
+    if (!bar || !root) return;
+    const apply = () => root.style.setProperty("--fd-input-h", `${bar.offsetHeight}px`);
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
   // ✅ Restore the shared sidebar choice once, after mount. Falls back to
   // this page's old per-page key (one-time migration), always converges the
   // shared key, then drops the obsolete key.
@@ -753,6 +775,31 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     fetch(`/api/agents/${agentId}`).then((r) => r.json()).then(setAgent);
   }, [agentId]);
 
+  useEffect(() => {
+    let active = true;
+    setBrowserSettingsLoading(true);
+    fetch("/api/browser/settings")
+      .then(async (response) => {
+        if (!response.ok) {
+          console.error("[Agent Chat] Failed to load Browser Agent settings:", response.status);
+          throw new Error(t("chat.browser.status.settingsLoadFailed"));
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (!active) return;
+        const enabled = Boolean(data.agents?.find((item: { id: string; enabled: boolean }) => item.id === agentId)?.enabled);
+        setBrowserAgentEnabled(enabled);
+        setBrowserContextEnabled(enabled);
+      })
+      .catch((error) => {
+        console.error("[Agent Chat] Failed to load Browser Agent settings:", error);
+        if (active) setBrowserContextStatus(t("chat.browser.status.settingsLoadFailed"));
+      })
+      .finally(() => { if (active) setBrowserSettingsLoading(false); });
+    return () => { active = false; };
+  }, [agentId, t]);
+
   const fetchChatHistory = useCallback(async () => {
     try {
       const { createClient } = await import("@/lib/supabase/client");
@@ -853,7 +900,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       prev.map((c) => (c.id === id ? { ...c, pinned: nextPinnedState, pinned_at: nextPinnedState ? Date.now() : 0 } : c))
     );
 
-    const title = chat.title || "New Chat";
+    const title = chat.title || t("nav.newChat");
     // ✅ i18n for the toast messages
     const pinText = nextPinnedState ? t("chat.pinned") : t("chat.unpinned");
     showToast(pinText, title);
@@ -995,10 +1042,11 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         })
       );
       setRegenIndex(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setRegenIndex(null);
-      // Content was never cleared (in-place mode) — just surface the error.
-      alert(err.message || t("common.error"));
+      console.error("[Agent Chat] Failed to regenerate the response:", err);
+      // Content was never cleared (in-place mode) — just surface a translated error.
+      alert(t("chat.agent.errors.regenerateFailed"));
     }
   }
 
@@ -1044,7 +1092,10 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           error?: string;
         } | null;
 
-        if (!res.ok) throw new Error(data?.error || t("common.error"));
+        if (!res.ok) {
+          console.error("[Agent Chat] Failed to update model avatar:", data?.error || `HTTP ${res.status}`);
+          throw new Error(t("chat.agent.errors.avatarUpdateFailed"));
+        }
         if (!data?.url) throw new Error(t("common.error"));
 
         nextIcon = data.url;
@@ -1062,7 +1113,10 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           error?: string;
         } | null;
 
-        if (!res.ok) throw new Error(data?.error || t("common.error"));
+        if (!res.ok) {
+          console.error("[Agent Chat] Failed to update model avatar:", data?.error || `HTTP ${res.status}`);
+          throw new Error(t("chat.agent.errors.avatarUpdateFailed"));
+        }
         if (!data?.url) throw new Error(t("common.error"));
 
         nextIcon = data.url;
@@ -1080,7 +1134,10 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           error?: string;
         } | null;
 
-        if (!res.ok) throw new Error(data?.error || t("common.error"));
+        if (!res.ok) {
+          console.error("[Agent Chat] Failed to update model avatar:", data?.error || `HTTP ${res.status}`);
+          throw new Error(t("chat.agent.errors.avatarUpdateFailed"));
+        }
         if (!data?.icon) throw new Error(t("common.error"));
 
         nextIcon = data.icon;
@@ -1095,7 +1152,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       if (shape !== undefined) setModelShape(shape);
     } catch (err: unknown) {
       console.error("Failed to update model avatar:", err);
-      alert(err instanceof Error ? err.message : t("common.error"));
+      alert(t("chat.agent.errors.avatarUpdateFailed"));
     }
   }
 
@@ -1105,10 +1162,12 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       chatId: string;
       title: string | null;
       toolSteps?: ToolStep[];
+      browserAction?: BrowserAction | null;
       userMessageId?: string | null;
       assistantMessageId?: string | null;
     },
-    userContent: string
+    userContent: string,
+    skipUserMessage = false
   ) {
     const edits = parseFileEdits(result.fullContent);
     const savedToolSteps = result.toolSteps ?? null;
@@ -1127,18 +1186,17 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       // by the URL change can resolve BEFORE this callback runs and insert
       // the same rows — React then throws "two children with the same key"
       // and every later message in the session renders with broken avatars.
-      const withoutTemp = prev.filter(
-        (m) =>
-          !m.id.startsWith("temp-") &&
-          m.id !== realUserId &&
-          m.id !== realAssistantId
+      const withoutTemp = prev.filter((m) =>
+        (skipUserMessage || !m.id.startsWith("temp-")) &&
+        (skipUserMessage || m.id !== realUserId) &&
+        m.id !== realAssistantId
       );
       if (edits.length > 0)
         setMessageEdits((p) => ({ ...p, [realAssistantId]: edits }));
-      const next: Message[] = [
-        ...withoutTemp,
-        { id: realUserId, role: "user", content: userContent, created_at: new Date().toISOString() },
-      ];
+      const next: Message[] = [...withoutTemp];
+      if (!skipUserMessage) {
+        next.push({ id: realUserId, role: "user", content: userContent, created_at: new Date().toISOString() });
+      }
       // ✅ Never append an EMPTY assistant bubble (aborted/failed generation).
       if (hasVisibleContent || hasSteps) {
         next.push({
@@ -1161,20 +1219,82 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     }
   }
 
+  async function toggleBrowserContext() {
+    if (browserSettingsLoading) return;
+    if (!browserAgentEnabled) {
+      router.push("/browser");
+      return;
+    }
+    if (browserContextEnabled) {
+      setBrowserContextEnabled(false);
+      return;
+    }
+    setBrowserContextLoading(true);
+    try {
+      const context = await requestBrowserPageContext();
+      const page = context.title || new URL(context.url).hostname;
+      setBrowserContextEnabled(true);
+      setBrowserContextStatus(t("chat.browser.status.connected", { page }));
+    } catch (error) {
+      console.error("[Agent Chat] Failed to connect to the browser extension:", error);
+      setBrowserContextEnabled(false);
+      setBrowserContextStatus(t("chat.browser.status.connectionFailed"));
+    } finally {
+      setBrowserContextLoading(false);
+    }
+  }
+
   async function handleSend(contentOverride?: string) {
     const text = (contentOverride ?? input).trim();
     if ((!text && !attachedFile?.isImage) || streaming) return;
-    // An image that is still uploading has no stored URL yet — the thumbnail
-    // shows a spinner; sending now would drop the picture, so wait.
+    // An image still uploading has no stored URL yet; do not silently drop it.
     if (attachedFile?.isImage && !attachedFile.url) return;
-    // ✅ Image attachment: prepend the [IMAGE_ATTACHMENT] marker (URL + file
-    // name) so the message carries the picture (stored in the DB → survives
-    // reloads; the stream route strips it before the text reaches the model).
-    // An image with NO text sends just the marker — image-only messages.
-    const userContent =
-      attachedFile?.isImage && attachedFile.url
-        ? `[IMAGE_ATTACHMENT: ${attachedFile.url} | ${sanitizeImageName(attachedFile.name)}]${text ? `\n${text}` : ""}`
-        : text;
+
+    const browserCommand = stripBrowserSkillCommand(text);
+    const requestText = browserCommand.text;
+    const forceBrowserSkill = browserCommand.forced;
+    if (forceBrowserSkill && !requestText) {
+      setBrowserContextStatus(t("chat.browser.status.commandRequired"));
+      return;
+    }
+    if (!requestText && !attachedFile?.isImage) return;
+
+    // Preserve the user's image marker while removing the /browser control
+    // prefix from the actual user message sent to the model.
+    const userContent = attachedFile?.isImage && attachedFile.url
+      ? `[IMAGE_ATTACHMENT: ${attachedFile.url} | ${sanitizeImageName(attachedFile.name)}]${requestText ? `\n${requestText}` : ""}`
+      : requestText;
+
+    if (forceBrowserSkill && !browserAgentEnabled) {
+      setBrowserContextStatus(t("chat.browser.status.agentDisabled"));
+      router.push("/browser");
+      return;
+    }
+    if (forceBrowserSkill && !browserContextEnabled) {
+      setBrowserContextStatus(t("chat.browser.status.contextDisabled"));
+      return;
+    }
+
+    let browserContext: BrowserPageContext | undefined;
+    const shouldSharePage = browserAgentEnabled && browserContextEnabled &&
+      (forceBrowserSkill || shouldAttachBrowserContext(requestText));
+    if (shouldSharePage) {
+      setBrowserContextLoading(true);
+      try {
+        browserContext = await requestBrowserPageContext();
+        const page = browserContext.title || new URL(browserContext.url).hostname;
+        setBrowserContextStatus(t("chat.browser.status.contextAttached", { page }));
+      } catch (error) {
+        console.error("[Agent Chat] Failed to fetch the browser context:", error);
+        const message = t("chat.browser.status.contextFetchFailed");
+        setBrowserContextStatus(message);
+        setBrowserContextLoading(false);
+        alert(message);
+        return;
+      } finally {
+        setBrowserContextLoading(false);
+      }
+    }
 
     // Sending a message means we want to see the reply — force auto-follow.
     isNearBottomRef.current = true;
@@ -1186,7 +1306,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     // placeholder status is no longer needed.
 
     try {
-      const result = await sendStream(chatId, userContent);
+      const result = await sendStream(chatId, userContent, { browserContext, forceBrowserSkill });
       if (!result) {
         // Defensive: the hook produced no result (aborted before any event).
         // Keep the user's message visible — only the generation stopped.
@@ -1249,9 +1369,149 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         router.replace(`/agents/${agentId}/chat?chatId=${result.chatId}`, { scroll: false });
         fetchChatHistory();
       }
+      if (result.browserAction && browserContext) {
+        processStreamResult(result, userContent);
+        let actionTurn = result;
+        let actionContext = browserContext;
+        let actionCount = 0;
+
+        while (actionTurn.browserAction && actionCount < 4) {
+          const action = actionTurn.browserAction;
+          const point = "x" in action ? { x: action.x, y: action.y } : null;
+          const target = point
+            ? actionContext.elements.find((element) =>
+                point.x >= element.rect.x && point.x <= element.rect.x + element.rect.width &&
+                point.y >= element.rect.y && point.y <= element.rect.y + element.rect.height
+              )
+            : null;
+          const label = action.action === "type" && actionContext.focusedElement
+            ? t("chat.browser.actions.focusedField", {
+                role: actionContext.focusedElement.role,
+                name: actionContext.focusedElement.name,
+              })
+            : target?.name
+              ? t("chat.browser.actions.visibleTarget", {
+                  role: target.role,
+                  name: target.name,
+                })
+              : "";
+          const details = action.action === "press_key"
+            ? `${t("chat.browser.actions.pressKey", { key: action.key })}${action.key === "Enter" ? t("chat.browser.actions.enterKeyWarning") : ""}`
+            : action.action === "navigate"
+            ? t("chat.browser.actions.navigate", { url: action.url })
+            : action.action === "type"
+            ? t("chat.browser.actions.type", { text: JSON.stringify(action.text) ?? "" })
+            : action.action === "drag"
+              ? t("chat.browser.actions.drag", {
+                  fromX: action.fromX,
+                  fromY: action.fromY,
+                  toX: action.toX,
+                  toY: action.toY,
+                })
+              : action.action === "scroll"
+                ? t("chat.browser.actions.scroll", {
+                    deltaY: action.deltaY,
+                    x: action.x,
+                    y: action.y,
+                  })
+                : t(
+                    action.action === "click"
+                      ? "chat.browser.actions.click"
+                      : "chat.browser.actions.hover",
+                    { x: action.x, y: action.y }
+                  );
+          const approved = window.confirm(
+            `${t("chat.browser.actions.confirmTitle")}\n${t("chat.browser.actions.site", { url: actionContext.url })}\n${t("chat.browser.actions.action", { action: details })}${label}\n\n${t("chat.browser.actions.question")}`
+          );
+
+          let actionResult: Record<string, unknown>;
+          if (!approved) {
+            setMessages((prev) => [...prev, {
+              id: `browser-action-declined-${Date.now()}`,
+              role: "assistant",
+              content: t("chat.browser.results.declined"),
+              created_at: new Date().toISOString(),
+            }]);
+            return;
+          } else {
+            try {
+              actionResult = await executeBrowserAction(action, actionContext);
+            } catch (error) {
+              console.error("[Agent Chat] Browser action execution failed:", error);
+              actionResult = { ok: false, error: t("chat.browser.results.executionFailed") };
+            }
+          }
+
+          if (actionResult.ok !== true) {
+            const extensionReason = typeof actionResult.error === "string" ? actionResult.error : "";
+            if (extensionReason) {
+              console.error("[Agent Chat] Browser action was not confirmed:", extensionReason);
+            }
+            const reason = extensionReason
+              ? t("chat.browser.results.executionFailed")
+              : t("chat.browser.results.notConfirmed");
+            setMessages((prev) => [...prev, {
+              id: `browser-action-failed-${Date.now()}`,
+              role: "assistant",
+              content: t("chat.browser.results.failedPrefix", { reason }),
+              created_at: new Date().toISOString(),
+            }]);
+            return;
+          }
+
+          let refreshedContext: BrowserPageContext | undefined;
+          let refreshFailure = "";
+          if (browserContext) {
+            try {
+              refreshedContext = await requestBrowserPageContext();
+              actionContext = refreshedContext;
+            } catch (error) {
+              console.error("[Agent Chat] Failed to refresh the browser page context:", error);
+              refreshFailure = t("chat.browser.results.refreshContextFailed");
+            }
+          }
+
+          if (!refreshedContext) {
+            const message = action.action === "navigate" && actionResult.navigated === true
+              ? `${t("chat.browser.results.navigationPermissionFailed", {
+                  url: String(actionResult.url || action.url),
+                })} ${refreshFailure}`
+              : t("chat.browser.results.contextUpdateFailed");
+            setMessages((prev) => [...prev, {
+              id: `browser-context-refresh-failed-${Date.now()}`,
+              role: "assistant",
+              content: message,
+              created_at: new Date().toISOString(),
+            }]);
+            setBrowserContextStatus(refreshFailure);
+            return;
+          }
+
+          const followup = await sendStream(actionTurn.chatId || chatId, userContent, {
+            browserContext: refreshedContext,
+            internalBrowserTurn: true,
+            browserActionResult: JSON.stringify(actionResult),
+          });
+          if (!followup) break;
+          processStreamResult(followup, userContent, true);
+          actionTurn = followup;
+          actionCount += 1;
+        }
+
+        if (actionTurn.browserAction && actionCount >= 4) {
+          setMessages((prev) => [...prev, {
+            id: `browser-action-limit-${Date.now()}`,
+            role: "assistant",
+            content: t("chat.browser.results.actionLimit"),
+            created_at: new Date().toISOString(),
+          }]);
+        }
+        return;
+      }
       processStreamResult(result, userContent);
-    } catch (err: any) {
-      // Real request failure (network / 4xx): keep the user message, show the error.
+    } catch (err: unknown) {
+      // Real request failure (network / 4xx): keep the user message, show a translated error.
+      console.error("[Agent Chat] Failed to send the message:", err);
       setMessages((prev) =>
         prev.map((m) =>
           m.id.startsWith("temp-") && m.role === "user"
@@ -1259,7 +1519,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
             : m
         )
       );
-      alert(err.message || t("common.error"));
+      alert(t("chat.agent.errors.sendFailed"));
     }
   }
 
@@ -1286,15 +1546,17 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         });
         const data = await res.json().catch(() => null);
         if (!res.ok || !data?.url) {
-          throw new Error(data?.error || t("chat.imageUploadFailed"));
+          console.error("[Agent Chat] Failed to upload the chat image:", data?.error || `HTTP ${res.status}`);
+          throw new Error(t("chat.imageUploadFailed"));
         }
         // Keep localUrl in state — the thumbnail keeps rendering the instant
         // local preview; the public URL is what the message will carry.
         setAttachedFile({ name: file.name, isImage: true, url: data.url, localUrl });
-      } catch (err: any) {
+      } catch (err: unknown) {
+        console.error("[Agent Chat] Failed to upload the chat image:", err);
         setAttachedFile(null);
         URL.revokeObjectURL(localUrl);
-        alert(err?.message || t("chat.imageUploadFailed"));
+        alert(t("chat.imageUploadFailed"));
       } finally {
         setUploading(false);
       }
@@ -1321,7 +1583,8 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       const res = await fetch(`/api/chat/${id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error || t("common.error"));
+        console.error("[Agent Chat] Failed to delete the chat:", data?.error || `HTTP ${res.status}`);
+        throw new Error(t("chat.agent.errors.deleteChatFailed"));
       }
 
       setChatHistory((prev) => prev.filter((c) => c.id !== id));
@@ -1331,7 +1594,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       }
     } catch (err: unknown) {
       console.error("[Agent Chat] Failed to delete chat:", err);
-      alert(err instanceof Error ? err.message : t("common.error"));
+      alert(t("chat.agent.errors.deleteChatFailed"));
     } finally {
       setDeleteDialog({ isOpen: false, chatId: null });
     }
@@ -1388,13 +1651,16 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     ...liveToolSteps,
     ...(streamFileOps?.pending ?? []).map((op) => ({
       type: (op.isNew ? "new_file" : "file_edit") as ToolStep["type"],
-      title: `${op.isNew ? "Creating" : "Editing"} file: ${op.name}...`,
+      title: t(
+        op.isNew ? "chat.agent.creatingFile" : "chat.agent.editingFile",
+        { file: op.name }
+      ),
       content: op.content || undefined,
     })),
   ];
 
   return (
-    <div className="flex h-full w-full bg-background overflow-hidden relative">
+    <div ref={rootContainerRef} className="flex h-full w-full bg-background overflow-hidden relative">
       {toastMessage && (
         <div className={`fixed top-5 z-50 flex items-center gap-2 px-4 py-3 bg-emerald-600 text-white rounded-2xl shadow-xl transition-all duration-200 right-5`}>
           <CheckCircle2 size={18} className="shrink-0" />
@@ -1412,7 +1678,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           isOpen={sidebarOpen}
           onClose={() => setSidebar(false)}
           onToggle={() => setSidebar(true)}
-          onNavigate={(page: string) => router.push(`/${page}`)}
+          onNavigate={(page: string) => router.push(page === "browser-agent" ? "/browser" : `/${page}`)}
           chats={chatHistory}
           selectedChatId={chatId}
           onSelectChat={(id: string | null) => {
@@ -1427,7 +1693,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           onShareChat={(id: string, title: string) => handleShareChat(id, title)}
           agentId={agentId}
           onBackToFiles={(id: string) => router.push(`/agents/${id}`)}
-          userName={userName || "VEX"}
+          userName={userName || "User"}
           userEmail={userEmail || ""}
           userAvatar={userAvatar}
           onLogout={async () => {
@@ -1486,7 +1752,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={attachment.imageUrl}
-                          alt={attachment.fileName || attachment.text || "Image"}
+                          alt={attachment.fileName || attachment.text || t("chat.agent.imageAlt")}
                           title={attachment.fileName || t("chat.viewImage")}
                           onClick={() => setLightboxImage({ url: attachment.imageUrl!, name: attachment.fileName || undefined, alt: attachment.text || undefined })}
                           className="self-end max-h-44 w-auto max-w-full rounded-xl border border-border shadow-sm select-none"
@@ -1574,7 +1840,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                                     onClick={() => handleSwitchGeneration(idx, -1)}
                                     disabled={(msg.current_generation ?? 0) === 0}
                                     className="hover:text-foreground disabled:opacity-30 transition-opacity"
-                                    title="Previous version"
+                                    title={t("chat.agent.previousVersion")}
                                   >
                                     <ChevronLeft size={13} />
                                   </button>
@@ -1585,7 +1851,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                                     onClick={() => handleSwitchGeneration(idx, 1)}
                                     disabled={(msg.current_generation ?? 0) === msg.generations.length - 1}
                                     className="hover:text-foreground disabled:opacity-30 transition-opacity"
-                                    title="Next version"
+                                    title={t("chat.agent.nextVersion")}
                                   >
                                     <ChevronRight size={13} />
                                   </button>
@@ -1628,7 +1894,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                           );
                         })()}
                     </div>
-                    {msg.role === "user" && <UserAvatar size={28} src={userAvatar} alt={userName || "Profile"} className="mt-0.5" />}
+                    {msg.role === "user" && <UserAvatar size={28} src={userAvatar} alt={userName || t("chat.agent.profileAlt")} className="mt-0.5" />}
                   </div>
                   {/* ✅ Regen anchor: keeps the growing message in view during in-place regeneration */}
                   {idx === regenIndex && streaming && <div ref={regenAnchorRef} className="h-px" />}
@@ -1687,7 +1953,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
         {/* ✅ Floating Input Bar — chat.z.ai style: a centered card floating
             over the conversation (no border-t wall, not stretched across the
             sidebar), with a soft gradient fading the messages behind it. */}
-        <div className="shrink-0 relative px-4 sm:px-6 pb-4 pt-1">
+        <div ref={inputBarRef} className="shrink-0 relative px-4 sm:px-6 pb-4 pt-1">
           {/* Gradient fade over the bottom of the message list */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 -top-14 bottom-0 bg-gradient-to-t from-background via-background/90 to-transparent" />
           <div className="relative w-full max-w-3xl mx-auto">
@@ -1764,6 +2030,23 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                   </button>
                 </div>
 
+                <button
+                  type="button"
+                  onClick={() => void toggleBrowserContext()}
+                  disabled={browserContextLoading || browserSettingsLoading || streaming}
+                  aria-pressed={browserContextEnabled}
+                  title={t(
+                    !browserAgentEnabled
+                      ? "chat.browser.tooltips.enableAgent"
+                      : browserContextEnabled
+                        ? "chat.browser.tooltips.disableContext"
+                        : "chat.browser.tooltips.attachContext"
+                  )}
+                  className={`p-2 rounded-xl shrink-0 self-end mb-1 transition-colors disabled:opacity-50 ${browserContextEnabled ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent"}`}
+                >
+                  {browserContextLoading ? <Loader2 size={16} className="animate-spin" /> : <Monitor size={16} />}
+                </button>
+
                 <div className="flex-1 min-w-0 relative flex items-center min-h-10 py-1.5">
                   <textarea
                     ref={textareaRef}
@@ -1817,6 +2100,11 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                 )}
               </div>
             </div>
+            {browserContextStatus && (
+              <p className={`text-center text-[11px] mt-1 ${browserContextEnabled ? "text-primary" : "text-muted-foreground"}`}>
+                {browserContextStatus}
+              </p>
+            )}
             <p className="text-center text-[11px] text-muted-foreground/50 mt-1.5">
               {t("chat.disclaimer")}
             </p>

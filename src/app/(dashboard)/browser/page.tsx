@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, ArrowRight, Bot, CheckCircle2, Loader2, MessageSquare, Monitor, Plus, RefreshCw } from "lucide-react";
 import { requestBrowserPageContext } from "@/lib/browser-agent/bridge";
+import { useTranslation } from "@/lib/i18n";
 
 type BrowserAgent = {
   id: string;
@@ -15,67 +16,84 @@ type BrowserAgent = {
 };
 
 type ConnectionState = "idle" | "checking" | "connected" | "unavailable";
+type ActionError = "update" | "create" | "enableAfterCreate";
 
 export default function BrowserAgentPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [agents, setAgents] = useState<BrowserAgent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadError, setLoadError] = useState(false);
   const [busyAgent, setBusyAgent] = useState<string | null>(null);
   const [connection, setConnection] = useState<ConnectionState>("idle");
-  const [connectionMessage, setConnectionMessage] = useState("لم يتم اختبار اتصال الإضافة بعد.");
+  const [connectionHost, setConnectionHost] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [agentName, setAgentName] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
-  const [actionError, setActionError] = useState("");
+  const [actionError, setActionError] = useState<ActionError | null>(null);
+
+  const connectionMessage =
+    connection === "checking"
+      ? t("browserAgent.connection.checking")
+      : connection === "connected"
+        ? t("browserAgent.connection.connected", { host: connectionHost })
+        : connection === "unavailable"
+          ? t("browserAgent.connection.unavailable")
+          : t("browserAgent.connection.idle");
 
   const loadAgents = useCallback(async () => {
     setLoading(true);
-    setLoadError("");
+    setLoadError(false);
     try {
       const response = await fetch("/api/browser/settings", { cache: "no-store" });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "تعذر تحميل الوكلاء.");
+      if (!response.ok) {
+        setLoadError(true);
+        return;
+      }
       setAgents(Array.isArray(payload.agents) ? payload.agents : []);
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "تعذر تحميل الوكلاء.");
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void loadAgents(); }, [loadAgents]);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => { void loadAgents(); }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadAgents]);
 
   async function checkExtension() {
     setConnection("checking");
-    setConnectionMessage("جارٍ فحص الإضافة والتبويب النشط…");
+    setConnectionHost("");
     try {
       const context = await requestBrowserPageContext(5_000);
-      const host = new URL(context.url).hostname;
+      setConnectionHost(new URL(context.url).hostname);
       setConnection("connected");
-      setConnectionMessage(`الإضافة متصلة ولديها إذن قراءة التبويب الحالي (${host}). لم يُرسل هذا السياق إلى الوكيل.`);
-    } catch (error) {
+    } catch {
       setConnection("unavailable");
-      setConnectionMessage(error instanceof Error ? error.message : "الإضافة غير متاحة أو لا تملك إذناً لهذا التبويب.");
     }
   }
 
   async function setEnabled(agent: BrowserAgent, enabled: boolean) {
     setBusyAgent(agent.id);
-    setActionError("");
+    setActionError(null);
     try {
       const response = await fetch("/api/browser/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agentId: agent.id, enabled }),
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "تعذر تحديث الإعداد.");
+      if (!response.ok) {
+        setActionError("update");
+        return;
+      }
       setAgents((current) => current.map((item) => item.id === agent.id
         ? { ...item, enabled, enabled_at: enabled ? new Date().toISOString() : null }
         : item));
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : "تعذر تحديث الإعداد.");
+    } catch {
+      setActionError("update");
     } finally {
       setBusyAgent(null);
     }
@@ -85,31 +103,41 @@ export default function BrowserAgentPage() {
     const name = agentName.trim();
     if (!name || createBusy) return;
     setCreateBusy(true);
-    setActionError("");
+    setActionError(null);
+    let createdId = "";
+
     try {
       const createResponse = await fetch("/api/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description: "وكيل مخصص لمهام المتصفح عبر إضافة FlexiData Browser Agent." }),
+        body: JSON.stringify({
+          name,
+          description: t("browserAgent.agentDescription"),
+        }),
       });
       const created = await createResponse.json();
-      if (!createResponse.ok || !created.id) throw new Error(created.error || "تعذر إنشاء الوكيل.");
+      if (!createResponse.ok || typeof created.id !== "string") {
+        throw new Error(t("browserAgent.errors.create"));
+      }
+      createdId = created.id;
 
       const enableResponse = await fetch("/api/browser/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agentId: created.id, enabled: true }),
+        body: JSON.stringify({ agentId: createdId, enabled: true }),
       });
-      const enabled = await enableResponse.json();
-      if (!enableResponse.ok) throw new Error(enabled.error || "تم إنشاء الوكيل، لكن تعذر تفعيل Browser Agent له.");
-
-      router.push(`/agents/${created.id}/chat`);
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : "تعذر إنشاء وكيل المتصفح.");
+      if (!enableResponse.ok) {
+        throw new Error(t("browserAgent.errors.enableAfterCreate"));
+      }
+    } catch {
+      setActionError(createdId ? "enableAfterCreate" : "create");
       void loadAgents();
+      return;
     } finally {
       setCreateBusy(false);
     }
+
+    router.push(`/agents/${createdId}/chat`);
   }
 
   return (
@@ -122,9 +150,9 @@ export default function BrowserAgentPage() {
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border bg-background/70 px-3 py-1 text-xs text-muted-foreground">
                 <Monitor size={14} /> FlexiData Browser Agent
               </div>
-              <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">إدارة وكلاء المتصفح</h1>
+              <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{t("browserAgent.pageTitle")}</h1>
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-                فعّل التحكم بالمتصفح لوكلاء محددين. عند طلب مهمة متصفح، يقرأ الوكيل لقطة مختصرة من التبويب المصرّح به، ويطلب موافقتك قبل كل نقرة أو كتابة أو ضغط مفتاح.
+                {t("browserAgent.pageDescription")}
               </p>
             </div>
             <button
@@ -134,7 +162,7 @@ export default function BrowserAgentPage() {
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-medium transition hover:bg-accent disabled:opacity-60"
             >
               {connection === "checking" ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-              فحص اتصال الإضافة
+              {t("browserAgent.checkConnection")}
             </button>
           </div>
           <div className={`relative mt-5 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-sm ${connection === "connected" ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : connection === "unavailable" ? "border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300" : "border-border bg-background/60 text-muted-foreground"}`}>
@@ -146,15 +174,15 @@ export default function BrowserAgentPage() {
         <section className="rounded-3xl border border-border bg-card p-5 md:p-6">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">وكلاؤك</h2>
-              <p className="mt-1 text-sm text-muted-foreground">الإعداد منفصل لكل وكيل، ولا يشارك سياق المتصفح مع الوكلاء الآخرين.</p>
+              <h2 className="text-lg font-semibold">{t("browserAgent.agentsTitle")}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{t("browserAgent.agentsDescription")}</p>
             </div>
             <button
               type="button"
-              onClick={() => { setShowCreate((value) => !value); setActionError(""); }}
+              onClick={() => { setShowCreate((value) => !value); setActionError(null); }}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
             >
-              <Plus size={16} /> أنشئ وكيلاً للمتصفح
+              <Plus size={16} /> {t("browserAgent.createAgent")}
             </button>
           </div>
 
@@ -164,8 +192,8 @@ export default function BrowserAgentPage() {
                 value={agentName}
                 onChange={(event) => setAgentName(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Enter") void createBrowserAgent(); }}
-                placeholder="اسم الوكيل، مثل: مساعد التسوق"
-                aria-label="اسم وكيل المتصفح"
+                placeholder={t("browserAgent.agentNamePlaceholder")}
+                aria-label={t("browserAgent.agentNameAria")}
                 className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
                 maxLength={80}
               />
@@ -176,25 +204,25 @@ export default function BrowserAgentPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
               >
                 {createBusy ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-                إنشاء وتفعيل
+                {t("browserAgent.createAndEnable")}
               </button>
             </div>
           )}
 
-          {actionError && <p role="alert" className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{actionError}</p>}
+          {actionError && <p role="alert" className="mb-4 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{t(`browserAgent.errors.${actionError}`)}</p>}
 
           {loading ? (
             <div className="flex min-h-32 items-center justify-center text-muted-foreground"><Loader2 size={22} className="animate-spin" /></div>
           ) : loadError ? (
             <div className="rounded-2xl border border-destructive/25 bg-destructive/5 p-4 text-sm text-destructive">
-              <p>{loadError}</p>
-              <button onClick={() => void loadAgents()} className="mt-3 underline">إعادة المحاولة</button>
+              <p>{t("browserAgent.errors.load")}</p>
+              <button onClick={() => void loadAgents()} className="mt-3 underline">{t("browserAgent.retry")}</button>
             </div>
           ) : agents.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border px-5 py-10 text-center">
               <Bot size={28} className="mx-auto text-muted-foreground" />
-              <p className="mt-3 font-medium">لا يوجد لديك وكلاء بعد.</p>
-              <p className="mt-1 text-sm text-muted-foreground">أنشئ وكيلاً جديداً للمتصفح أو فعّل هذه الميزة لوكيل موجود.</p>
+              <p className="mt-3 font-medium">{t("browserAgent.emptyTitle")}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t("browserAgent.emptyDescription")}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -206,10 +234,10 @@ export default function BrowserAgentPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate font-semibold">{agent.name}</h3>
                         <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${agent.enabled ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-muted text-muted-foreground"}`}>
-                          {agent.enabled ? "Browser Agent مفعّل" : "غير مفعّل"}
+                          {agent.enabled ? t("browserAgent.enabledBadge") : t("browserAgent.disabledBadge")}
                         </span>
                       </div>
-                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{agent.description || "لا يوجد وصف."}</p>
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{agent.description || t("browserAgent.noDescription")}</p>
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -221,14 +249,14 @@ export default function BrowserAgentPage() {
                       className={`inline-flex min-w-28 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition disabled:opacity-60 ${agent.enabled ? "border-border bg-background hover:bg-accent" : "border-primary/30 bg-primary/10 text-primary hover:bg-primary/15"}`}
                     >
                       {busyAgent === agent.id ? <Loader2 size={15} className="animate-spin" /> : null}
-                      {agent.enabled ? "إيقاف" : "تفعيل"}
+                      {agent.enabled ? t("browserAgent.disable") : t("browserAgent.enable")}
                     </button>
                     <button
                       type="button"
                       onClick={() => router.push(`/agents/${agent.id}/chat`)}
                       className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
                     >
-                      <MessageSquare size={15} /> افتح الدردشة
+                      <MessageSquare size={15} /> {t("browserAgent.openChat")}
                     </button>
                   </div>
                 </article>
@@ -238,7 +266,7 @@ export default function BrowserAgentPage() {
         </section>
 
         <aside className="rounded-2xl border border-border bg-muted/30 p-4 text-xs leading-5 text-muted-foreground">
-          <strong className="text-foreground">تحكمك وخصوصيتك:</strong> تفعيل الميزة يضيف مهارة المتصفح لهذا الوكيل فقط. لا تُرسل لقطات الشاشة إلى الخادم؛ يمرّر المتصفح ملخصاً نصياً منقحاً عند طلب مهمة متصفح، وتبقى كل عملية فعلية متوقفة حتى توافق عليها.
+          <strong className="text-foreground">{t("browserAgent.privacyTitle")}</strong> {t("browserAgent.privacyDescription")}
         </aside>
       </div>
     </main>

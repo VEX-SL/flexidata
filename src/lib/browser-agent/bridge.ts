@@ -21,6 +21,7 @@ export type BrowserAction =
   | { action: "scroll"; x: number; y: number; deltaY: number }
   | { action: "type"; text: string }
   | { action: "drag"; fromX: number; fromY: number; toX: number; toY: number }
+  | { action: "navigate"; url: string }
   | { action: "press_key"; key: string };
 
 async function requestExtension<T>(
@@ -109,6 +110,6 @@ export function executeBrowserAction(
   return requestExtension<Record<string, unknown>>(
     "EXECUTE_BROWSER_ACTION",
     { action, expectedContext, userConfirmed: true },
-    15_000
+    action.action === "navigate" ? 30_000 : 15_000
   );
 }

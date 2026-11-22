@@ -78,4 +78,5 @@ import "../src/lib/extraction/__tests__/grounding.test.ts";
 import "../src/components/inspector/__tests__/DocumentInspector.test.tsx";
 import "./vision-bbox.test.ts";
 
+import "./browser-agent-policy.test.ts";
 await run();

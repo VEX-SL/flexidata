@@ -630,7 +630,7 @@ export function AgentSidebar({
               {isOpen && (
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-foreground text-xs truncate">{userName}</h3>
-                  <p className="text-[10px] text-muted-foreground truncate">{t("sidebar.freePlan") || "Free Plan"}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{t("chat.freePlan") || "Free Plan"}</p>
                 </div>
               )}
             </button>
