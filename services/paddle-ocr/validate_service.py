@@ -11,14 +11,32 @@ import base64
 import json
 import os
 import sys
-import urllib.request
 import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
-BASE = os.environ.get("PADDLE_OCR_URL", "http://127.0.0.1:8000")
+DEFAULT_BASE = "http://127.0.0.1:8000"
 REPO = Path(__file__).resolve().parents[2]
 
 FAILED = []
+
+
+def _normalize_base_url(raw_url: str) -> str:
+    parsed = urllib.parse.urlparse(raw_url.strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError(f"Invalid PADDLE_OCR_URL: {raw_url!r}")
+    clean_path = parsed.path.rstrip("/")
+    return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, clean_path, "", "", ""))
+
+
+def _build_target_url(base_url: str, path: str) -> str:
+    if not path.startswith("/"):
+        raise ValueError(f"Endpoint path must start with '/': {path!r}")
+    return f"{base_url}{path}"
+
+
+BASE = _normalize_base_url(os.environ.get("PADDLE_OCR_URL", DEFAULT_BASE))
 
 
 def check(label: str, ok: bool, detail: str = "") -> None:
@@ -29,14 +47,15 @@ def check(label: str, ok: bool, detail: str = "") -> None:
 
 
 def post(path: str, payload: object) -> tuple[int, object]:
+    url = _build_target_url(BASE, path)
     req = urllib.request.Request(
-        BASE + path,
+        url,
         data=json.dumps(payload).encode(),
         headers={"content-type": "application/json"},
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=60) as res:
+        with urllib.request.urlopen(req, timeout=60) as res:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             return res.status, json.loads(res.read())
     except urllib.error.HTTPError as e:
         body = e.read()
@@ -50,12 +69,12 @@ def post(path: str, payload: object) -> tuple[int, object]:
 
 
 def get(path: str) -> tuple[int, object]:
+    url = _build_target_url(BASE, path)
     try:
-        with urllib.request.urlopen(BASE + path, timeout=60) as res:
+        with urllib.request.urlopen(url, timeout=60) as res:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             return res.status, json.loads(res.read())
     except urllib.error.HTTPError as e:
         return e.code, json.loads(e.read())
-
 
 def b64(path: Path) -> str:
     return base64.b64encode(path.read_bytes()).decode()

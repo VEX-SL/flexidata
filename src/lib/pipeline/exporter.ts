@@ -32,18 +32,11 @@ import {
 
 /** Enrichment metadata (not part of the extraction result itself). */
 export interface ExportMeta {
-  /** Overall pipeline confidence (0..1). */
   confidence?: number;
-  /** Per-signal confidence breakdown (from the confidence engine). */
   signals?: Record<string, number>;
-  /** ISO timestamp of completion. */
   extractedAt?: string;
-  /**
-   * Verbatim OCR lines (newline-joined), as shown in the Line-level OCR
-   * preview. Exported verbatim — the user asked for the text exactly as OCR
-   * read it.
-   */
   ocrText?: string;
+  locale?: string;
 }
 export async function exportExtraction(
   extraction: ExtractionResult,
@@ -199,14 +192,6 @@ function cellValue(value: unknown): string | number | boolean {
   return JSON.stringify(value);
 }
 
-function sheetWidth(...values: unknown[]): number {
-  const longest = values.reduce<number>(
-    (max, v) => Math.max(max, String(v ?? "").length),
-    0
-  );
-  return Math.min(60, Math.max(14, longest + 4));
-}
-
 /**
  * XLSX export — a workbook with three sheets:
  *  1. `Extraction` the flat record (same columns and values as CSV) so the
@@ -224,66 +209,64 @@ async function exportXlsx(
   meta: ExportMeta,
   fileName: string
 ): Promise<ExportResult> {
-  const XLSX = await import("xlsx");
-  const workbook = XLSX.utils.book_new();
+  const { buildExtractionWorkbookBuffer } = await import("@/lib/excel/writer");
+  const { resolveLocale, translateServer } = await import("@/lib/i18n/server");
+
+  const locale = resolveLocale(meta.locale);
+  const headers = {
+    field: translateServer(locale, "export.field", "Field"),
+    label: translateServer(locale, "export.label", "Label"),
+    value: translateServer(locale, "export.value", "Value"),
+    confidencePercent: translateServer(
+      locale,
+      "export.confidencePercent",
+      "Confidence (%)"
+    ),
+    source: translateServer(locale, "export.source", "Source"),
+    status: translateServer(locale, "export.status", "Status"),
+    ocrTextHeader: translateServer(
+      locale,
+      "export.ocrTextHeader",
+      "Extracted OCR Text"
+    ),
+  };
 
   const columns = exportColumns(profile, extraction);
-  const labels = columns.map((column) => exportColumnLabel(extraction, column));
-  const values = columns.map((column) =>
+  const flatHeaders = columns.map((column) =>
+    exportColumnLabel(extraction, column)
+  );
+  const flatValues = columns.map((column) =>
     cellValue(extraction.fieldsMap[column]?.value)
   );
 
-  const flat = XLSX.utils.aoa_to_sheet([labels, values]);
-  flat["!cols"] = labels.map((label, i) => ({
-    wch: sheetWidth(label, values[i]),
-  }));
-  XLSX.utils.book_append_sheet(workbook, flat, "Extraction");
-
-  const detail: (string | number | boolean)[][] = [
-    ["الحقل", "التسمية", "القيمة", "الثقة (٪)", "المصدر", "الحالة"],
-  ];
-  for (const f of extraction.fields) {
-    if (isEmptyValue(f.value.value)) continue;
-    detail.push([
-      f.field.key,
-      f.field.label && f.field.label !== f.field.key
-        ? f.field.label
-        : f.field.key,
-      cellValue(f.value.value),
-      Math.round((f.value.confidence ?? 0) * 100),
-      f.value.source,
-      f.value.status,
-    ]);
-  }
-  const detailSheet = XLSX.utils.aoa_to_sheet(detail);
-  detailSheet["!cols"] = [
-    { wch: 24 },
-    { wch: 26 },
-    { wch: 44 },
-    { wch: 11 },
-    { wch: 13 },
-    { wch: 13 },
-  ];
-  XLSX.utils.book_append_sheet(workbook, detailSheet, "Fields");
+  const fieldRows = extraction.fields
+    .filter((f) => !isEmptyValue(f.value.value))
+    .map((f) => ({
+      key: f.field.key,
+      label:
+        f.field.label && f.field.label !== f.field.key
+          ? f.field.label
+          : f.field.key,
+      value: cellValue(f.value.value),
+      confidencePercent: Math.round((f.value.confidence ?? 0) * 100),
+      source: f.value.source,
+      status: f.value.status,
+    }));
 
   const ocrLines = (meta.ocrText ?? "").split("\n");
-  if (ocrLines.some((l) => l.length > 0)) {
-    const ocr = XLSX.utils.aoa_to_sheet([
-      ["النص المستخرج من OCR"],
-      ...ocrLines.map((text) => [text]),
-    ]);
-    ocr["!cols"] = [{ wch: 80 }];
-    XLSX.utils.book_append_sheet(workbook, ocr, "OCR");
-  }
 
-  const bytes = XLSX.write(workbook, {
-    type: "buffer",
-    bookType: "xlsx",
-  }) as Uint8Array;
+  const buffer = await buildExtractionWorkbookBuffer({
+    flatHeaders,
+    flatValues,
+    fieldRows,
+    ocrLines,
+    headers,
+    rtl: locale === "ar",
+  });
 
   return {
     format: "xlsx",
-    buffer: new Uint8Array(bytes),
+    buffer,
     mimeType:
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     fileName,

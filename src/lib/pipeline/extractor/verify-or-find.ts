@@ -220,13 +220,29 @@ function labelWords(field: FieldSchema): string[] {
 function firstMatchingLabel(norm: string, words: string[]): string | null {
   for (const w of words) {
     if (isLatin(w)) {
-      const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (new RegExp(`\\b${escaped}\\b`).test(norm)) return w;
+      if (matchesLatinWordBoundary(norm, w)) return w;
     } else if (norm.includes(w)) {
       return w;
     }
   }
   return null;
+}
+
+function matchesLatinWordBoundary(norm: string, word: string): boolean {
+  if (!word) return false;
+  let startIdx = norm.indexOf(word);
+  while (startIdx !== -1) {
+    const endIdx = startIdx + word.length;
+    const beforeChar = startIdx > 0 ? norm[startIdx - 1] : "";
+    const afterChar = endIdx < norm.length ? norm[endIdx] : "";
+    const beforeIsWord = beforeChar !== "" && /[a-z0-9_]/i.test(beforeChar);
+    const afterIsWord = afterChar !== "" && /[a-z0-9_]/i.test(afterChar);
+    if (!beforeIsWord && !afterIsWord) {
+      return true;
+    }
+    startIdx = norm.indexOf(word, startIdx + 1);
+  }
+  return false;
 }
 
 function isLatin(s: string): boolean {

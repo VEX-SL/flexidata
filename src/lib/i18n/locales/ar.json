@@ -452,5 +452,14 @@
     "back": "رجوع",
     "save": "حفظ",
     "close": "إغلاق"
+  },
+  "export": {
+    "field": "الحقل",
+    "label": "التسمية",
+    "value": "القيمة",
+    "confidencePercent": "الثقة (٪)",
+    "source": "المصدر",
+    "status": "الحالة",
+    "ocrTextHeader": "النص المستخرج من OCR"
   }
 }

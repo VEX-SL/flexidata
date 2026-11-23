@@ -452,5 +452,14 @@
     "back": "Back",
     "save": "Save",
     "close": "Close"
+  },
+  "export": {
+    "field": "Field",
+    "label": "Label",
+    "value": "Value",
+    "confidencePercent": "Confidence (%)",
+    "source": "Source",
+    "status": "Status",
+    "ocrTextHeader": "Extracted OCR Text"
   }
 }

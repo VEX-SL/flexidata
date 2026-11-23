@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { getNested } from "./get-nested";
 import en from "./locales/en.json";
 import fr from "./locales/fr.json";
 import ar from "./locales/ar.json";
@@ -31,10 +32,6 @@ const I18nContext = createContext<I18nContextValue>({
 
 export function useTranslation() {
   return useContext(I18nContext);
-}
-
-function getNested(obj: Record<string, any>, path: string): string | undefined {
-  return path.split(".").reduce<any>((acc, key) => acc?.[key], obj);
 }
 
 function detectLanguage(): Lang {
