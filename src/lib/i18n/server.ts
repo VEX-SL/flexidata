@@ -2,6 +2,7 @@ import en from "./locales/en.json";
 import fr from "./locales/fr.json";
 import ar from "./locales/ar.json";
 import zh from "./locales/zh.json";
+import { getNested } from "./get-nested";
 
 export type SupportedLocale = "en" | "fr" | "ar" | "zh";
 
@@ -11,18 +12,6 @@ const DICTS: Record<SupportedLocale, Record<string, unknown>> = {
   ar,
   zh,
 };
-
-function getNested(obj: Record<string, unknown>, path: string): string | undefined {
-  let current: unknown = obj;
-  for (const part of path.split(".")) {
-    if (current && typeof current === "object" && part in current) {
-      current = (current as Record<string, unknown>)[part];
-    } else {
-      return undefined;
-    }
-  }
-  return typeof current === "string" ? current : undefined;
-}
 
 export function resolveLocale(locale?: string): SupportedLocale {
   const base = (locale ?? "").split("-")[0].toLowerCase();

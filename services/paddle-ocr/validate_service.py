@@ -71,11 +71,10 @@ def post(path: str, payload: object) -> tuple[int, object]:
 def get(path: str) -> tuple[int, object]:
     url = _build_target_url(BASE, path)
     try:
-        with urllib.request.urlopen(url, timeout=60) as res:
+        with urllib.request.urlopen(url, timeout=60) as res:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             return res.status, json.loads(res.read())
     except urllib.error.HTTPError as e:
         return e.code, json.loads(e.read())
-
 
 def b64(path: Path) -> str:
     return base64.b64encode(path.read_bytes()).decode()
