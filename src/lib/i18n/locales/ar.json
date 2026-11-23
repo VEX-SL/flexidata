@@ -202,6 +202,22 @@
       "loadError": "تعذر عرض هذه الصفحة.",
       "retry": "إعادة المحاولة",
       "loading": "جاري تجهيز الصفحة…"
+    },
+    "exportFormats": {
+      "word": "docx (word)",
+      "xlsx": "Excel (xlsx)",
+      "json": "JSON",
+      "csv": "CSV",
+      "pdf": "PDF"
+    },
+    "rawValue": "الخام:",
+    "exportTooltip": "تصدير {{format}}",
+    "errors": {
+      "exportFailed": "فشل التصدير",
+      "saveFailed": "فشل الحفظ",
+      "mustBeNumber": "القيمة يجب أن تكون رقمًا",
+      "mustBeArray": "القيمة يجب أن تكون مصفوفة JSON",
+      "mustBeObject": "القيمة يجب أن تكون كائن JSON"
     }
   },
   "chat": {
@@ -367,6 +383,9 @@
     "save": "حفظ التغييرات",
     "saving": "جاري الحفظ...",
     "saved": "تم تحديث الملف الشخصي",
+    "uploadImageFailed": "فشل رفع الصورة. يرجى المحاولة مرة أخرى.",
+    "removeAvatarFailed": "تعذر حذف الصورة. حاول مرة أخرى.",
+    "avatarPreviewAlt": "معاينة الصورة الشخصية",
     "uploadImage": "رفع صورة",
     "changePassword": "تغيير كلمة المرور",
     "currentPassword": "كلمة المرور الحالية",
@@ -398,7 +417,65 @@
     "deleteAccountFailed": "تعذّر حذف الحساب. حاول مرة أخرى."
   },
   "login": {
-    "forgotPassword": "نسيت كلمة المرور؟"
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "title": "مرحبًا بعودتك",
+    "subtitle": "سجّل الدخول إلى مساحة عملك",
+    "passwordPlaceholder": "كلمة المرور",
+    "orContinueWithEmail": "أو تابع بالبريد الإلكتروني",
+    "signingIn": "جارٍ تسجيل الدخول…",
+    "signIn": "تسجيل الدخول",
+    "noAccountYet": "ليس لديك حساب بعد؟",
+    "createOneFree": "أنشئ حسابًا مجانًا",
+    "errors": {
+      "loginFailed": "فشل تسجيل الدخول. تحقق من بياناتك وحاول مرة أخرى.",
+      "networkError": "خطأ في الشبكة — تعذر الوصول إلى الخادم. حاول مرة أخرى.",
+      "sessionCookieNotStored": "تم تسجيل الدخول، لكن المتصفح لم يخزّن كوكي الجلسة. امسح كوكيز هذا الموقع (أو جرّب متصفحًا آخر) ثم سجّل الدخول مرة أخرى."
+    },
+    "hero": {
+      "line1": "ملفاتك،",
+      "line2": "أخيرًا مفهومة.",
+      "subtitle": "ارفع مستنداتك، اطرح أسئلتك، واحصل على إجابات ذكية مدعومة بالذكاء الاصطناعي — من PDF إلى جداول البيانات.",
+      "feature1": "يقرأ PDF وWord وExcel والصور وغيرها",
+      "feature2": "أنشئ وكلاء ذكاء اصطناعي مدرَّبين على مستنداتك",
+      "feature3": "ذكاء اصطناعي متعدد المزوّدين مع تحويل تلقائي"
+    }
+  },
+  "auth": {
+    "continueWithGoogle": "المتابعة بـ Google",
+    "continueWithGitHub": "المتابعة بـ GitHub",
+    "emailPlaceholder": "البريد الإلكتروني",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور"
+  },
+  "signup": {
+    "title": "أنشئ حسابك",
+    "subtitle": "مجاني للأبد — بدون بطاقة ائتمان",
+    "fullNamePlaceholder": "الاسم الكامل",
+    "passwordPlaceholder": "كلمة المرور (٨ أحرف على الأقل)",
+    "orSignUpWithEmail": "أو سجّل بالبريد الإلكتروني",
+    "creatingAccount": "جارٍ إنشاء الحساب…",
+    "createAccount": "إنشاء الحساب",
+    "alreadyHaveAccount": "لديك حساب بالفعل؟",
+    "signIn": "تسجيل الدخول",
+    "strength": {
+      "weak": "كلمة مرور ضعيفة",
+      "fair": "كلمة مرور متوسطة",
+      "good": "كلمة مرور جيدة",
+      "strong": "كلمة مرور قوية"
+    },
+    "success": {
+      "title": "تفقّد بريدك",
+      "sentToPrefix": "أرسلنا رابط تأكيد إلى",
+      "goToSignIn": "الذهاب لتسجيل الدخول"
+    },
+    "hero": {
+      "line1": "ابنِ",
+      "line2": "مساحة عملك الذكية اليوم.",
+      "subtitle": "ارفع مستنداتك، أنشئ وكلاء ذكاء اصطناعي متخصصين، واحصل على إجابات ذكية — كل ذلك في منصة واحدة.",
+      "feature1": "جاهز خلال أقل من ٦٠ ثانية",
+      "feature2": "ارفع PDF وWord وExcel والصور وغيرها",
+      "feature3": "شارك وكلاءك مع أي شخص، في أي مكان"
+    }
   },
   "fileStatus": {
     "indexed": "تم الفهرسة",
@@ -443,6 +520,13 @@
     "error": "حدث خطأ، يرجى المحاولة مرة أخرى"
   },
   "common": {
+    
+    "brand": "FlexiData AI",
+    "user": "مستخدم",
+    "quickNav": "التنقل السريع",
+    "agentSidebar": "شريط الوكيل الجانبي",
+    "selectAll": "تحديد الكل",
+    "edit": "تعديل",
     "loading": "جاري التحميل...",
     "error": "حدث خطأ",
     "retry": "إعادة المحاولة",

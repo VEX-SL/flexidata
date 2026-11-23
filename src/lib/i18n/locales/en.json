@@ -202,6 +202,19 @@
       "loadError": "Could not render this page.",
       "retry": "Retry",
       "loading": "Rendering page…"
+    },
+    "exportFormats": {
+      "word": "docx (word)",
+      "xlsx": "Excel (xlsx)"
+    },
+    "rawValue": "raw:",
+    "exportTooltip": "Export {{format}}",
+    "errors": {
+      "exportFailed": "Export failed",
+      "saveFailed": "Save failed",
+      "mustBeNumber": "Value must be a number",
+      "mustBeArray": "Value must be a JSON array",
+      "mustBeObject": "Value must be a JSON object"
     }
   },
   "chat": {
@@ -367,6 +380,9 @@
     "save": "Save Changes",
     "saving": "Saving...",
     "saved": "Profile updated",
+    "uploadImageFailed": "Failed to upload the image. Please try again.",
+    "removeAvatarFailed": "Failed to remove avatar. Please try again.",
+    "avatarPreviewAlt": "Avatar preview",
     "uploadImage": "Upload Image",
     "changePassword": "Change Password",
     "currentPassword": "Current Password",
@@ -398,7 +414,65 @@
     "deleteAccountFailed": "Could not delete your account. Please try again."
   },
   "login": {
-    "forgotPassword": "Forgot Password?"
+    "forgotPassword": "Forgot Password?",
+    "title": "Welcome back",
+    "subtitle": "Sign in to your workspace",
+    "passwordPlaceholder": "Password",
+    "orContinueWithEmail": "or continue with email",
+    "signingIn": "Signing in…",
+    "signIn": "Sign In",
+    "noAccountYet": "No account yet?",
+    "createOneFree": "Create one free",
+    "errors": {
+      "loginFailed": "Login failed. Please check your credentials and try again.",
+      "networkError": "Network error — could not reach the server. Please try again.",
+      "sessionCookieNotStored": "Signed in, but the session cookie wasn't stored by this browser. Please clear cookies for this site (or try another browser) and sign in again."
+    },
+    "hero": {
+      "line1": "Your files,",
+      "line2": "finally understood.",
+      "subtitle": "Upload documents, ask questions, and get intelligent answers powered by AI — from PDFs to spreadsheets.",
+      "feature1": "Parses PDF, Word, Excel, images & more",
+      "feature2": "Create AI agents trained on your documents",
+      "feature3": "Multi-provider AI with automatic failover"
+    }
+  },
+  "auth": {
+    "continueWithGoogle": "Continue with Google",
+    "continueWithGitHub": "Continue with GitHub",
+    "emailPlaceholder": "Email address",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "signup": {
+    "title": "Create your account",
+    "subtitle": "Free forever — no credit card needed",
+    "fullNamePlaceholder": "Full name",
+    "passwordPlaceholder": "Password (min 8 characters)",
+    "orSignUpWithEmail": "or sign up with email",
+    "creatingAccount": "Creating account…",
+    "createAccount": "Create Account",
+    "alreadyHaveAccount": "Already have an account?",
+    "signIn": "Sign in",
+    "strength": {
+      "weak": "Weak password",
+      "fair": "Fair password",
+      "good": "Good password",
+      "strong": "Strong password"
+    },
+    "success": {
+      "title": "Check your inbox",
+      "sentToPrefix": "We sent a confirmation link to",
+      "goToSignIn": "Go to sign in"
+    },
+    "hero": {
+      "line1": "Build your",
+      "line2": "AI workspace today.",
+      "subtitle": "Upload documents, create specialized AI agents, and get intelligent answers — all in one platform.",
+      "feature1": "Up and running in under 60 seconds",
+      "feature2": "Upload PDF, Word, Excel, images & more",
+      "feature3": "Share your agents with anyone, anywhere"
+    }
   },
   "fileStatus": {
     "indexed": "Indexed",
@@ -443,7 +517,13 @@
     "error": "An error occurred, please try again"
   },
   "common": {
+    "brand": "FlexiData AI",
     "loading": "Loading...",
+    "quickNav": "Quick navigation",
+    "agentSidebar": "Agent Sidebar",
+    "selectAll": "Select All",
+    "user": "User",
+    "edit": "Edit",
     "error": "An error occurred",
     "retry": "Try again",
     "cancel": "Cancel",

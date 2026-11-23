@@ -176,7 +176,7 @@ export function AgentSidebar({
   });
 
   const filteredChats = sortedChats.filter((chat) =>
-    (chat.title || t("dashboard.noChats") || "New Chat").toLowerCase().includes(searchQuery.toLowerCase())
+    (chat.title || t("nav.newChat")).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const isAllSelected =
@@ -252,19 +252,19 @@ export function AgentSidebar({
               the wider 64px strip gives it breathing room from the edge. */}
           <button
             onClick={() => onToggle?.()}
-            title="FlexiData"
-            aria-label="FlexiData"
+            title={t("common.brand")}
+            aria-label={t("common.brand")}
             className="pointer-events-auto relative w-12 h-12 rounded-xl flex items-center justify-center hover:bg-accent/40 transition-colors"
           >
             <div className="relative w-10 h-10">
-              <Image src={logoSrc} alt="FlexiData" fill className="object-contain rounded-lg" priority />
+              <Image src={logoSrc} alt={t("common.brand")} fill className="object-contain rounded-lg" priority />
             </div>
           </button>
 
           {/* Hover zone → floating mini-icons rail (peek) */}
           <div className="relative flex-1 w-full group/peek pointer-events-auto">
             <nav
-              aria-label="Quick navigation"
+              aria-label={t("common.quickNav")}
               className={`absolute top-1/2 -translate-y-1/2 start-2 flex flex-col items-center gap-1 p-1.5 rounded-2xl border border-border/70 bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/25 opacity-0 scale-95 pointer-events-none transition-all duration-200 group-hover/peek:opacity-100 group-hover/peek:scale-100 group-hover/peek:pointer-events-auto ${isArabic
                 ? "translate-x-2 group-hover/peek:translate-x-0"
                 : "-translate-x-2 group-hover/peek:translate-x-0"
@@ -281,7 +281,7 @@ export function AgentSidebar({
 
               <div className="my-0.5 h-px w-6 bg-border/50" />
 
-              <RailIconButton title={t("nav.browserAgent") || "Browser Agent"} onClick={() => onNavigate("browser-agent")}>
+              <RailIconButton title={t("nav.browserAgent")} onClick={() => onNavigate("browser-agent")}>
                 <Globe size={18} />
               </RailIconButton>
               <RailIconButton title={t("nav.dashboard")} onClick={() => onNavigate("dashboard")}>
@@ -313,7 +313,7 @@ export function AgentSidebar({
           on the content side in BOTH directions — English (right edge) and
           Arabic (left edge, since the sidebar sits on the right). */}
       <aside
-        aria-label="Agent Sidebar"
+        aria-label={t("common.agentSidebar")}
         aria-hidden={!isOpen}
         inert={!isOpen}
         dir={isArabic ? "rtl" : "ltr"}
@@ -333,9 +333,9 @@ export function AgentSidebar({
               }}
             >
               <div className="relative w-7 h-7 shrink-0 flex items-center justify-center">
-                <Image src={logoSrc} alt="Logo" fill className="object-contain rounded-lg" priority />
+                <Image src={logoSrc} alt={t("common.brand")} fill className="object-contain rounded-lg" priority />
               </div>
-              {isOpen && <span className="text-base font-bold tracking-tight text-foreground truncate">FlexiData</span>}
+              {isOpen && <span className="text-base font-bold tracking-tight text-foreground truncate">{t("common.brand")}</span>}
             </div>
 
             {isOpen && (
@@ -368,7 +368,7 @@ export function AgentSidebar({
 
             <button onClick={() => onNavigate("browser-agent")} className={`w-full group relative flex items-center gap-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors ${!isOpen ? "px-0 py-2.5 justify-center" : "px-3 py-2.5"}`}>
               <Globe size={18} className="shrink-0" />
-              {isOpen && <span className="truncate text-xs">{t("nav.browserAgent") || "Browser Agent"}</span>}
+              {isOpen && <span className="truncate text-xs">{t("nav.browserAgent")}</span>}
             </button>
 
             <button onClick={() => onNavigate("dashboard")} className={`w-full group relative flex items-center gap-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors ${!isOpen ? "px-0 py-2.5 justify-center" : "px-3 py-2.5"}`}>
@@ -396,8 +396,8 @@ export function AgentSidebar({
                     <button
                       onClick={toggleSelectAllMode}
                       className="p-1 rounded-full text-muted-foreground hover:text-primary hover:bg-accent/60 transition-colors"
-                      title={t("common.selectAll") || "Select all"}
-                      aria-label={t("common.selectAll") || "Select all"}
+                      title={t("common.selectAll")}
+                      aria-label={t("common.selectAll")}
                       aria-pressed={isAllSelected}
                     >
                       {isAllSelected ? (
@@ -412,7 +412,7 @@ export function AgentSidebar({
                       onClick={toggleSelectionMode}
                       className="text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      {t("dashboard.recentChats") || "Chats"}
+                      {t("dashboard.recentChats")}
                     </button>
                   )}
                   {isSelectionMode ? (
@@ -430,8 +430,8 @@ export function AgentSidebar({
                       <button
                         onClick={toggleSelectionMode}
                         className="p-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:text-emerald-700 transition-colors"
-                        title={t("common.confirm") || "Confirm"}
-                        aria-label={t("common.confirm") || "Confirm"}
+                        title={t("common.confirm")}
+                        aria-label={t("common.confirm")}
                       >
                         <Check size={15} strokeWidth={3} />
                       </button>
@@ -456,7 +456,7 @@ export function AgentSidebar({
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder={t("dashboard.searchPlaceholder") || "Search chats..."}
+                      placeholder={t("chat.searchChats")}
                       className="w-full px-2.5 py-1 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
@@ -487,7 +487,7 @@ export function AgentSidebar({
                     )}
 
                     <span className="flex-1 text-xs truncate">
-                      {chat.title || t("dashboard.noChats") || "New Chat"}
+                      {chat.title || t("nav.newChat")}
                     </span>
 
                     <button
@@ -510,12 +510,12 @@ export function AgentSidebar({
                         <button
                           onClick={() => {
                             setActiveMenuChatId(null);
-                            onShareChat(chat.id, chat.title || "New Chat");
+                            onShareChat(chat.id, chat.title || t("nav.newChat"));
                           }}
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors text-start"
                         >
                           <Share2 size={13} />
-                          {t("common.confirm") || "Share"}
+                          {t("chat.shareChat")}
                         </button>
 
                         <button
@@ -526,18 +526,18 @@ export function AgentSidebar({
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors text-start"
                         >
                           <Pin size={13} />
-                          {chat.pinned ? (t("chat.unpin") || "Unpin") : (t("chat.pin") || "Pin")}
+                          {chat.pinned ? t("chat.unpin") : t("chat.pin")}
                         </button>
 
                         <button
                           onClick={() => {
                             setActiveMenuChatId(null);
-                            onEditChatTitle(chat.id, chat.title || "New Chat");
+                            onEditChatTitle(chat.id, chat.title || t("nav.newChat"));
                           }}
                           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors text-start"
                         >
                           <Edit2 size={13} />
-                          {t("documents.edit")}
+                          {t("common.edit")}
                         </button>
 
                         <div className="my-1 h-px bg-border/60" />
@@ -547,7 +547,7 @@ export function AgentSidebar({
                             setActiveMenuChatId(null);
                             onDeleteChat(chat.id);
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors text-start"
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors text-start font-medium"
                         >
                           <Trash2 size={13} />
                           {t("common.delete")}
@@ -560,85 +560,53 @@ export function AgentSidebar({
             )}
           </nav>
 
-          <div className="p-2.5 border-t border-border/60 bg-muted/20 relative flex-shrink-0" ref={menuRef}>
-            <div
-              className={`absolute bottom-full left-3 right-3 mb-2 bg-card border border-border rounded-2xl shadow-2xl p-3 z-50 transition-all duration-200 ease-out origin-bottom ${isUserMenuOpen && isOpen
-                ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
-                : "opacity-0 scale-95 translate-y-2 pointer-events-none"
-                }`}
-            >
-              <div className="flex items-center gap-3 pb-3 border-b border-border mb-2">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
-                  {userAvatar ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src="/api/profile" alt={userName} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-sm font-bold text-primary">{userName?.charAt(0)?.toUpperCase() || "V"}</span>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-xs font-semibold text-foreground truncate">{userName}</h4>
-                  <p className="text-[11px] text-muted-foreground truncate">{userEmail}</p>
-                </div>
-              </div>
-
-              <div className="space-y-1">
+          {/* User Menu / Profile at the bottom */}
+          <div className="mt-auto p-3 border-t border-border/60 relative shrink-0" ref={menuRef}>
+            {isUserMenuOpen && (
+              <div className="absolute bottom-full start-2 end-2 mb-1 bg-card border border-border rounded-xl shadow-xl overflow-hidden py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
                 <button
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    router.push("/settings");
-                  }}
-                  className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors text-start"
+                  onClick={() => { setUserMenuOpen(false); router.push("/settings"); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors text-start"
                 >
                   <Settings size={14} />
-                  {t("settings.title")}
+                  {t("nav.settings")}
                 </button>
-
+                <div className="my-1 h-px bg-border/60" />
                 <button
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    onLogout();
-                  }}
-                  className="flex items-center gap-2 w-full px-2.5 py-2 rounded-xl text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors text-start"
+                  onClick={() => { setUserMenuOpen(false); onLogout(); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-destructive hover:bg-destructive/10 transition-colors text-start font-medium"
                 >
                   <LogOut size={14} />
                   {t("nav.signOut")}
                 </button>
               </div>
-            </div>
-
+            )}
             <button
-              onClick={() => {
-                if (!isOpen) {
-                  if (onToggle) onToggle();
-                } else {
-                  setUserMenuOpen(!isUserMenuOpen);
-                }
-              }}
-              className={`w-full flex items-center gap-3 rounded-xl transition-colors text-start overflow-hidden ${!isOpen ? "px-0 py-2 justify-center" : "p-2 hover:bg-accent/60"
-                }`}
-              title={!isOpen ? userName : undefined}
+              onClick={() => setUserMenuOpen(!isUserMenuOpen)}
+              className={`w-full flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-accent/60 ${!isOpen ? "justify-center" : ""}`}
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent to-accent/50 border border-border flex items-center justify-center shrink-0 overflow-hidden">
+              <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 bg-primary/10 flex items-center justify-center text-primary font-bold">
                 {userAvatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src="/api/profile" alt={userName} className="w-full h-full object-cover" />
+                  <Image src={userAvatar} alt={userName} fill className="object-cover" />
                 ) : (
-                  <span className="text-xs font-bold text-foreground">{userName?.charAt(0)?.toUpperCase() || "V"}</span>
+                  (userName?.[0] || "U").toUpperCase()
                 )}
               </div>
               {isOpen && (
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-foreground text-xs truncate">{userName}</h3>
-                  <p className="text-[10px] text-muted-foreground truncate">{t("chat.freePlan") || "Free Plan"}</p>
+                <div className="flex-1 min-w-0 text-start">
+                  <p className="text-xs font-semibold text-foreground truncate">{userName}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{userEmail}</p>
                 </div>
               )}
             </button>
           </div>
         </div>
+      </aside>
+
+      {onDeleteChats && (
         <ConfirmDialog
           isOpen={confirmDeleteOpen}
-          title={t("dashboard.deleteChatsTitle") || "Delete chats?"}
+          title={t("dashboard.deleteChatsTitle")}
           message={deleteSelectedMessage}
           confirmText={t("common.delete")}
           cancelText={t("common.cancel")}
@@ -646,9 +614,7 @@ export function AgentSidebar({
           onCancel={() => setConfirmDeleteOpen(false)}
           type="danger"
         />
-      </aside>
+      )}
     </>
   );
 }
-
-export default AgentSidebar;

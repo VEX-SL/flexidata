@@ -454,7 +454,7 @@ function EmptyState({
   ready: boolean;
 }) {
   const { t } = useTranslation();
-  const name = userName && userName.trim() ? userName.trim() : "User";
+  const name = userName && userName.trim() ? userName.trim() : t("common.user");
 
   const getGreeting = (name: string) => {
     const hour = new Date().getHours();
@@ -1693,7 +1693,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           onShareChat={(id: string, title: string) => handleShareChat(id, title)}
           agentId={agentId}
           onBackToFiles={(id: string) => router.push(`/agents/${id}`)}
-          userName={userName || "User"}
+          userName={userName || t("common.user")}
           userEmail={userEmail || ""}
           userAvatar={userAvatar}
           onLogout={async () => {

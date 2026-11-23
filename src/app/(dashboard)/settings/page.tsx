@@ -106,8 +106,8 @@ export default function SettingsPage() {
           error?: string;
         } | null;
 
-        if (!res.ok) throw new Error(data?.error || "فشل رفع الصورة. يرجى المحاولة مرة أخرى.");
-        if (!data?.url) throw new Error("فشل رفع الصورة. يرجى المحاولة مرة أخرى.");
+        if (!res.ok) throw new Error(data?.error || t("settings.uploadImageFailed"));
+        if (!data?.url) throw new Error(t("settings.uploadImageFailed"));
 
         if (avatarPreview?.startsWith("blob:")) {
           URL.revokeObjectURL(avatarPreview);
@@ -116,7 +116,7 @@ export default function SettingsPage() {
         setAvatarPreview(data.url);
         if (fileInputRef.current) fileInputRef.current.value = "";
       } catch (uploadError) {
-        setError(uploadError instanceof Error ? uploadError.message : "فشل رفع الصورة. يرجى المحاولة مرة أخرى.");
+        setError(uploadError instanceof Error ? uploadError.message : t("settings.uploadImageFailed"));
         setLoading(false);
         return;
       }
@@ -147,7 +147,7 @@ export default function SettingsPage() {
       } | null;
 
       if (!res.ok) {
-        throw new Error(data?.error || "Failed to remove avatar");
+        throw new Error(data?.error || t("settings.removeAvatarFailed"));
       }
 
       if (avatarPreview?.startsWith("blob:")) {
@@ -160,7 +160,7 @@ export default function SettingsPage() {
       }
     } catch (err) {
       console.error("Failed to remove avatar:", err);
-      setError(err instanceof Error ? err.message : "Failed to remove avatar");
+      setError(err instanceof Error ? err.message : t("settings.removeAvatarFailed"));
     }
   }
 
@@ -266,7 +266,7 @@ export default function SettingsPage() {
               <div className="relative">
                 <img
                   src={avatarPreview}
-                  alt="Avatar preview"
+                  alt={t("settings.avatarPreviewAlt")}
                   className="w-20 h-20 rounded-full object-cover"
                 />
                 <button

@@ -165,14 +165,18 @@ const BREAKDOWN_KEY: Record<string, string> = {
   "Missing required fields": "missing",
 };
 
-function parseDraft(def: FieldSchemaDTO | undefined, draft: string): unknown {
+function parseDraft(
+  def: FieldSchemaDTO | undefined,
+  draft: string,
+  t: (key: string) => string
+): unknown {
   const type = def?.type ?? "string";
   switch (type) {
     case "number":
     case "currency": {
       if (!draft.trim()) return null;
       const n = Number(draft.trim());
-      if (!Number.isFinite(n)) throw new Error("Value must be a number");
+      if (!Number.isFinite(n)) throw new Error(t("documents.errors.mustBeNumber"));
       return n;
     }
     case "boolean": {
@@ -182,14 +186,14 @@ function parseDraft(def: FieldSchemaDTO | undefined, draft: string): unknown {
     case "array": {
       if (!draft.trim()) return [];
       const v = JSON.parse(draft.trim());
-      if (!Array.isArray(v)) throw new Error("Value must be a JSON array");
+      if (!Array.isArray(v)) throw new Error(t("documents.errors.mustBeArray"));
       return v;
     }
     case "object": {
       if (!draft.trim()) return null;
       const v = JSON.parse(draft.trim());
       if (typeof v !== "object" || v === null || Array.isArray(v)) {
-        throw new Error("Value must be a JSON object");
+        throw new Error(t("documents.errors.mustBeObject"));
       }
       return v;
     }
@@ -234,7 +238,7 @@ export default function DocumentsPage() {
     fetch("/api/pipeline/profiles")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setProfiles(data?.items ?? []))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -245,8 +249,11 @@ export default function DocumentsPage() {
 
   const profileLabel = useCallback(
     (id: string): string => {
+      const translated = t(`documents.profile.${id}`);
+      if (translated !== `documents.profile.${id}`) return translated;
+
       const p = profiles.find((x) => x.id === id);
-      return p?.label ?? t(`documents.profile.${id}`);
+      return p?.label ?? id;
     },
     [profiles, t]
   );
@@ -277,7 +284,7 @@ export default function DocumentsPage() {
       );
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        setToast(body?.error?.message ?? "Export failed");
+        setToast(body?.error?.message ?? t("documents.errors.exportFailed"));
         return;
       }
       const blob = await res.blob();
@@ -302,20 +309,20 @@ export default function DocumentsPage() {
       activeSchema?.fields.find((f) => f.key === key) ??
       (persisted
         ? {
-            key,
-            type: persisted.type ?? "string",
-            label: persisted.label ?? key,
-          }
+          key,
+          type: persisted.type ?? "string",
+          label: persisted.label ?? key,
+        }
         : undefined);
     setSavingKey(key);
     setFieldError(null);
     try {
-      const parsed = parseDraft(def, editing.draft);
+      const parsed = parseDraft(def, editing.draft, t);
       await saveFields(job.id, { [key]: parsed });
       setEditing(null);
       setToast(t("documents.saved"));
     } catch (e) {
-      setFieldError(e instanceof Error ? e.message : "Save failed");
+      setFieldError(e instanceof Error ? e.message : t("documents.errors.saveFailed"));
     } finally {
       setSavingKey(null);
     }
@@ -799,7 +806,7 @@ function DocRow({
             disabled={exporting}
             className="fd-doc-btn fd-doc-btn-secondary"
             style={{ padding: ".45rem .7rem" }}
-            title={`Export ${exportFormat.toUpperCase()}`}
+            title={t("documents.exportTooltip", { format: exportFormat.toUpperCase() })}
           >
             {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
           </button>
@@ -918,8 +925,8 @@ function ReviewWorkspace(props: ReviewProps) {
     missing.length > 0
       ? (job.confidence?.summary ?? [])
       : (job.confidence?.summary ?? []).filter(
-          (s) => BREAKDOWN_KEY[s.label] !== "missing"
-        );
+        (s) => BREAKDOWN_KEY[s.label] !== "missing"
+      );
   const fieldLabel = (key: string) => {
     const real =
       schema?.fields.find((f) => f.key === key)?.label ??
@@ -1047,7 +1054,7 @@ function ReviewWorkspace(props: ReviewProps) {
                   (job.extractionMode === "dynamic"
                     ? profileLabel(job.profileType)
                     : (job.sourceText?.slice(0, 60) ||
-                        profileLabel(job.profileType)))}
+                      profileLabel(job.profileType)))}
               </p>
               <p className="text-xs text-muted-foreground m-0 mt-0.5">
                 {profileLabel(job.profileType)} · {t("documents.reviewTitle")}
@@ -1210,7 +1217,9 @@ function ReviewWorkspace(props: ReviewProps) {
           className="fd-doc-select"
         >
           {EXPORT_FORMATS.map((f) => (
-            <option key={f} value={f}>{EXPORT_LABELS[f]}</option>
+            <option key={f} value={f}>
+              {t(`documents.exportFormats.${f}`) || f.toUpperCase()}
+            </option>
           ))}
         </select>
         <div className="flex-1" />
@@ -1450,7 +1459,7 @@ function FieldRow({
 
         {!inEdit && !!field.raw && field.raw !== field.value && (
           <p className="text-[.7rem] text-muted-foreground mt-0.5 truncate" title={String(field.raw)}>
-            raw: {String(field.raw)}
+            {t("documents.rawValue")} {String(field.raw)}
           </p>
         )}
 

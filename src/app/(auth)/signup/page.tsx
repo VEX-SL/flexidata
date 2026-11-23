@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslation } from "@/lib/i18n";
 
 // ─── Same stable particle data ────────────────────────────────────────────────
 const PARTICLES = [
@@ -74,7 +74,8 @@ function AuthStyles() {
       .fd-orb {
         position: absolute;
         width: 720px; height: 720px;
-        top: 50%; left: -140px;
+        top: 50%; 
+        inset-inline-start: -140px;
         transform: translateY(-50%);
         background: radial-gradient(circle,
           rgba(115,115,115,.38) 0%,
@@ -218,7 +219,7 @@ function AuthStyles() {
           overflow-y: auto;
           padding: 2.5rem 1.5rem;
         }
-        
+
         /* تخصيص شريط التمرير الداخلي في حال صغر الشاشة ليكون أنيقاً جداً وشبه مخفي */
         .fd-form-side::-webkit-scrollbar {
           width: 5px;
@@ -434,7 +435,7 @@ function AuthStyles() {
         margin-bottom: 12px;
       }
       .fd-strength-bar {
-        height: 5px; 
+        height: 5px;
         border-radius: 99px;
         background: rgba(129, 140, 248, 0.08);
         margin: 8px 0 10px 0;
@@ -446,7 +447,7 @@ function AuthStyles() {
         background: rgba(99, 102, 241, 0.08);
       }
       .fd-strength-fill {
-        height: 100%; 
+        height: 100%;
         border-radius: 99px;
         position: relative;
         /* حركة سلسة جداً عند زيادة أو نقصان الشريط */
@@ -462,7 +463,7 @@ function AuthStyles() {
         animation: fd-bar-shimmer 2.2s infinite linear;
       }
       .fd-strength-label {
-        font-size: 0.78rem; 
+        font-size: 0.78rem;
         font-weight: 600;
         display: flex;
         align-items: center;
@@ -511,6 +512,8 @@ function AuthStyles() {
 
 // ─── Brand Panel ─────────────────────────────────────────────────────────────
 function BrandPanel() {
+  const { t } = useTranslation();
+
   return (
     <div className="fd-brand">
       <video
@@ -542,7 +545,7 @@ function BrandPanel() {
       <div className="fd-brand-content">
         <img
           src="/photos/auth-logo.png"
-          alt="FlexiData AI"
+          alt={t("common.brand")}
           className="fd-logo-mark"
           style={{ objectFit: "contain", width: 50, height: 50 }}
         />
@@ -550,19 +553,19 @@ function BrandPanel() {
         <div className="fd-brand-wordmark">FlexiData AI</div>
 
         <h1 className="fd-hero-h1">
-          Build your<br />
-          <span className="fd-shimmer">AI workspace today.</span>
+          {t("signup.hero.line1")}<br />
+          <span className="fd-shimmer">{t("signup.hero.line2")}</span>
         </h1>
 
         <p className="fd-hero-sub">
-          Upload documents, create specialized AI agents, and get intelligent answers — all in one platform.
+          {t("signup.hero.subtitle")}
         </p>
 
         <div>
           {[
-            { icon: "rocket", text: "Up and running in under 60 seconds" },
-            { icon: "doc", text: "Upload PDF, Word, Excel, images & more" },
-            { icon: "share", text: "Share your agents with anyone, anywhere" },
+            { icon: "rocket", text: t("signup.hero.feature1") },
+            { icon: "doc",    text: t("signup.hero.feature2") },
+            { icon: "share",  text: t("signup.hero.feature3") },
           ].map((f, i) => (
             <div key={i} className="fd-pill" style={{ animationDelay: `${0.1 + i * 0.15}s` }}>
               <span style={{ display: "inline-flex", alignItems: "center" }}>
@@ -623,22 +626,23 @@ function GitHubIcon() {
 }
 
 // ─── Password strength ────────────────────────────────────────────────────────
-function getStrength(p: string): { pct: number; color: string; label: string } {
-  if (!p) return { pct: 0, color: "transparent", label: "" };
+function getStrength(p: string): { pct: number; color: string; key: string } {
+  if (!p) return { pct: 0, color: "transparent", key: "" };
   let score = 0;
   if (p.length >= 8)  score++;
   if (p.length >= 12) score++;
   if (/[A-Z]/.test(p)) score++;
   if (/[0-9]/.test(p)) score++;
   if (/[^A-Za-z0-9]/.test(p)) score++;
-  if (score <= 1) return { pct: 20, color: "#EF4444", label: "Weak" };
-  if (score <= 2) return { pct: 45, color: "#F59E0B", label: "Fair" };
-  if (score <= 3) return { pct: 70, color: "#575757", label: "Good" };
-  return { pct: 100, color: "#22C55E", label: "Strong" };
+  if (score <= 1) return { pct: 20, color: "#EF4444", key: "weak" };
+  if (score <= 2) return { pct: 45, color: "#F59E0B", key: "fair" };
+  if (score <= 3) return { pct: 70, color: "#575757", key: "good" };
+  return { pct: 100, color: "#22C55E", key: "strong" };
 }
 
 // ─── Signup Form ──────────────────────────────────────────────────────────────
 function SignupForm() {
+  const { t } = useTranslation();
   const [name, setName]         = useState("");
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -647,7 +651,6 @@ function SignupForm() {
   const [success, setSuccess]   = useState(false);
   const [loading, setLoading]   = useState(false);
 
-  const router   = useRouter();
   const supabase = createClient();
   const strength = getStrength(password);
 
@@ -682,18 +685,19 @@ function SignupForm() {
           </svg>
         </div>
         <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--color-foreground)", margin: "0 0 .5rem", letterSpacing: "-.02em" }}>
-          Check your inbox
+          {t("signup.success.title")}
         </h2>
         <p style={{ fontSize: ".9rem", color: "var(--color-muted-foreground)", margin: "0 0 1.75rem", lineHeight: 1.65 }}>
-          We sent a confirmation link to <strong style={{ color: "var(--color-foreground)" }}>{email}</strong>
+          {t("signup.success.sentToPrefix")}{" "}
+          <strong style={{ color: "var(--color-foreground)" }}>{email}</strong>
         </p>
-        <button
-          onClick={() => router.push("/login")}
+        <Link
+          href="/login"
           className="fd-btn-primary"
-          style={{ marginBottom: 0 }}
+          style={{ marginBottom: 0, display: "block", textAlign: "center", textDecoration: "none" }}
         >
-          Go to sign in
-        </button>
+          {t("signup.success.goToSignIn")}
+        </Link>
       </div>
     );
   }
@@ -712,21 +716,21 @@ function SignupForm() {
         </span>
       </div>
 
-      <h2 className="fd-card-title">Create your account</h2>
-      <p className="fd-card-sub">Free forever — no credit card needed</p>
+      <h2 className="fd-card-title">{t("signup.title")}</h2>
+      <p className="fd-card-sub">{t("signup.subtitle")}</p>
 
       {/* OAuth */}
       <button type="button" className="fd-btn-oauth" onClick={() => handleOAuth("google")}>
-        <GoogleIcon /> Continue with Google
+        <GoogleIcon /> {t("auth.continueWithGoogle")}
       </button>
       <button type="button" className="fd-btn-oauth" onClick={() => handleOAuth("github")}>
-        <GitHubIcon /> Continue with GitHub
+        <GitHubIcon /> {t("auth.continueWithGitHub")}
       </button>
 
       {/* Divider */}
       <div className="fd-divider" style={{ margin: "1.2rem 0" }}>
         <div className="fd-divider-line" />
-        <span className="fd-divider-text">or sign up with email</span>
+        <span className="fd-divider-text">{t("signup.orSignUpWithEmail")}</span>
         <div className="fd-divider-line" />
       </div>
 
@@ -737,7 +741,7 @@ function SignupForm() {
       <form onSubmit={handleSignup}>
         <input
           type="text"
-          placeholder="Full name"
+          placeholder={t("signup.fullNamePlaceholder")}
           value={name}
           onChange={e => setName(e.target.value)}
           required
@@ -746,7 +750,7 @@ function SignupForm() {
         />
         <input
           type="email"
-          placeholder="Email address"
+          placeholder={t("auth.emailPlaceholder")}
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
@@ -756,21 +760,22 @@ function SignupForm() {
         <div style={{ position: "relative" }}>
           <input
             type={showPass ? "text" : "password"}
-            placeholder="Password (min 8 characters)"
+            placeholder={t("signup.passwordPlaceholder")}
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
             minLength={8}
             autoComplete="new-password"
             className="fd-input"
-            style={{ paddingRight: "42px" }}
+            style={{ paddingInlineEnd: "42px" }}
           />
           <button
             type="button"
             onClick={() => setShowPass(!showPass)}
+            aria-label={showPass ? t("auth.hidePassword") : t("auth.showPassword")}
             style={{
               position: "absolute",
-              right: "12px",
+              insetInlineEnd: "12px",
               top: "50%",
               transform: "translateY(-50%)",
               background: "none",
@@ -808,18 +813,18 @@ function SignupForm() {
             />
           </div>
           <div style={{ fontSize: ".75rem", color: strength.color, marginBottom: "11px", marginTop: "-4px", fontWeight: 500 }}>
-            {strength.label} password
+            {strength.key ? t(`signup.strength.${strength.key}`) : ""}
           </div>
         </div>
 
         <button type="submit" disabled={loading} className="fd-btn-primary">
-          {loading ? "Creating account…" : "Create Account"}
+          {loading ? t("signup.creatingAccount") : t("signup.createAccount")}
         </button>
       </form>
 
       <p className="fd-footer-txt">
-        Already have an account?{" "}
-        <Link href="/login">Sign in</Link>
+        {t("signup.alreadyHaveAccount")}{" "}
+        <Link href="/login">{t("signup.signIn")}</Link>
       </p>
     </div>
   );
@@ -829,7 +834,7 @@ function SignupForm() {
 export default function SignupPage() {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", "dark");
-    document.documentElement.setAttribute("dir", "ltr");
+    // document.documentElement.setAttribute("dir", "ltr");
   }, []);
 
   return (
