@@ -30,7 +30,7 @@ const IMAGE_MIMES = new Set([
   "image/bmp",
 ]);
 
-type DocumentPipeline = typeof processDocumentPipeline;
+export type DocumentPipeline = typeof processDocumentPipeline;
 type PdfRenderer = (buffer: Buffer) => Promise<Buffer>;
 
 /** A request-level error carrying its HTTP status. */
