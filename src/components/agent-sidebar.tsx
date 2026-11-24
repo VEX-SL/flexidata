@@ -587,7 +587,7 @@ export function AgentSidebar({
             >
               <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 bg-primary/10 flex items-center justify-center text-primary font-bold">
                 {userAvatar ? (
-                  <Image src={userAvatar} alt={userName} fill className="object-cover" />
+                  <Image src={userAvatar} alt={userName} fill className="object-cover" unoptimized />
                 ) : (
                   (userName?.[0] || "U").toUpperCase()
                 )}

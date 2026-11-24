@@ -344,7 +344,33 @@
     "sendText": "Send text message",
     "typeOrSpeak": "Type a message or tap microphone to speak...",
     "error": "Error occurred",
-    "sttNotSupported": "Speech recognition not supported in this browser"
+    "sttNotSupported": "Speech recognition not supported in this browser",
+    "dictation": {
+      "start": "Voice dictation — speech is appended to the typed text",
+      "stop": "Stop recording and transcribe",
+      "cancel": "Cancel recording",
+      "recording": "Recording… tap the mic again to transcribe",
+      "processing": "Transcribing…",
+      "micAccess": "Couldn't access the microphone — make sure the browser permission is granted.",
+      "noAudio": "No audio recorded — tap the mic and speak.",
+      "transcribeFailed": "Failed to transcribe the audio"
+    },
+    "speaker": {
+      "play": "Play response aloud",
+      "playFailed": "Something went wrong while playing the audio",
+      "autoplayBlocked": "The browser blocked autoplay — press again",
+      "requestFailed": "Failed to convert the response to speech",
+      "noAudio": "No audio returned from the server"
+    },
+    "errors": {
+      "rateLimit": "Free-tier limit reached temporarily (rate limit) — wait a moment and retry.",
+      "missingKey": "The API key is not configured on the server (.env file).",
+      "fileTooLarge": "The file exceeds the allowed size (25MB).",
+      "notUnderstood": "We couldn't understand the audio — try a shorter, clearer recording.",
+      "termsNotAccepted": "Orpheus models require accepting their terms once: console.groq.com → Models → Accept terms for canopylabs/orpheus-arabic-saudi and canopylabs/orpheus-v1-english, then retry.",
+      "nothingToSpeak": "The text became empty after sanitizing (e.g. it was code only)",
+      "upstreamFailed": "Failed to reach the voice provider — details in the [tts] line of the server terminal."
+    }
   },
   "agents": {
     "title": "Your Agents",

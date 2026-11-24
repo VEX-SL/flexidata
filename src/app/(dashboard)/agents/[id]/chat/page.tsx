@@ -42,6 +42,8 @@ import {
   getChatImageStoragePath,
   toChatImageApiUrl,
 } from "@/lib/chat-image-url";
+import { DictationMicButton } from "@/components/chat/dictation-mic-button";
+import { SpeakerButton } from "@/components/chat/speaker-button";
 
 // ─── Image attachments ([IMAGE_ATTACHMENT] markers) ─────────────────────────
 // When the user attaches an IMAGE (images only!) the composer uploads it to
@@ -593,6 +595,25 @@ function AgentChatContent({ agentId }: { agentId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialLoadDone = useRef(false);
 
+  const [, setMicBusy] = useState(false);
+  const [dictationStatus, setDictationStatus] = useState<string | null>(null);
+
+  const handleDictationAppend = useCallback((text: string) => {
+    const addition = text.trim();
+    if (!addition) return;
+    setInput((prev) => {
+      const left = prev.replace(/[ \t]+$/, "");
+      return left ? `${left} ${addition}` : addition; // مسافة واحدة، بدون مزدوجة
+    });
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (el) {
+        el.focus();
+        el.selectionStart = el.selectionEnd = el.value.length;
+      }
+    });
+  }, []);
+
   // Keep the Browser Agent layout measurement used by the floating sidebar.
   // ✅ Collapsed-sidebar floating picture: publish the input bar's height as
   // a CSS custom property (--fd-input-h) on the page root, so the sidebar's
@@ -621,14 +642,14 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       try {
         const legacy = localStorage.getItem("agentSidebarOpen");
         if (legacy !== null) collapsed = legacy !== "1";
-      } catch {}
+      } catch { }
     }
     const open = collapsed === null ? true : !collapsed;
     setSidebarOpen(open);
     setSidebarCollapsed(!open);
     try {
       localStorage.removeItem("agentSidebarOpen");
-    } catch {}
+    } catch { }
   }, []);
 
   // ✅ Auto-scroll: container ref + "is the user near the bottom?" flag.
@@ -765,7 +786,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           if (avatarConfig?.color) setModelColor(avatarConfig.color);
           setModelShape(avatarConfig?.shape || "rounded");
         }
-      } catch {}
+      } catch { }
       if (active) setProfileLoaded(true);
     })();
     return () => { active = false; };
@@ -849,7 +870,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
       }
       if (Object.keys(editsMap).length > 0)
         setMessageEdits((prev) => ({ ...prev, ...editsMap }));
-    } catch {}
+    } catch { }
   }, [agentId, router]);
 
   useEffect(() => {
@@ -1380,46 +1401,46 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           const point = "x" in action ? { x: action.x, y: action.y } : null;
           const target = point
             ? actionContext.elements.find((element) =>
-                point.x >= element.rect.x && point.x <= element.rect.x + element.rect.width &&
-                point.y >= element.rect.y && point.y <= element.rect.y + element.rect.height
-              )
+              point.x >= element.rect.x && point.x <= element.rect.x + element.rect.width &&
+              point.y >= element.rect.y && point.y <= element.rect.y + element.rect.height
+            )
             : null;
           const label = action.action === "type" && actionContext.focusedElement
             ? t("chat.browser.actions.focusedField", {
-                role: actionContext.focusedElement.role,
-                name: actionContext.focusedElement.name,
-              })
+              role: actionContext.focusedElement.role,
+              name: actionContext.focusedElement.name,
+            })
             : target?.name
               ? t("chat.browser.actions.visibleTarget", {
-                  role: target.role,
-                  name: target.name,
-                })
+                role: target.role,
+                name: target.name,
+              })
               : "";
           const details = action.action === "press_key"
             ? `${t("chat.browser.actions.pressKey", { key: action.key })}${action.key === "Enter" ? t("chat.browser.actions.enterKeyWarning") : ""}`
             : action.action === "navigate"
-            ? t("chat.browser.actions.navigate", { url: action.url })
-            : action.action === "type"
-            ? t("chat.browser.actions.type", { text: JSON.stringify(action.text) ?? "" })
-            : action.action === "drag"
-              ? t("chat.browser.actions.drag", {
-                  fromX: action.fromX,
-                  fromY: action.fromY,
-                  toX: action.toX,
-                  toY: action.toY,
-                })
-              : action.action === "scroll"
-                ? t("chat.browser.actions.scroll", {
-                    deltaY: action.deltaY,
-                    x: action.x,
-                    y: action.y,
+              ? t("chat.browser.actions.navigate", { url: action.url })
+              : action.action === "type"
+                ? t("chat.browser.actions.type", { text: JSON.stringify(action.text) ?? "" })
+                : action.action === "drag"
+                  ? t("chat.browser.actions.drag", {
+                    fromX: action.fromX,
+                    fromY: action.fromY,
+                    toX: action.toX,
+                    toY: action.toY,
                   })
-                : t(
-                    action.action === "click"
-                      ? "chat.browser.actions.click"
-                      : "chat.browser.actions.hover",
-                    { x: action.x, y: action.y }
-                  );
+                  : action.action === "scroll"
+                    ? t("chat.browser.actions.scroll", {
+                      deltaY: action.deltaY,
+                      x: action.x,
+                      y: action.y,
+                    })
+                    : t(
+                      action.action === "click"
+                        ? "chat.browser.actions.click"
+                        : "chat.browser.actions.hover",
+                      { x: action.x, y: action.y }
+                    );
           const approved = window.confirm(
             `${t("chat.browser.actions.confirmTitle")}\n${t("chat.browser.actions.site", { url: actionContext.url })}\n${t("chat.browser.actions.action", { action: details })}${label}\n\n${t("chat.browser.actions.question")}`
           );
@@ -1474,8 +1495,8 @@ function AgentChatContent({ agentId }: { agentId: string }) {
           if (!refreshedContext) {
             const message = action.action === "navigate" && actionResult.navigated === true
               ? `${t("chat.browser.results.navigationPermissionFailed", {
-                  url: String(actionResult.url || action.url),
-                })} ${refreshFailure}`
+                url: String(actionResult.url || action.url),
+              })} ${refreshFailure}`
               : t("chat.browser.results.contextUpdateFailed");
             setMessages((prev) => [...prev, {
               id: `browser-context-refresh-failed-${Date.now()}`,
@@ -1568,7 +1589,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
-    try { await fetch(`/api/agents/${agentId}/files`, { method: "POST", body: formData }); } catch {}
+    try { await fetch(`/api/agents/${agentId}/files`, { method: "POST", body: formData }); } catch { }
     setUploading(false);
   }
 
@@ -1725,180 +1746,181 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                 // file name + stripped text) for the Gemini-style layout.
                 const attachment = msg.role === "user" ? extractImageAttachment(msg.content) : null;
                 return (
-                <div key={msg.id} className="group relative">
-                  <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    {msg.role === "assistant" && (
-                      <AIAvatar
-                        size={28}
-                        className="mt-0.5"
-                        modelIcon={modelIcon}
-                        modelIconType={modelIconType}
-                        modelColor={modelColor}
-                        modelShape={modelShape}
-                        onModelIconChange={handleModelIconChange}
-                      />
-                    )}
-                    <div className="flex flex-col gap-1.5 max-w-[80%]">
+                  <div key={msg.id} className="group relative">
+                    <div className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                       {msg.role === "assistant" && (
-                        idx === regenIndex && streaming
-                          ? <ToolSteps steps={streamDisplaySteps} />
-                          : <ToolSteps steps={msg.tool_steps} />
+                        <AIAvatar
+                          size={28}
+                          className="mt-0.5"
+                          modelIcon={modelIcon}
+                          modelIconType={modelIconType}
+                          modelColor={modelColor}
+                          modelShape={modelShape}
+                          onModelIconChange={handleModelIconChange}
+                        />
                       )}
-                      {/* ✅ Image attachment (Gemini-style): the image floats
+                      <div className="flex flex-col gap-1.5 max-w-[80%]">
+                        {msg.role === "assistant" && (
+                          idx === regenIndex && streaming
+                            ? <ToolSteps steps={streamDisplaySteps} />
+                            : <ToolSteps steps={msg.tool_steps} />
+                        )}
+                        {/* ✅ Image attachment (Gemini-style): the image floats
                           ALONE above the text bubble — not inside it — and a
                           bit smaller. Hover shows the file name, click opens
                           the lightbox. Image-only messages render NO bubble. */}
-                      {attachment?.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={attachment.imageUrl}
-                          alt={attachment.fileName || attachment.text || t("chat.agent.imageAlt")}
-                          title={attachment.fileName || t("chat.viewImage")}
-                          onClick={() => setLightboxImage({ url: attachment.imageUrl!, name: attachment.fileName || undefined, alt: attachment.text || undefined })}
-                          className="self-end max-h-44 w-auto max-w-full rounded-xl border border-border shadow-sm select-none"
-                          loading="lazy"
-                          draggable={false}
-                        />
-                      )}
-                      {msg.role === "user" ? (
-                        // ✅ Image-only message: no bubble at all — just the
-                        // floating image above.
-                        attachment?.text ? (
-                          <div className="relative rounded-2xl px-4 py-3 text-sm leading-relaxed bg-primary text-primary-foreground rounded-tl-sm rounded-tr-none">
-                            <span dir="auto" className="whitespace-pre-wrap">{attachment.text}</span>
-                          </div>
-                        ) : null
-                      ) : (
-                        <div className="relative rounded-2xl px-4 py-3 text-sm leading-relaxed bg-card border border-border text-foreground rounded-tr-sm rounded-tl-none">
-                          {idx === regenIndex && streaming ? (
-                          // ✅ In-place regeneration: live content renders HERE,
-                          // in the message being regenerated (not at the bottom).
-                          <>
-                            {streamRenderable ? (
-                              <MarkdownRenderer
-                                content={streamRenderable}
-                                streaming={true}
-                              />
-                            ) : (
-                              <div className="py-1">
-                                <ThinkingDots />
-                              </div>
-                            )}
-                            {generatedImages.length > 0 && (
-                              <div className="mt-3 space-y-3">
-                                {generatedImages.map((img, i) => (
-                                  <div key={i} className="relative group/img">
-                                    <img src={img.url} alt={img.prompt} className="rounded-xl border border-border max-w-full h-auto" loading="lazy" />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <StreamingCursor />
-                          </>
+                        {attachment?.imageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={attachment.imageUrl}
+                            alt={attachment.fileName || attachment.text || t("chat.agent.imageAlt")}
+                            title={attachment.fileName || t("chat.viewImage")}
+                            onClick={() => setLightboxImage({ url: attachment.imageUrl!, name: attachment.fileName || undefined, alt: attachment.text || undefined })}
+                            className="self-end max-h-44 w-auto max-w-full rounded-xl border border-border shadow-sm select-none"
+                            loading="lazy"
+                            draggable={false}
+                          />
+                        )}
+                        {msg.role === "user" ? (
+                          // ✅ Image-only message: no bubble at all — just the
+                          // floating image above.
+                          attachment?.text ? (
+                            <div className="relative rounded-2xl px-4 py-3 text-sm leading-relaxed bg-primary text-primary-foreground rounded-tl-sm rounded-tr-none">
+                              <span dir="auto" className="whitespace-pre-wrap">{attachment.text}</span>
+                            </div>
+                          ) : null
                         ) : (
-                          <>
-                            {/* ✅ Saved messages: stable key, streaming=false.
+                          <div className="relative rounded-2xl px-4 py-3 text-sm leading-relaxed bg-card border border-border text-foreground rounded-tr-sm rounded-tl-none">
+                            {idx === regenIndex && streaming ? (
+                              // ✅ In-place regeneration: live content renders HERE,
+                              // in the message being regenerated (not at the bottom).
+                              <>
+                                {streamRenderable ? (
+                                  <MarkdownRenderer
+                                    content={streamRenderable}
+                                    streaming={true}
+                                  />
+                                ) : (
+                                  <div className="py-1">
+                                    <ThinkingDots />
+                                  </div>
+                                )}
+                                {generatedImages.length > 0 && (
+                                  <div className="mt-3 space-y-3">
+                                    {generatedImages.map((img, i) => (
+                                      <div key={i} className="relative group/img">
+                                        <img src={img.url} alt={img.prompt} className="rounded-xl border border-border max-w-full h-auto" loading="lazy" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <StreamingCursor />
+                              </>
+                            ) : (
+                              <>
+                                {/* ✅ Saved messages: stable key, streaming=false.
                                 File-edit blocks and [QUICK_RESPONSE] lines are
                                 storage markers — never shown as message text. */}
-                            <MarkdownRenderer
-                              key={msg.id}
-                              content={getRenderableContent(msg.content)}
-                            />
+                                <MarkdownRenderer
+                                  key={msg.id}
+                                  content={getRenderableContent(msg.content)}
+                                />
 
-                            {/* Copy + Regenerate + Generation arrows on hover */}
-                            <div className="absolute -bottom-7 start-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 pt-1 text-muted-foreground text-xs">
-                              <button
-                                onClick={() => handleCopyMessage(getRenderableContent(msg.content), msg.id)}
-                                className="flex items-center gap-1 hover:text-foreground bg-card/80 backdrop-blur px-2 py-1 rounded-md border border-border shadow-xs transition-colors"
-                                title={t("chat.copy")}
-                              >
-                                {copiedMessageId === msg.id ? (
-                                  <>
-                                    <Check size={13} className="text-emerald-500" />
-                                    <span className="text-emerald-500 font-medium">{t("chat.copied")}</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy size={13} />
-                                    <span>{t("chat.copy")}</span>
-                                  </>
-                                )}
-                              </button>
-                              <button
-                                onClick={() => handleRetryMessage(idx)}
-                                className="flex items-center gap-1 hover:text-foreground bg-card/80 backdrop-blur px-2 py-1 rounded-md border border-border shadow-xs transition-colors"
-                                title={t("chat.regenerate")}
-                                disabled={streaming}
-                              >
+                                {/* Copy + Regenerate + Generation arrows on hover */}
+                                <div className="absolute -bottom-7 start-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 pt-1 text-muted-foreground text-xs">
+                                  <button
+                                    onClick={() => handleCopyMessage(getRenderableContent(msg.content), msg.id)}
+                                    className="flex items-center gap-1 hover:text-foreground bg-card/80 backdrop-blur px-2 py-1 rounded-md border border-border shadow-xs transition-colors"
+                                    title={t("chat.copy")}
+                                  >
+                                    {copiedMessageId === msg.id ? (
+                                      <>
+                                        <Check size={13} className="text-emerald-500" />
+                                        <span className="text-emerald-500 font-medium">{t("chat.copied")}</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy size={13} />
+                                        <span>{t("chat.copy")}</span>
+                                      </>
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => handleRetryMessage(idx)}
+                                    className="flex items-center gap-1 hover:text-foreground bg-card/80 backdrop-blur px-2 py-1 rounded-md border border-border shadow-xs transition-colors"
+                                    title={t("chat.regenerate")}
+                                    disabled={streaming}
+                                  >
                                 <RotateCw size={13} />
                                 <span>{t("chat.regenerate")}</span>
                               </button>
-                              {/* ✅ Generation navigation: only shows when there's >1 generation */}
-                              {msg.generations && msg.generations.length > 1 && (
-                                <div className="flex items-center gap-1 bg-card/80 backdrop-blur px-1.5 py-1 rounded-md border border-border shadow-xs">
-                                  <button
-                                    onClick={() => handleSwitchGeneration(idx, -1)}
-                                    disabled={(msg.current_generation ?? 0) === 0}
-                                    className="hover:text-foreground disabled:opacity-30 transition-opacity"
-                                    title={t("chat.agent.previousVersion")}
-                                  >
-                                    <ChevronLeft size={13} />
-                                  </button>
-                                  <span className="text-[11px] font-medium tabular-nums px-0.5">
-                                    {(msg.current_generation ?? 0) + 1}/{msg.generations.length}
-                                  </span>
-                                  <button
-                                    onClick={() => handleSwitchGeneration(idx, 1)}
-                                    disabled={(msg.current_generation ?? 0) === msg.generations.length - 1}
-                                    className="hover:text-foreground disabled:opacity-30 transition-opacity"
-                                    title={t("chat.agent.nextVersion")}
-                                  >
-                                    <ChevronRight size={13} />
-                                  </button>
+                              <SpeakerButton text={getRenderableContent(msg.content)} />
+                                  {/* ✅ Generation navigation: only shows when there's >1 generation */}
+                                  {msg.generations && msg.generations.length > 1 && (
+                                    <div className="flex items-center gap-1 bg-card/80 backdrop-blur px-1.5 py-1 rounded-md border border-border shadow-xs">
+                                      <button
+                                        onClick={() => handleSwitchGeneration(idx, -1)}
+                                        disabled={(msg.current_generation ?? 0) === 0}
+                                        className="hover:text-foreground disabled:opacity-30 transition-opacity"
+                                        title={t("chat.agent.previousVersion")}
+                                      >
+                                        <ChevronLeft size={13} />
+                                      </button>
+                                      <span className="text-[11px] font-medium tabular-nums px-0.5">
+                                        {(msg.current_generation ?? 0) + 1}/{msg.generations.length}
+                                      </span>
+                                      <button
+                                        onClick={() => handleSwitchGeneration(idx, 1)}
+                                        disabled={(msg.current_generation ?? 0) === msg.generations.length - 1}
+                                        className="hover:text-foreground disabled:opacity-30 transition-opacity"
+                                        title={t("chat.agent.nextVersion")}
+                                      >
+                                        <ChevronRight size={13} />
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          </>
+                              </>
+                            )}
+                          </div>
                         )}
-                        </div>
-                      )}
 
-                      {/* ✅ Quick Responses: model-suggested follow-up messages.
+                        {/* ✅ Quick Responses: model-suggested follow-up messages.
                           Only under the LAST assistant message, only when the
                           stream is idle (they disappear the moment a new
                           message is sent), max 3 — tapping one sends it.
                           Style: arrow rows stacked vertically (chat.z.ai-like). */}
-                      {msg.role === "assistant" &&
-                        idx === messages.length - 1 &&
-                        !streaming &&
-                        (() => {
-                          const quickResponses = parseQuickResponses(msg.content);
-                          if (quickResponses.length === 0) return null;
-                          return (
-                            <div className="flex flex-col items-stretch gap-0.5 pt-1.5">
-                              {quickResponses.map((q, i) => (
-                                <button
-                                  key={i}
-                                  dir="auto"
-                                  onClick={() => handleSend(q)}
-                                  className="group flex items-center gap-1.5 w-fit max-w-full text-start px-2 py-1 -mx-2 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors leading-relaxed"
-                                >
-                                  <ArrowRight
-                                    size={13}
-                                    className="shrink-0 text-primary/50 group-hover:text-primary group-hover:translate-x-0.5 rtl:rotate-180 transition-all"
-                                  />
-                                  <span className="truncate">{q}</span>
-                                </button>
-                              ))}
-                            </div>
-                          );
-                        })()}
+                        {msg.role === "assistant" &&
+                          idx === messages.length - 1 &&
+                          !streaming &&
+                          (() => {
+                            const quickResponses = parseQuickResponses(msg.content);
+                            if (quickResponses.length === 0) return null;
+                            return (
+                              <div className="flex flex-col items-stretch gap-0.5 pt-1.5">
+                                {quickResponses.map((q, i) => (
+                                  <button
+                                    key={i}
+                                    dir="auto"
+                                    onClick={() => handleSend(q)}
+                                    className="group flex items-center gap-1.5 w-fit max-w-full text-start px-2 py-1 -mx-2 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-accent/70 transition-colors leading-relaxed"
+                                  >
+                                    <ArrowRight
+                                      size={13}
+                                      className="shrink-0 text-primary/50 group-hover:text-primary group-hover:translate-x-0.5 rtl:rotate-180 transition-all"
+                                    />
+                                    <span className="truncate">{q}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                      </div>
+                      {msg.role === "user" && <UserAvatar size={28} src={userAvatar} alt={userName || t("chat.agent.profileAlt")} className="mt-0.5" />}
                     </div>
-                    {msg.role === "user" && <UserAvatar size={28} src={userAvatar} alt={userName || t("chat.agent.profileAlt")} className="mt-0.5" />}
+                    {/* ✅ Regen anchor: keeps the growing message in view during in-place regeneration */}
+                    {idx === regenIndex && streaming && <div ref={regenAnchorRef} className="h-px" />}
                   </div>
-                  {/* ✅ Regen anchor: keeps the growing message in view during in-place regeneration */}
-                  {idx === regenIndex && streaming && <div ref={regenAnchorRef} className="h-px" />}
-                </div>
                 );
               })}
 
@@ -2069,6 +2091,14 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {!streaming && (
+                    <DictationMicButton
+                      disabled={uploading}
+                      onAppend={handleDictationAppend}
+                      onBusyChange={setMicBusy}
+                      onStatus={setDictationStatus}
+                    />
+                  )}
                   {streaming ? (
                     <button
                       onClick={() => abort()}
@@ -2078,7 +2108,7 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                       <Square size={14} fill="currentColor" />
                       <span>{t("chat.stop")}</span>
                     </button>
-                  ) : (input.trim() || (attachedFile?.isImage && attachedFile.url)) ? (
+                  ) : (input.trim() || attachedFile) ? (
                     <button
                       onClick={() => handleSend()}
                       className="p-2 rounded-xl shrink-0 self-end mb-1 bg-primary text-primary-foreground hover:opacity-90 shadow-sm transition-all"
@@ -2100,6 +2130,9 @@ function AgentChatContent({ agentId }: { agentId: string }) {
                 )}
               </div>
             </div>
+            {dictationStatus && (
+              <p className="text-center text-[11px] mt-1 text-muted-foreground">{dictationStatus}</p>
+            )}
             {browserContextStatus && (
               <p className={`text-center text-[11px] mt-1 ${browserContextEnabled ? "text-primary" : "text-muted-foreground"}`}>
                 {browserContextStatus}
