@@ -10,7 +10,7 @@ const AUTH_ROUTES = ["/login", "/signup"];
  */
 const CLOCK_SKEW_SECONDS = 60;
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip middleware for API routes and static assets to avoid crashing API handlers
